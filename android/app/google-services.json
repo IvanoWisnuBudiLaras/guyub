@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "357699811564",
+    "project_id": "guyub-dee52",
+    "storage_bucket": "guyub-dee52.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:357699811564:android:e62f8dc1c8fc9fd4ba8dc9",
+        "android_client_info": {
+          "package_name": "com.guyub.guyub"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDzk6J4cdtCgZleJH0QOAJgXQKcKvlI81c"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
