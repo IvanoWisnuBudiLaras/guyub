@@ -50,18 +50,19 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyBU4BJiei6Wb3xK5UeoMfGPICZ4H9tUgDY',
-    appId: '1:860597750692:android:92bad2ce56cc6c93ff0f31',
-    messagingSenderId: '860597750692',
-    projectId: 'guyub-9546c',
-    storageBucket: 'guyub-9546c.firebasestorage.app',
+    apiKey: 'AIzaSyDzk6J4cdtCgZleJH0QOAJgXQKcKvlI81c',
+    appId: '1:357699811564:android:e62f8dc1c8fc9fd4ba8dc9',
+    messagingSenderId: '357699811564',
+    projectId: 'guyub-dee52',
+    storageBucket: 'guyub-dee52.firebasestorage.app',
   );
+
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyAriW0J7TQufS5XlsBG4iYXSG-Z1N5PBls',
-    appId: '1:860597750692:ios:77c22c53d2075621ff0f31',
-    messagingSenderId: '860597750692',
-    projectId: 'guyub-9546c',
-    storageBucket: 'guyub-9546c.firebasestorage.app',
+    apiKey: 'AIzaSyDkZj8-ZtwehhmT8gpks3-we0kyu4vAYSg',
+    appId: '1:357699811564:ios:2cf87c55da812757ba8dc9',
+    messagingSenderId: '357699811564',
+    projectId: 'guyub-dee52',
+    storageBucket: 'guyub-dee52.firebasestorage.app',
     iosBundleId: 'com.guyub.guyub',
   );
 }
