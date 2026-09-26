@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../core/theme/app_colors.dart';
+import '../../app/theme/app_colors.dart';
 import '../../domain/models/weather_snapshot.dart';
 
 /// AT-008: kalau isStale true, HARUS ada indikasi jelas bahwa ini data

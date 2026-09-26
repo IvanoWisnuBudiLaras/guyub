@@ -9,7 +9,7 @@ plugins {
 
 android {
     namespace = "com.guyub.guyub"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 37
     ndkVersion = flutter.ndkVersion
 
     compileOptions {

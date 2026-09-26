@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../core/theme/app_colors.dart';
+import '../../app/theme/app_colors.dart';
 
 /// Card dasar dengan radius & border konsisten sesuai mockup.
 /// [filled] = true untuk versi solid warna (mis. card role "Ketua RT/RW"),

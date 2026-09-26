@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../core/theme/app_colors.dart';
-import '../../shared/widgets/app_card.dart';
-import 'operator_login_screen.dart';
-import 'resident_rt_code_screen.dart';
+import '../../../../app/theme/app_colors.dart';
+import '../../../../shared/widgets/app_card.dart';
 
 /// SCR-02. Sesuai mockup: card solid biru untuk Ketua RT/RW,
 /// card outline untuk Warga.
@@ -26,18 +24,14 @@ class RoleSelectionScreen extends StatelessWidget {
                     ),
               ),
               const SizedBox(height: 6),
-              Text(
+              const Text(
                 'Pilih peran Anda di RT/RW.',
                 style: TextStyle(color: AppColors.textSecondary),
               ),
               const SizedBox(height: 24),
               AppCard(
                 filled: true,
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => const OperatorLoginScreen(),
-                  ),
-                ),
+                onTap: () => Navigator.of(context).pushNamed('/operator-login'),
                 child: const _RoleOptionContent(
                   icon: Icons.assignment_outlined,
                   title: 'Saya Ketua RT/RW',
@@ -49,11 +43,7 @@ class RoleSelectionScreen extends StatelessWidget {
               ),
               const SizedBox(height: 16),
               AppCard(
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => const ResidentRtCodeScreen(),
-                  ),
-                ),
+                onTap: () => Navigator.of(context).pushNamed('/resident-rt-code'),
                 child: const _RoleOptionContent(
                   icon: Icons.home_outlined,
                   title: 'Saya Warga',

@@ -1,53 +1,36 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:guyub/app/app.dart';
 import 'package:guyub/core/config/app_config.dart';
+import 'package:guyub/features/auth/presentation/screens/role_selection_screen.dart';
+import 'package:guyub/features/auth/presentation/screens/splash_screen.dart';
 
 void main() {
   setUp(() {
     AppConfig.resetForTesting();
   });
 
-  group('GuyubApp & FoundationScreen Baseline Widget Tests', () {
+  group('GuyubApp & Phase 1 Presentation Widget Tests', () {
     testWidgets(
-      'GuyubApp dapat di-pump tanpa crash, menampilkan judul dan theme Material 3',
+      'GuyubApp dapat di-pump tanpa crash, menampilkan SplashScreen',
       (WidgetTester tester) async {
         AppConfig.initialize(AppConfig.test());
 
         await tester.pumpWidget(const GuyubApp());
 
-        // Verifikasi MaterialApp dan judul
-        expect(find.text('Guyub [TEST]'), findsOneWidget);
-        expect(find.text('Guyub.id'), findsOneWidget);
-        expect(find.text('Foundation Ready'), findsOneWidget);
-        expect(
-          find.text('Sistem Kesiapsiagaan Banjir Komunitas RT/RW'),
-          findsOneWidget,
-        );
-        expect(find.text('Environment: TEST'), findsOneWidget);
-      },
-    );
+        expect(find.byType(SplashScreen), findsOneWidget);
+        expect(find.text('GUYUB.ID'), findsOneWidget);
 
-    testWidgets(
-      'FoundationButton dapat menerima interaksi tap dan memicu callback',
-      (WidgetTester tester) async {
-        AppConfig.initialize(AppConfig.test());
-
-        await tester.pumpWidget(const GuyubApp());
-
-        // Verifikasi state awal tombol interaksi
-        expect(find.text('Verifikasi Interaksi (0)'), findsOneWidget);
-
-        // Lakukan tap pada tombol primitive
-        await tester.tap(find.byType(FoundationButton));
+        // Allow microtasks (initialize async completion)
         await tester.pump();
+        // Advance timer for splash 1s delay
+        await tester.pump(const Duration(seconds: 2));
+        await tester.pumpAndSettle();
 
-        // Verifikasi callback berjalan dan state bertambah
-        expect(find.text('Verifikasi Interaksi (1)'), findsOneWidget);
-
-        await tester.tap(find.byType(FoundationButton));
-        await tester.pump();
-
-        expect(find.text('Verifikasi Interaksi (2)'), findsOneWidget);
+        // Navigasi setelah splash ke RoleSelectionScreen
+        expect(find.byType(RoleSelectionScreen), findsOneWidget);
+        expect(find.text('Masuk sebagai\nsiapa Anda?'), findsOneWidget);
+        expect(find.text('Saya Ketua RT/RW'), findsOneWidget);
+        expect(find.text('Saya Warga'), findsOneWidget);
       },
     );
   });
