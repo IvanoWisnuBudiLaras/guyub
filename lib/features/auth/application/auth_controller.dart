@@ -17,8 +17,8 @@ import 'state/auth_state.dart';
 /// **Authorization boundary:** keberhasilan login di sini bukan otorisasi
 /// final. Setiap aksi operator tetap diverifikasi server-side (SEC-01).
 final class AuthController extends ChangeNotifier {
-  final OperatorAuthBoundary _operatorAuth;
-  final ResidentSessionBoundary _residentSession;
+  final OperatorAuthBoundary operatorAuth;
+  final ResidentSessionBoundary residentSession;
 
   AuthState _state = AuthState.initial;
 
@@ -26,10 +26,9 @@ final class AuthController extends ChangeNotifier {
   AuthState get state => _state;
 
   AuthController({
-    required OperatorAuthBoundary operatorAuth,
-    required ResidentSessionBoundary residentSession,
-  }) : _operatorAuth = operatorAuth,
-       _residentSession = residentSession;
+    required this.operatorAuth,
+    required this.residentSession,
+  });
 
   void _emit(AuthState next) {
     _state = next;
@@ -44,7 +43,7 @@ final class AuthController extends ChangeNotifier {
     _emit(_state.copyWith(isBusy: true, clearError: true));
 
     // 1. Operator: cek sesi Firebase Auth yang sudah ada.
-    final operatorResult = await _operatorAuth.currentOperator();
+    final operatorResult = await operatorAuth.currentOperator();
     if (operatorResult.isOk) {
       final profile = operatorResult.dataOrNull;
       if (profile != null) {
@@ -55,7 +54,7 @@ final class AuthController extends ChangeNotifier {
     // Pemulihan sesi operator gagal: jangan gagalkan startup, lanjut ke warga.
 
     // 2. Warga: pulihkan sesi peserta tersimpan (jika masih berlaku).
-    final residentResult = await _residentSession.restoreSession();
+    final residentResult = await residentSession.restoreSession();
     if (residentResult.isOk) {
       final session = residentResult.dataOrNull;
       if (session != null && !session.isExpiredAt(DateTime.now())) {
@@ -64,7 +63,7 @@ final class AuthController extends ChangeNotifier {
       }
       if (session != null) {
         // Sesi kedaluwarsa: bersihkan agar tidak dipakai sebagai valid.
-        await _residentSession.clearSession();
+        await residentSession.clearSession();
       }
     }
 
@@ -103,7 +102,7 @@ final class AuthController extends ChangeNotifier {
 
     _emit(_state.copyWith(isBusy: true, clearError: true));
 
-    final result = await _operatorAuth.signInWithEmailPassword(
+    final result = await operatorAuth.signInWithEmailPassword(
       email: trimmedEmail,
       password: password,
     );
@@ -139,7 +138,7 @@ final class AuthController extends ChangeNotifier {
 
     _emit(_state.copyWith(isBusy: true, clearError: true));
 
-    final result = await _residentSession.joinWithCode(normalized);
+    final result = await residentSession.joinWithCode(normalized);
 
     switch (result) {
       case Success(:final data):
@@ -158,9 +157,9 @@ final class AuthController extends ChangeNotifier {
     _emit(_state.copyWith(isBusy: true, clearError: true));
 
     if (_state.isResidentSession) {
-      await _residentSession.clearSession();
+      await residentSession.clearSession();
     } else {
-      await _operatorAuth.signOut();
+      await operatorAuth.signOut();
     }
 
     _emit(AuthState.unauthenticated);

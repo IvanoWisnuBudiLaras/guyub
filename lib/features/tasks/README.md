@@ -2,14 +2,22 @@
 
 Lifecycle penugasan gotong royong kesiapsiagaan banjir warga RT/RW.
 
-**Status:** Belum diimplementasikan pada Phase 0 (Phase 2).
+**Status:** Phase 2 selesai diimplementasikan (Issue #13).
 
-## Rencana Layer
-- `presentation/`: Screen, form dialog, widget tampilan.
-- `application/`: State controller/notifier dan alur interaksi.
-- `data/`: Repositori dan data source adapter.
+## Layer Structure
+- `presentation/screens/`:
+  - `task_catalog_screen.dart` (SCR-09): Katalog tugas aman, pemilihan template terkunci, pengisian slot deadline/lokasi/catatan, rendering instruksi keselamatan langsung (PRD §19).
+  - `send_confirmation_screen.dart` (SCR-10): Konfirmasi pengiriman dengan ringkasan instruksi snapshot keselamatan terkunci (INV-01, INV-02) dan fitur salin teks WhatsApp warga (FR-TSK-005, O-06).
+- `domain/`:
+  - `models/task_template.dart`: Kontrak template aman terstandarisasi.
+  - `models/task_campaign.dart`: State machine tugas (SUGGESTED -> DRAFT -> ACTIVE -> CLOSED/CANCELLED) & `InstructionSnapshot`.
+  - `repositories/task_repository.dart`: Kontrak repositori tugas.
+- `data/fake/`:
+  - `fake_task_repository.dart`: Implementasi in-memory untuk pengujian & client standalone.
 
 ## Invariant Penting (PRD & Acceptance Matrix)
-- Weather suggestion dari BMKG TIDAK BOLEH otomatis menjadi ACTIVE task (AT-001). Wajib persetujuan operator RT.\n- Tugas warga harus berasal dari safe catalog yang terkontrol (AT-002).\n- Instruksi keselamatan inti bersifat immutable dan tidak boleh diubah operator (AT-003).\n- Partisipasi warga bersifat sukarela; aksi Decline ('Tidak Ikut') tersedia tanpa penalti (AT-004).\n- Tugas tersinkronisasi wajib dapat dibaca saat offline (AT-006, O-01).
-
-*Perhatian: Jangan mengimplementasikan invariant di atas pada Phase 0; implementasikan saat fase terkait.*
+- **INV-01 / AT-001**: Pembuatan draft atau weather suggestion TIDAK PERNAH menghasilkan state `ACTIVE` secara otomatis. Transisi `ACTIVE` wajib melalui persetujuan eksplisit operator (`activateCampaign` di SCR-10).
+- **INV-02 / AT-002**: Tugas warga wajib bersumber dari katalog template aman yang terkunci (`TaskTemplate`). Operator tidak dapat menulis instruksi bebas yang berisiko.
+- **INV-02 / AT-003**: Instruksi keselamatan inti bersifat immutable melalui `InstructionSnapshot` dan tidak dapat diubah oleh operator RT.
+- **FR-TSK-005 / O-06**: Salin ringkasan tugas dalam format siap tempel untuk grup WhatsApp RT, berfungsi tanpa ketergantungan FCM langsung.
+- **AT-004**: Partisipasi warga bersifat sukarela; penolakan tugas tanpa penalti (Phase 3).
