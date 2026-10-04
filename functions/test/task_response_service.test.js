@@ -178,6 +178,9 @@ test('completion note is optional, bounded, normalized, and excludes common addr
   assert.throws(() => normalizeCompletionNote('Lokasi -6.12345, 106.12345'), {
     code: 'invalid-argument',
   });
+  assert.throws(() => normalizeCompletionNote('-6.2, 106.8'), {
+    code: 'invalid-argument',
+  });
   assert.throws(() => normalizeCompletionNote('NIK 1234567890123456'), {
     code: 'invalid-argument',
   });
@@ -191,6 +194,18 @@ test('completion note is optional, bounded, normalized, and excludes common addr
     code: 'invalid-argument',
   });
   assert.throws(() => normalizeCompletionNote('Hubungi +62 812-3456-7890'), {
+    code: 'invalid-argument',
+  });
+  assert.throws(() => normalizeCompletionNote('NIK 1234/5678/9012/3456'), {
+    code: 'invalid-argument',
+  });
+  assert.throws(() => normalizeCompletionNote('Hubungi 0812/3456/7890'), {
+    code: 'invalid-argument',
+  });
+  assert.throws(() => normalizeCompletionNote('NIK (1234)/(5678)/(9012)/(3456)'), {
+    code: 'invalid-argument',
+  });
+  assert.throws(() => normalizeCompletionNote('Hubungi (0812) 3456 (7890)'), {
     code: 'invalid-argument',
   });
   assert.throws(() => normalizeCompletionNote('x'.repeat(501)), {

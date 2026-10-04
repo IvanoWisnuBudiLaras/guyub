@@ -41,13 +41,21 @@ Generate a random 12–32 character uppercase alphanumeric code with a cryptogra
 
 - `listResidentActiveTasks` accepts only the opaque resident token. The service derives the resident and RT from the validated session; the repository rechecks session expiry, active state, and resident RT inside the Firestore transaction. The result contains active campaigns and only that resident's response.
 - `recordResidentTaskResponse` accepts one voluntary `JOINED` or `DECLINED` choice. A deterministic response document is keyed from the server-derived RT, task, and resident. The first choice wins; an opposite later choice is rejected. No penalty, rank, or leaderboard state exists.
-- `submitTaskCompletion` accepts only a joined participant. It stores a bounded optional note and transitions to `PENDING_RT_VERIFICATION`; it cannot set verification fields. The note validator rejects common address/GPS patterns.
+- `submitTaskCompletion` accepts only a joined participant. It stores a bounded optional note and transitions to `PENDING_RT_VERIFICATION`; it cannot set verification fields. The note validator rejects common address/GPS patterns and NIK/mobile digit sequences separated by spaces, dots, hyphens, slashes, or parentheses.
 - `listPendingTaskVerifications`, `verifyTaskCompletion`, and `getTaskResponseRecap` require a password-authenticated active operator. Each query/mutation is RT-scoped by the trusted membership. Verification writes the server time, operator UID, and one deterministic audit event transactionally.
 - Command IDs are validated and only their SHA-256 hashes are stored. Transactions make repeated and concurrent participation, submission, and verification safe. Raw session tokens are not stored in responses or audit events.
 - `/task_responses` and `/task_audit_events` remain unreadable and unwritable from clients. The Android adapter calls Functions only. Firestore composite indexes are declared in `firestore.indexes.json`.
 - Active-task lists are capped at 200 items, verification queues at 100, and recap reads at 400 responses. Each response includes `isPartial` when the cap is reached; the UI states that the list/recap may be incomplete. There is not yet cursor pagination.
 - Recap counts only recorded responses. It does not claim to count residents who have not responded because no recipient/eligibility snapshot exists.
 - This phase adds pull-based visibility only. It does not send FCM/WhatsApp, add an offline cache/outbox, or claim that a notification was delivered. Offline/retry reconciliation and distribution remain later work.
+
+## Resident proposals and RT review
+
+- `submitResidentProposal` requires the opaque resident session. The service derives resident and RT identity from the validated session and rechecks session, profile, and RT scope in the Firestore transaction.
+- Proposal input is limited to bounded title/description, one existing controlled category, an optional coarse location enum, and a stable request ID. Common NIK, mobile-number, coordinate, and address patterns are rejected; free-text location is not accepted.
+- New proposals are stored only as `SUBMITTED`, with deterministic IDs and request fingerprints. Even hazardous proposal wording remains review-only text: submission and review never call task creation or activation.
+- `listResidentProposals` and `reviewResidentProposal` require an active password-authenticated operator and derive RT scope from trusted membership. The current review action only dismisses a proposal and records one idempotent audit event. Firestore client access remains denied.
+- Proposal mapping to a safe-template draft, official-report routing, evidence storage, proxy assistance, and helper assignment are not implemented. PII pattern checks reduce common mistakes but cannot identify every obfuscated string; avoid entering personal details.
 
 ## Verification
 

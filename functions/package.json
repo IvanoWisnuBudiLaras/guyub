@@ -7,7 +7,8 @@
     "node": "22"
   },
   "scripts": {
-    "test": "node --test test/*_service.test.js"
+    "test": "node --test test/*_service.test.js",
+    "test:emulator": "cd .. && npx --yes firebase-tools@15.32.1 emulators:exec --project demo-guyub-functions --only auth,firestore,functions \"cd functions && node --test --test-concurrency=1 test/*_emulator.test.js\""
   },
   "dependencies": {
     "firebase-admin": "^14.5.0",
