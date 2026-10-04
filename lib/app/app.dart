@@ -4,6 +4,7 @@ import '../core/config/app_config.dart';
 import '../features/auth/application/operator_auth_boundary.dart';
 import '../features/auth/application/resident_session_controller.dart';
 import '../features/tasks/application/task_campaign_boundary.dart';
+import '../features/tasks/application/task_response_boundary.dart';
 import 'router.dart';
 
 /// Root widget and dependency assembly point for Guyub.id.
@@ -12,12 +13,14 @@ final class GuyubApp extends StatelessWidget {
     this.operatorAuthBoundary,
     this.residentSessionController,
     this.taskCampaignBoundary,
+    this.taskResponseController,
     super.key,
   });
 
   final OperatorAuthBoundary? operatorAuthBoundary;
   final ResidentSessionController? residentSessionController;
   final TaskCampaignBoundary? taskCampaignBoundary;
+  final TaskResponseController? taskResponseController;
 
   @override
   Widget build(BuildContext context) {
@@ -36,6 +39,7 @@ final class GuyubApp extends StatelessWidget {
         operatorAuthBoundary: operatorAuthBoundary,
         residentSessionController: residentSessionController,
         taskCampaignBoundary: taskCampaignBoundary,
+        taskResponseController: taskResponseController,
       ),
     );
   }

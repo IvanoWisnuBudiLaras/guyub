@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../application/operator_auth_boundary.dart';
 import '../../application/operator_profile.dart';
 import '../../../tasks/application/task_campaign_boundary.dart';
+import '../../../tasks/application/task_response_boundary.dart';
 
 /// Authenticated operator landing page with access to server-reviewed tasks.
 final class OperatorHomeScreen extends StatelessWidget {
@@ -10,12 +11,14 @@ final class OperatorHomeScreen extends StatelessWidget {
     required this.profile,
     required this.authBoundary,
     this.taskCampaignBoundary,
+    this.taskResponseController,
     super.key,
   });
 
   final OperatorProfile profile;
   final OperatorAuthBoundary? authBoundary;
   final TaskCampaignBoundary? taskCampaignBoundary;
+  final TaskResponseController? taskResponseController;
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -67,6 +70,18 @@ final class OperatorHomeScreen extends StatelessWidget {
                 icon: const Icon(Icons.checklist),
                 label: const Text('Buka Katalog Tugas Aman'),
               ),
+              if (taskResponseController != null) ...[
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  key: const Key('operator-task-verification'),
+                  onPressed: () => Navigator.of(context).pushNamed(
+                    '/operator/tasks/verification',
+                    arguments: profile,
+                  ),
+                  icon: const Icon(Icons.fact_check_outlined),
+                  label: const Text('Tinjau Penyelesaian Warga'),
+                ),
+              ],
             ],
           ],
         ),

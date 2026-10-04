@@ -5,7 +5,9 @@ import '../features/auth/application/operator_profile.dart';
 import '../features/auth/application/resident_session.dart';
 import '../features/auth/application/resident_session_controller.dart';
 import '../features/tasks/application/task_campaign_boundary.dart';
+import '../features/tasks/application/task_response_boundary.dart';
 import '../features/tasks/presentation/screens/task_catalog_screen.dart';
+import '../features/tasks/presentation/screens/task_response_screens.dart';
 import '../features/auth/presentation/screens/operator_home_screen.dart';
 import '../features/auth/presentation/screens/operator_login_screen.dart';
 import '../features/auth/presentation/screens/resident_entry_screen.dart';
@@ -18,14 +20,17 @@ final class AppRouter {
   static const String operatorLogin = '/operator/login';
   static const String operatorHome = '/operator/home';
   static const String operatorTaskCatalog = '/operator/tasks/catalog';
+  static const String operatorTaskVerification = '/operator/tasks/verification';
   static const String residentEntry = '/resident/entry';
   static const String residentHome = '/resident/home';
+  static const String residentTaskList = '/resident/tasks';
 
   static Route<dynamic> onGenerateRoute(
     RouteSettings settings, {
     OperatorAuthBoundary? operatorAuthBoundary,
     ResidentSessionController? residentSessionController,
     TaskCampaignBoundary? taskCampaignBoundary,
+    TaskResponseController? taskResponseController,
   }) {
     switch (settings.name) {
       case initial:
@@ -51,6 +56,7 @@ final class AppRouter {
             profile: profile,
             authBoundary: operatorAuthBoundary,
             taskCampaignBoundary: taskCampaignBoundary,
+            taskResponseController: taskResponseController,
           ),
           settings: settings,
         );
@@ -63,6 +69,18 @@ final class AppRouter {
           builder: (_) => TaskCatalogScreen(
             profile: profile,
             controller: TaskCampaignController(taskCampaignBoundary),
+          ),
+          settings: settings,
+        );
+      case operatorTaskVerification:
+        final profile = settings.arguments;
+        if (profile is! OperatorProfile || taskResponseController == null) {
+          return _roleSelection(settings);
+        }
+        return MaterialPageRoute<void>(
+          builder: (_) => TaskVerificationQueueScreen(
+            profile: profile,
+            controller: taskResponseController,
           ),
           settings: settings,
         );
@@ -85,6 +103,19 @@ final class AppRouter {
           builder: (_) => ResidentSessionHomeScreen(
             session: session,
             controller: residentSessionController,
+            taskResponseController: taskResponseController,
+          ),
+          settings: settings,
+        );
+      case residentTaskList:
+        final session = settings.arguments;
+        if (session is! ResidentSession || taskResponseController == null) {
+          return _roleSelection(settings);
+        }
+        return MaterialPageRoute<void>(
+          builder: (_) => ResidentTaskListScreen(
+            session: session,
+            controller: taskResponseController,
           ),
           settings: settings,
         );
