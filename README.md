@@ -166,10 +166,10 @@ Aturan akses Firestore dan sesi warga diuji dengan Auth/Firestore/Functions Emul
 ## 10. Status Backend & Cloud Provider
 
 ### Firebase Cloud Functions
-**Status: resident sessions and RT-scoped task catalog/activation are implemented for Emulator; production deployment deferred.**
-- `functions/` implements opaque resident-session callables and operator-only reviewed-template/draft/activation callables. Functions, Auth, and Firestore emulators are configured for development and integration tests.
-- Production resident callables require Firebase App Check; the Android client uses Play Integrity. App Check is intentionally disabled only in the demo emulator and must be registered for the signed Android app before production use. Enrollment retries reuse a pending secure request ID so one attempt does not create duplicate resident profiles.
-- Protected collections remain client-deny by Firestore rules. No production function is deployed and no scheduled weather, reminder, escalation, or evidence-cleanup job is configured yet.
+**Status: resident sessions, RT-scoped task campaigns, resident responses, and RT verification are implemented for Emulator; production deployment deferred.**
+- `functions/` implements opaque resident-session callables; operator-only reviewed-template/draft/activation callables; and RT-scoped resident task listing, JOIN/DECLINE, completion submission, verification, and response recap callables. Functions, Auth, and Firestore emulators cover these boundaries.
+- Production callables require Firebase App Check; the Android client uses Play Integrity. App Check is intentionally disabled only in the demo emulator and must be registered for the signed Android app before production use. Enrollment retries reuse a pending secure request ID so one attempt does not create duplicate resident profiles.
+- Protected collections remain client-deny by Firestore rules. No human-reviewed real task template is provisioned; the catalog remains empty. No production function is deployed, and notification delivery, offline task cache/response queue, weather, reminder, escalation, and evidence-cleanup jobs are not implemented yet.
 - Production deployment and scheduled automation may require a Firebase billing/provider decision. This repository does not enable billing or deploy production infrastructure.
 
 ### Firebase Cloud Storage
