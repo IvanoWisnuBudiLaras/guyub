@@ -17,7 +17,6 @@ final class _EmptyTaskBoundary implements TaskCampaignBoundary {
     required TaskTemplate template,
     required DateTime deadline,
     required String? locationReference,
-    required String? additionalNote,
     required String requestId,
   }) => throw UnimplementedError();
 

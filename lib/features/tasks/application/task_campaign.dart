@@ -1,4 +1,5 @@
 import 'task_template.dart';
+import 'task_location_reference.dart';
 
 /// Campaign lifecycle represented by the task domain.
 enum TaskCampaignStatus { draft, active, closed, cancelled }
@@ -19,14 +20,10 @@ final class TaskCampaign {
     required this.deadline,
     required this.locationReference,
     required this.status,
-    this.additionalNote,
     this.approvedByOperatorId,
     this.activatedAt,
     this.activationCommandId,
   });
-
-  static const int maxLocationReferenceLength = 120;
-  static const int maxAdditionalNoteLength = 160;
 
   final String id;
   final String communityId;
@@ -35,7 +32,6 @@ final class TaskCampaign {
   final DateTime createdAt;
   final DateTime deadline;
   final String? locationReference;
-  final String? additionalNote;
   final TaskCampaignStatus status;
   final String? approvedByOperatorId;
   final DateTime? activatedAt;
@@ -49,7 +45,6 @@ final class TaskCampaign {
     required DateTime createdAt,
     required DateTime deadline,
     String? locationReference,
-    String? additionalNote,
   }) {
     _requireText(id, 'id');
     _requireText(communityId, 'communityId');
@@ -68,16 +63,14 @@ final class TaskCampaign {
         'Must be after creation.',
       );
     }
-    _validateOptionalText(
-      locationReference,
-      'locationReference',
-      maxLocationReferenceLength,
-    );
-    _validateOptionalText(
-      additionalNote,
-      'additionalNote',
-      maxAdditionalNoteLength,
-    );
+    if (locationReference != null &&
+        !TaskLocationReferences.allowed.contains(locationReference)) {
+      throw ArgumentError.value(
+        locationReference,
+        'locationReference',
+        'Must be a controlled general location reference.',
+      );
+    }
 
     return TaskCampaign._(
       id: id,
@@ -86,8 +79,7 @@ final class TaskCampaign {
       createdByOperatorId: createdByOperatorId,
       createdAt: createdAt,
       deadline: deadline,
-      locationReference: _normalizeOptionalText(locationReference),
-      additionalNote: _normalizeOptionalText(additionalNote),
+      locationReference: locationReference,
       status: TaskCampaignStatus.draft,
     );
   }
@@ -126,7 +118,6 @@ final class TaskCampaign {
       createdAt: createdAt,
       deadline: deadline,
       locationReference: locationReference,
-      additionalNote: additionalNote,
       status: TaskCampaignStatus.active,
       approvedByOperatorId: operatorId,
       activatedAt: confirmedAt,
@@ -139,15 +130,4 @@ void _requireText(String value, String name) {
   if (value.trim().isEmpty) {
     throw ArgumentError.value(value, name, 'Must not be empty.');
   }
-}
-
-void _validateOptionalText(String? value, String name, int maxLength) {
-  if (value != null && value.trim().length > maxLength) {
-    throw ArgumentError.value(value, name, 'Must be at most $maxLength chars.');
-  }
-}
-
-String? _normalizeOptionalText(String? value) {
-  final normalized = value?.trim();
-  return normalized == null || normalized.isEmpty ? null : normalized;
 }

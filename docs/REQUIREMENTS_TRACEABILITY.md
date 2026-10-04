@@ -22,7 +22,7 @@ This file reports repository evidence. It does not convert a domain unit test in
 | ID | Status | Evidence / gap |
 |---|---|---|
 | AT-001 | PARTIAL | `WeatherRuleEvaluator` only returns deterministic suggestions and never creates campaigns; unit test. No scheduled source or persisted active-task integration. |
-| AT-002 | PARTIAL | Callable tests reject arbitrary core/safety text, forged RT/operator fields, unreviewed/disabled/malformed templates, and address/GPS location input; activation is callable-only. Real human-reviewed template data is not provisioned, so no production task can be activated yet. |
+| AT-002 | PARTIAL | Callable tests reject arbitrary core/safety text and notes, free-text locations, forged RT/operator fields, unreviewed/disabled/malformed templates, and invalid location categories; activation is callable-only. Real human-reviewed template data is not provisioned, so no production task can be activated yet. |
 | AT-003 | PARTIAL | Widget shows locked core/safety instructions; callable drafts snapshot the exact version and activation rejects same-version content mutation; unit, widget, and Functions Emulator replay tests. Real reviewed content remains an external prerequisite. |
 | AT-004 | PARTIAL | Decline is a valid domain state with no penalty/ranking state; widget/backend path is not present. |
 | AT-005 | PARTIAL | Submission becomes `pendingRtVerification` and only the domain verification method makes it complete; no authenticated backend transition exists. |

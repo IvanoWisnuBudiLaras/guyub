@@ -28,8 +28,7 @@ void main() {
     createdByOperatorId: 'operator-1',
     createdAt: now,
     deadline: deadline,
-    locationReference: 'Rumah masing-masing',
-    additionalNote: 'Koordinasikan daftar perlengkapan.',
+    locationReference: 'HOUSEHOLD',
   );
 
   TaskCampaign activeCampaign() => draft().confirmAndActivate(
@@ -55,8 +54,7 @@ void main() {
         campaign.templateSnapshot.safetyInstruction,
         'Tetap di area aman.',
       );
-      expect(campaign.locationReference, 'Rumah masing-masing');
-      expect(campaign.additionalNote, 'Koordinasikan daftar perlengkapan.');
+      expect(campaign.locationReference, 'HOUSEHOLD');
     });
 
     test('template edits cannot rewrite the campaign snapshot', () {
@@ -134,7 +132,6 @@ void main() {
       );
       expect(active.status, TaskCampaignStatus.active);
       expect(active.approvedByOperatorId, 'operator-1');
-      expect(active.additionalNote, 'Koordinasikan daftar perlengkapan.');
       expect(
         identical(
           active.confirmAndActivate(
@@ -178,8 +175,7 @@ void main() {
           createdByOperatorId: 'operator-1',
           createdAt: now,
           deadline: deadline,
-          locationReference:
-              'x' * (TaskCampaign.maxLocationReferenceLength + 1),
+          locationReference: 'Masuk ke saluran air untuk membersihkan sampah',
         ),
         throwsArgumentError,
       );

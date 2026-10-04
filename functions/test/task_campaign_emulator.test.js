@@ -169,8 +169,7 @@ test('operator task callables enforce RT scope, reviewed templates, locked conte
     templateId: 'safe_household_prep',
     version: 1,
     deadline: DEADLINE,
-    locationReference: 'Balai warga',
-    additionalNote: 'Siapkan daftar barang yang perlu diperiksa.',
+    locationReference: 'COMMUNITY_GENERAL_AREA',
     requestId,
   };
   const draftResponse = await callFunction('createTaskDraft', draftPayload, operatorA.idToken);
@@ -181,13 +180,24 @@ test('operator task callables enforce RT scope, reviewed templates, locked conte
   assert.equal(draft.templateSnapshot.safetyInstruction,
     'Jangan mendekati air banjir atau instalasi listrik yang basah.');
   assert.equal(draft.templateSnapshot.estimatedDurationMinutes, 30);
-  assert.equal(draft.additionalNote, 'Siapkan daftar barang yang perlu diperiksa.');
+
+  const unsafeDraftText = await callFunction('createTaskDraft', {
+    ...draftPayload,
+    requestId: randomRequestId(),
+    additionalNote: 'Masuk ke saluran air untuk membersihkan sampah',
+  }, operatorA.idToken);
+  assertError(unsafeDraftText, 'INVALID_ARGUMENT');
+  const unsafeLocation = await callFunction('createTaskDraft', {
+    ...draftPayload,
+    requestId: randomRequestId(),
+    locationReference: 'Masuk ke saluran air untuk membersihkan sampah',
+  }, operatorA.idToken);
+  assertError(unsafeLocation, 'INVALID_ARGUMENT');
 
   const storedDraft = await readDocument('task_campaigns', draft.campaignId);
   assert.equal(storedDraft.status, 200, JSON.stringify(storedDraft.body));
   assert.equal(storedDraft.body.fields.rtId.stringValue, 'rt-task-a');
   assert.equal(storedDraft.body.fields.status.stringValue, 'DRAFT');
-  assert.equal(storedDraft.body.fields.additionalNote.stringValue, draft.additionalNote);
   assert.equal(storedDraft.body.fields.createdByOperatorUid.stringValue, operatorA.localId);
   assert.equal(storedDraft.body.fields.templateSnapshot.mapValue.fields.safetyInstruction.stringValue,
     draft.templateSnapshot.safetyInstruction);

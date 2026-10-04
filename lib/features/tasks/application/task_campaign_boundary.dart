@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import 'task_template.dart';
+import 'task_location_reference.dart';
 
 /// Trusted boundary for reviewed templates and RT-scoped task commands.
 abstract interface class TaskCampaignBoundary {
@@ -10,7 +11,6 @@ abstract interface class TaskCampaignBoundary {
     required TaskTemplate template,
     required DateTime deadline,
     required String? locationReference,
-    required String? additionalNote,
     required String requestId,
   });
 
@@ -30,7 +30,6 @@ final class TaskCampaignRecord {
     required this.status,
     required this.createdAt,
     this.locationReference,
-    this.additionalNote,
     this.activatedAt,
   });
 
@@ -41,16 +40,15 @@ final class TaskCampaignRecord {
   final String status;
   final DateTime? createdAt;
   final String? locationReference;
-  final String? additionalNote;
   final DateTime? activatedAt;
 
   factory TaskCampaignRecord.fromWire(Map<String, Object?> wire) {
     final snapshot = _asMap(wire['templateSnapshot'], 'templateSnapshot');
     final duration = snapshot['estimatedDurationMinutes'];
     final location = wire['locationReference'];
-    final note = wire['additionalNote'];
-    if ((location != null && location is! String) ||
-        (note != null && note is! String)) {
+    if (location != null &&
+        (location is! String ||
+            !TaskLocationReferences.allowed.contains(location))) {
       throw const FormatException('Invalid campaign parameters.');
     }
     final status = _requiredString(wire['status'], 'status');
@@ -81,7 +79,6 @@ final class TaskCampaignRecord {
       status: status,
       createdAt: _optionalDate(wire['createdAt'], 'createdAt'),
       locationReference: location as String?,
-      additionalNote: note as String?,
       activatedAt: _optionalDate(wire['activatedAt'], 'activatedAt'),
     );
   }
@@ -104,14 +101,12 @@ final class TaskCampaignController {
     required TaskTemplate template,
     required DateTime deadline,
     required String? locationReference,
-    required String? additionalNote,
   }) async {
     final requestId = _draftRequestId ??= _idFactory();
     final campaign = await boundary.createDraft(
       template: template,
       deadline: deadline,
       locationReference: locationReference,
-      additionalNote: additionalNote,
       requestId: requestId,
     );
     _draftRequestId = null;

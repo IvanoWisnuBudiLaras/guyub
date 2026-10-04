@@ -26,7 +26,6 @@ final class _RetryBoundary implements TaskCampaignBoundary {
     required TaskTemplate template,
     required DateTime deadline,
     required String? locationReference,
-    required String? additionalNote,
     required String requestId,
   }) async {
     draftRequestId = requestId;
@@ -79,7 +78,6 @@ void main() {
           template: _template,
           deadline: deadline,
           locationReference: null,
-          additionalNote: null,
         ),
         throwsStateError,
       );
@@ -87,7 +85,6 @@ void main() {
         template: _template,
         deadline: deadline,
         locationReference: null,
-        additionalNote: null,
       );
 
       expect(record.status, 'DRAFT');
@@ -133,5 +130,23 @@ void main() {
       }),
       throwsFormatException,
     );
+  });
+  test('wire campaign location is limited to controlled categories', () {
+    final wire = {
+      'campaignId': 'a' * 40,
+      'rtId': 'rt-01',
+      'templateSnapshot': {
+        'templateId': 'household_ready',
+        'version': 1,
+        'title': 'Tugas',
+        'category': 'HOUSEHOLD_PREPARATION',
+        'coreInstruction': 'Petunjuk',
+        'safetyInstruction': 'Jangan mendekati air.',
+      },
+      'deadline': '2026-10-05T00:00:00.000Z',
+      'status': 'DRAFT',
+      'locationReference': 'Masuk ke saluran air untuk membersihkan sampah',
+    };
+    expect(() => TaskCampaignRecord.fromWire(wire), throwsFormatException);
   });
 }

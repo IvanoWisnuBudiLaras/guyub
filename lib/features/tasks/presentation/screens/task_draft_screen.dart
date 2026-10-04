@@ -3,10 +3,11 @@ import 'package:flutter/material.dart';
 import '../../../auth/application/operator_profile.dart';
 import '../../application/task_campaign_boundary.dart';
 import '../../application/task_template.dart';
+import '../../application/task_location_reference.dart';
 import '../widgets/locked_instructions_card.dart';
 import 'task_campaign_confirmation_screen.dart';
 
-/// Allows only deadline and a general local location reference to be changed.
+/// Allows only deadline and controlled, coarse location categories to be changed.
 final class TaskDraftScreen extends StatefulWidget {
   const TaskDraftScreen({
     required this.profile,
@@ -24,18 +25,10 @@ final class TaskDraftScreen extends StatefulWidget {
 }
 
 final class _TaskDraftScreenState extends State<TaskDraftScreen> {
-  final _locationController = TextEditingController();
-  final _noteController = TextEditingController();
   DateTime? _deadline;
+  String? _locationReference;
   bool _saving = false;
   String? _error;
-
-  @override
-  void dispose() {
-    _locationController.dispose();
-    _noteController.dispose();
-    super.dispose();
-  }
 
   Future<void> _chooseDeadline() async {
     final now = DateTime.now();
@@ -83,12 +76,7 @@ final class _TaskDraftScreenState extends State<TaskDraftScreen> {
       final campaign = await widget.controller.createDraft(
         template: widget.template,
         deadline: deadline,
-        locationReference: _locationController.text.trim().isEmpty
-            ? null
-            : _locationController.text.trim(),
-        additionalNote: _noteController.text.trim().isEmpty
-            ? null
-            : _noteController.text.trim(),
+        locationReference: _locationReference,
       );
       if (!mounted) return;
       await Navigator.of(context).push<void>(
@@ -145,31 +133,24 @@ final class _TaskDraftScreenState extends State<TaskDraftScreen> {
           ),
         ),
         const SizedBox(height: 12),
-        TextField(
+        DropdownButtonFormField<String>(
           key: const Key('task-location-reference'),
-          controller: _locationController,
-          enabled: !_saving,
-          maxLength: 120,
-          textCapitalization: TextCapitalization.sentences,
+          initialValue: _locationReference,
           decoration: const InputDecoration(
-            labelText: 'Lokasi umum (opsional)',
-            hintText: 'Contoh: area balai warga',
-            helperText: 'Jangan masukkan alamat rumah atau koordinat GPS.',
+            labelText: 'Jenis lokasi umum (opsional)',
+            helperText: 'Pilih kategori saja; alamat dan instruksi bebas tidak diterima.',
             border: OutlineInputBorder(),
           ),
-        ),
-        TextField(
-          key: const Key('task-additional-note'),
-          controller: _noteController,
-          enabled: !_saving,
-          maxLength: 160,
-          maxLines: 2,
-          textCapitalization: TextCapitalization.sentences,
-          decoration: const InputDecoration(
-            labelText: 'Catatan singkat (opsional)',
-            helperText: 'Info logistik saja; tanpa alamat/koordinat atau perubahan instruksi keselamatan.',
-            border: OutlineInputBorder(),
-          ),
+          items: [
+            for (final value in TaskLocationReferences.allowed)
+              DropdownMenuItem(
+                value: value,
+                child: Text(TaskLocationReferences.label(value)),
+              ),
+          ],
+          onChanged: _saving
+              ? null
+              : (value) => setState(() => _locationReference = value),
         ),
         if (_error != null) ...[
           const SizedBox(height: 8),

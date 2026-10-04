@@ -52,7 +52,6 @@ final class FirebaseTaskCampaignBoundary implements TaskCampaignBoundary {
     required TaskTemplate template,
     required DateTime deadline,
     required String? locationReference,
-    required String? additionalNote,
     required String requestId,
   }) async {
     final result = await functions.httpsCallable('createTaskDraft').call({
@@ -60,7 +59,6 @@ final class FirebaseTaskCampaignBoundary implements TaskCampaignBoundary {
       'version': template.version,
       'deadline': deadline.toUtc().toIso8601String(),
       'locationReference': locationReference,
-      'additionalNote': additionalNote,
       'requestId': requestId,
     });
     return TaskCampaignRecord.fromWire(_asMap(result.data));

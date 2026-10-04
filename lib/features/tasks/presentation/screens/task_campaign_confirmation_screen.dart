@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../auth/application/operator_profile.dart';
 import '../../application/task_campaign_boundary.dart';
+import '../../application/task_location_reference.dart';
 import '../widgets/locked_instructions_card.dart';
 
 /// Requires a deliberate operator action before a draft becomes ACTIVE.
@@ -81,13 +82,8 @@ final class _TaskCampaignConfirmationScreenState
         ),
         if (_campaign.locationReference != null)
           _SummaryRow(
-            label: 'Lokasi umum',
-            value: _campaign.locationReference!,
-          ),
-        if (_campaign.additionalNote != null)
-          _SummaryRow(
-            label: 'Catatan singkat',
-            value: _campaign.additionalNote!,
+            label: 'Jenis lokasi umum',
+            value: TaskLocationReferences.label(_campaign.locationReference!),
           ),
         const SizedBox(height: 12),
         Card(

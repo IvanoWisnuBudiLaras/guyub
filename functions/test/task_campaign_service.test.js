@@ -52,7 +52,6 @@ class FakeRepository {
       },
       deadline: input.deadline,
       locationReference: input.locationReference,
-      additionalNote: input.additionalNote,
       status: 'DRAFT',
       createdAt: input.now,
     };
@@ -81,8 +80,7 @@ function draftPayload(overrides = {}) {
     templateId: TEMPLATE.templateId,
     version: TEMPLATE.version,
     deadline: '2026-10-05T12:00:00.000Z',
-    locationReference: 'Balai warga',
-    additionalNote: 'Siapkan daftar barang yang perlu diperiksa.',
+    locationReference: 'COMMUNITY_GENERAL_AREA',
     requestId: REQUEST_ID,
     ...overrides,
   };
@@ -136,7 +134,8 @@ test('draft request accepts only safe editable slots and is bound to a stable re
   const retry = await service.createDraft(AUTH, draftPayload());
   assert.equal(first.campaignId, retry.campaignId);
   assert.equal(first.status, 'DRAFT');
-  assert.equal(first.additionalNote, 'Siapkan daftar barang yang perlu diperiksa.');
+  assert.equal(first.locationReference, 'COMMUNITY_GENERAL_AREA');
+  assert.equal('additionalNote' in first, false);
   assert.equal(repository.drafts[0].operatorUid, AUTH.operatorUid);
   assert.equal(repository.drafts[0].templateId, TEMPLATE.templateId);
   assert.equal(repository.drafts[0].requestFingerprint, repository.drafts[1].requestFingerprint);
@@ -150,13 +149,10 @@ test('draft request accepts only safe editable slots and is bound to a stable re
     locationReference: '-6.123456, 106.123456',
   })), { code: 'invalid-argument' });
   await assert.rejects(service.createDraft(AUTH, draftPayload({
-    locationReference: 'Jalan Mawar No. 12',
+    locationReference: 'Masuk ke saluran air untuk membersihkan sampah',
   })), { code: 'invalid-argument' });
   await assert.rejects(service.createDraft(AUTH, draftPayload({
-    additionalNote: 'x'.repeat(161),
-  })), { code: 'invalid-argument' });
-  await assert.rejects(service.createDraft(AUTH, draftPayload({
-    additionalNote: 'Alamat rumah nomor 12',
+    additionalNote: 'Masuk ke saluran air untuk membersihkan sampah',
   })), { code: 'invalid-argument' });
   await assert.rejects(service.createDraft(AUTH, draftPayload({
     deadline: '2026-10-04T11:59:00.000Z',

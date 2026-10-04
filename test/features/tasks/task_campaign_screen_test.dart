@@ -41,7 +41,6 @@ final class _FakeTaskBoundary implements TaskCampaignBoundary {
     required TaskTemplate template,
     required DateTime deadline,
     required String? locationReference,
-    required String? additionalNote,
     required String requestId,
   }) async {
     draftCalls += 1;
@@ -50,7 +49,6 @@ final class _FakeTaskBoundary implements TaskCampaignBoundary {
       deadline: deadline,
       status: 'DRAFT',
       locationReference: locationReference,
-      additionalNote: additionalNote,
     );
   }
 
@@ -71,7 +69,6 @@ final class _FakeTaskBoundary implements TaskCampaignBoundary {
     required DateTime deadline,
     required String status,
     String? locationReference,
-    String? additionalNote,
   }) => TaskCampaignRecord(
     campaignId: 'a' * 40,
     rtId: 'rt-01',
@@ -80,7 +77,6 @@ final class _FakeTaskBoundary implements TaskCampaignBoundary {
     status: status,
     createdAt: DateTime.now(),
     locationReference: locationReference,
-    additionalNote: additionalNote,
   );
 }
 
@@ -107,15 +103,6 @@ Future<void> _selectTemplateAndCreateDraft(
   await tester.pumpAndSettle();
   await tester.tap(find.text('OK').last);
   await tester.pumpAndSettle();
-  await tester.scrollUntilVisible(
-    find.byKey(const Key('task-additional-note')),
-    200,
-    scrollable: find.byType(Scrollable).last,
-  );
-  await tester.enterText(
-    find.byKey(const Key('task-additional-note')),
-    'Siapkan daftar perlengkapan.',
-  );
   await tester.scrollUntilVisible(
     find.byKey(const Key('task-create-draft')),
     200,
@@ -169,7 +156,8 @@ void main() {
         find.textContaining('Pemberitahuan otomatis belum tersedia'),
         findsOneWidget,
       );
-      expect(find.text('Siapkan daftar perlengkapan.'), findsOneWidget);
+      expect(find.byKey(const Key('task-additional-note')), findsNothing);
+      expect(find.byType(TextField), findsNothing);
       await tester.scrollUntilVisible(
         find.byKey(const Key('task-confirm-activation')),
         200,

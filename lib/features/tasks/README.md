@@ -8,7 +8,7 @@
 - `application/task_campaign_boundary.dart`: application boundary and stable idempotency keys across retry.
 - `data/firebase_task_campaign_boundary.dart`: callable-only adapter; the client cannot write template, campaign, or audit collections.
 - `functions/src/task_campaign_service.js` and `firestore_task_campaign_repository.js`: approved/enabled template validation, password-operator check, RT membership recheck in transactions, RT derived from trusted membership, immutable template fingerprint, deterministic draft id, explicit activation and one deterministic audit record.
-- Operator catalog/editor/confirmation screens show locked instructions and permit only a future deadline, a general location reference, and a short logistics note (160 characters). The server rejects address/GPS-like location text and any client attempt to author core/safety text. Activation clearly states that automatic messages are not available.
+- Operator catalog/editor/confirmation screens show locked instructions and permit only a future deadline and a controlled coarse-location category. The app and server reject free-text task notes and locations, which could introduce unsafe instructions or personal data. Core and safety text remain immutable. Activation clearly states that automatic messages are not available.
 - Unit, widget, Auth/Firestore/Functions Emulator tests cover empty catalog, locked instructions, explicit confirmation, unauthorized/cross-RT activation, review/enabled guards, location privacy, replay, concurrent activation, template mutation, and direct client access denial.
 
 ## Not yet production-operational

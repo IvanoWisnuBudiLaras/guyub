@@ -9,8 +9,7 @@ const TASK_CATEGORIES = new Set([
 ]);
 const TEMPLATE_ID_PATTERN = /^[a-z][a-z0-9_-]{0,63}$/;
 const REQUEST_ID_PATTERN = /^[A-Za-z0-9_-]{32,128}$/;
-const MAX_LOCATION_REFERENCE_LENGTH = 120;
-const MAX_ADDITIONAL_NOTE_LENGTH = 160;
+const TASK_LOCATION_REFERENCES = new Set(['COMMUNITY_GENERAL_AREA', 'HOUSEHOLD']);
 
 class TaskCampaignError extends Error {
   constructor(code, message) {
@@ -65,32 +64,10 @@ function requiredText(value, field, maxLength) {
 
 function optionalLocationReference(value) {
   if (value == null) return null;
-  if (typeof value !== 'string') throw invalidArgument('Lokasi tugas tidak valid.');
-  const location = value.normalize('NFC').trim();
-  if (location.length === 0) return null;
-  if ([...location].length > MAX_LOCATION_REFERENCE_LENGTH ||
-      /[\u0000-\u001F\u007F]/u.test(location) ||
-      /-?\d{1,3}\.\d{3,}\s*[,; ]\s*-?\d{1,3}\.\d{3,}/u.test(location) ||
-      /\b(?:alamat|rumah|jalan|jl\.?|gang|gg\.?|blok|perumahan)\b/iu.test(location) ||
-      /\b(?:no\.?|nomor)\s*\d/iu.test(location)) {
-    throw invalidArgument('Gunakan lokasi umum tanpa alamat rumah atau koordinat GPS.');
+  if (typeof value !== 'string' || !TASK_LOCATION_REFERENCES.has(value)) {
+    throw invalidArgument('Pilih jenis lokasi umum yang diizinkan.');
   }
-  return location;
-}
-
-function optionalAdditionalNote(value) {
-  if (value == null) return null;
-  if (typeof value !== 'string') throw invalidArgument('Catatan tambahan tidak valid.');
-  const note = value.normalize('NFC').trim();
-  if (note.length === 0) return null;
-  if ([...note].length > MAX_ADDITIONAL_NOTE_LENGTH ||
-      /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/u.test(note) ||
-      /-?\d{1,3}\.\d{3,}\s*[,; ]\s*-?\d{1,3}\.\d{3,}/u.test(note) ||
-      /\b(?:alamat|rumah|jalan|jl\.?|gang|gg\.?|blok|perumahan)\b/iu.test(note) ||
-      /\b(?:no\.?|nomor)\s*\d/iu.test(note)) {
-    throw invalidArgument('Gunakan catatan singkat tanpa alamat rumah atau koordinat GPS.');
-  }
-  return note;
+  return value;
 }
 
 function parseFutureDeadline(value, now) {
@@ -192,7 +169,6 @@ function publicCampaign(campaign) {
     templateSnapshot: campaign.templateSnapshot,
     deadline: dateValue(campaign.deadline),
     locationReference: campaign.locationReference ?? null,
-    additionalNote: campaign.additionalNote ?? null,
     status: campaign.status,
     createdAt: dateValue(campaign.createdAt),
     activatedAt: dateValue(campaign.activatedAt),
@@ -216,8 +192,7 @@ class TaskCampaignService {
   async createDraft(auth, data) {
     validateOperatorAuth(auth);
     assertOnlyKeys(data, [
-      'templateId', 'version', 'deadline', 'locationReference',
-      'additionalNote', 'requestId',
+      'templateId', 'version', 'deadline', 'locationReference', 'requestId',
     ]);
     const templateId = requiredText(data.templateId, 'Template', 64);
     const version = data.version;
@@ -230,7 +205,6 @@ class TaskCampaignService {
     const now = this.clock();
     const deadline = parseFutureDeadline(data.deadline, now);
     const locationReference = optionalLocationReference(data.locationReference);
-    const additionalNote = optionalAdditionalNote(data.additionalNote);
     const requestIdHash = sha256(data.requestId);
     const campaignId = sha256(`${auth.operatorUid}\0${requestIdHash}`).slice(0, 40);
     const requestFingerprint = sha256(JSON.stringify([
@@ -238,7 +212,6 @@ class TaskCampaignService {
       version,
       deadline.toISOString(),
       locationReference,
-      additionalNote,
     ]));
     const campaign = await this.repository.createDraft({
       operatorUid: auth.operatorUid,
@@ -247,7 +220,6 @@ class TaskCampaignService {
       version,
       deadline,
       locationReference,
-      additionalNote,
       now,
       requestFingerprint,
     });
@@ -272,10 +244,9 @@ class TaskCampaignService {
 }
 
 module.exports = {
-  MAX_ADDITIONAL_NOTE_LENGTH,
-  MAX_LOCATION_REFERENCE_LENGTH,
   OPERATOR_ROLES,
   TASK_CATEGORIES,
+  TASK_LOCATION_REFERENCES,
   TaskCampaignError,
   TaskCampaignService,
   approvedTemplateFromRecord,

@@ -119,7 +119,6 @@ class FirestoreTaskCampaignRepository {
         templateSnapshot: publicTemplate(template),
         deadline: input.deadline,
         locationReference: input.locationReference,
-        additionalNote: input.additionalNote,
         status: 'DRAFT',
         createdByOperatorUid: input.operatorUid,
         createdAt: input.now,
