@@ -2,17 +2,20 @@ import 'package:flutter/material.dart';
 
 import '../../application/operator_auth_boundary.dart';
 import '../../application/operator_profile.dart';
+import '../../../tasks/application/task_campaign_boundary.dart';
 
-/// Minimal authenticated operator landing page until task features are wired.
+/// Authenticated operator landing page with access to server-reviewed tasks.
 final class OperatorHomeScreen extends StatelessWidget {
   const OperatorHomeScreen({
     required this.profile,
     required this.authBoundary,
+    this.taskCampaignBoundary,
     super.key,
   });
 
   final OperatorProfile profile;
   final OperatorAuthBoundary? authBoundary;
+  final TaskCampaignBoundary? taskCampaignBoundary;
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -45,11 +48,26 @@ final class OperatorHomeScreen extends StatelessWidget {
             const SizedBox(height: 8),
             Text('RT ${profile.communityId}'),
             const SizedBox(height: 24),
-            const Text(
-              'Akses operator terverifikasi. Alur tugas dan data komunitas '
-              'belum tersedia pada build ini.',
-              textAlign: TextAlign.center,
-            ),
+            if (taskCampaignBoundary == null)
+              const Text(
+                'Akses operator terverifikasi. Katalog tugas belum terhubung.',
+                textAlign: TextAlign.center,
+              )
+            else ...[
+              const Text(
+                'Gunakan template yang ditinjau. Aktivasi tugas tetap memerlukan '
+                'konfirmasi operator.',
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              FilledButton.icon(
+                key: const Key('operator-task-catalog'),
+                onPressed: () => Navigator.of(context)
+                    .pushNamed('/operator/tasks/catalog', arguments: profile),
+                icon: const Icon(Icons.checklist),
+                label: const Text('Buka Katalog Tugas Aman'),
+              ),
+            ],
           ],
         ),
       ),

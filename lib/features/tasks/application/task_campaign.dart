@@ -19,12 +19,14 @@ final class TaskCampaign {
     required this.deadline,
     required this.locationReference,
     required this.status,
+    this.additionalNote,
     this.approvedByOperatorId,
     this.activatedAt,
     this.activationCommandId,
   });
 
   static const int maxLocationReferenceLength = 120;
+  static const int maxAdditionalNoteLength = 160;
 
   final String id;
   final String communityId;
@@ -33,6 +35,7 @@ final class TaskCampaign {
   final DateTime createdAt;
   final DateTime deadline;
   final String? locationReference;
+  final String? additionalNote;
   final TaskCampaignStatus status;
   final String? approvedByOperatorId;
   final DateTime? activatedAt;
@@ -46,6 +49,7 @@ final class TaskCampaign {
     required DateTime createdAt,
     required DateTime deadline,
     String? locationReference,
+    String? additionalNote,
   }) {
     _requireText(id, 'id');
     _requireText(communityId, 'communityId');
@@ -69,6 +73,11 @@ final class TaskCampaign {
       'locationReference',
       maxLocationReferenceLength,
     );
+    _validateOptionalText(
+      additionalNote,
+      'additionalNote',
+      maxAdditionalNoteLength,
+    );
 
     return TaskCampaign._(
       id: id,
@@ -78,6 +87,7 @@ final class TaskCampaign {
       createdAt: createdAt,
       deadline: deadline,
       locationReference: _normalizeOptionalText(locationReference),
+      additionalNote: _normalizeOptionalText(additionalNote),
       status: TaskCampaignStatus.draft,
     );
   }
@@ -116,6 +126,7 @@ final class TaskCampaign {
       createdAt: createdAt,
       deadline: deadline,
       locationReference: locationReference,
+      additionalNote: additionalNote,
       status: TaskCampaignStatus.active,
       approvedByOperatorId: operatorId,
       activatedAt: confirmedAt,

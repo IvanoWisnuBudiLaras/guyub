@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../core/config/app_config.dart';
 import '../features/auth/application/operator_auth_boundary.dart';
 import '../features/auth/application/resident_session_controller.dart';
+import '../features/tasks/application/task_campaign_boundary.dart';
 import 'router.dart';
 
 /// Root widget and dependency assembly point for Guyub.id.
@@ -10,11 +11,13 @@ final class GuyubApp extends StatelessWidget {
   const GuyubApp({
     this.operatorAuthBoundary,
     this.residentSessionController,
+    this.taskCampaignBoundary,
     super.key,
   });
 
   final OperatorAuthBoundary? operatorAuthBoundary;
   final ResidentSessionController? residentSessionController;
+  final TaskCampaignBoundary? taskCampaignBoundary;
 
   @override
   Widget build(BuildContext context) {
@@ -32,6 +35,7 @@ final class GuyubApp extends StatelessWidget {
         settings,
         operatorAuthBoundary: operatorAuthBoundary,
         residentSessionController: residentSessionController,
+        taskCampaignBoundary: taskCampaignBoundary,
       ),
     );
   }

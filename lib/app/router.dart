@@ -4,6 +4,8 @@ import '../features/auth/application/operator_auth_boundary.dart';
 import '../features/auth/application/operator_profile.dart';
 import '../features/auth/application/resident_session.dart';
 import '../features/auth/application/resident_session_controller.dart';
+import '../features/tasks/application/task_campaign_boundary.dart';
+import '../features/tasks/presentation/screens/task_catalog_screen.dart';
 import '../features/auth/presentation/screens/operator_home_screen.dart';
 import '../features/auth/presentation/screens/operator_login_screen.dart';
 import '../features/auth/presentation/screens/resident_entry_screen.dart';
@@ -15,6 +17,7 @@ final class AppRouter {
   static const String initial = '/';
   static const String operatorLogin = '/operator/login';
   static const String operatorHome = '/operator/home';
+  static const String operatorTaskCatalog = '/operator/tasks/catalog';
   static const String residentEntry = '/resident/entry';
   static const String residentHome = '/resident/home';
 
@@ -22,6 +25,7 @@ final class AppRouter {
     RouteSettings settings, {
     OperatorAuthBoundary? operatorAuthBoundary,
     ResidentSessionController? residentSessionController,
+    TaskCampaignBoundary? taskCampaignBoundary,
   }) {
     switch (settings.name) {
       case initial:
@@ -46,6 +50,19 @@ final class AppRouter {
           builder: (_) => OperatorHomeScreen(
             profile: profile,
             authBoundary: operatorAuthBoundary,
+            taskCampaignBoundary: taskCampaignBoundary,
+          ),
+          settings: settings,
+        );
+      case operatorTaskCatalog:
+        final profile = settings.arguments;
+        if (profile is! OperatorProfile || taskCampaignBoundary == null) {
+          return _roleSelection(settings);
+        }
+        return MaterialPageRoute<void>(
+          builder: (_) => TaskCatalogScreen(
+            profile: profile,
+            controller: TaskCampaignController(taskCampaignBoundary),
           ),
           settings: settings,
         );

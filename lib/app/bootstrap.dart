@@ -13,6 +13,8 @@ import '../features/auth/application/resident_session_controller.dart';
 import '../features/auth/data/firebase_operator_auth_boundary.dart';
 import '../features/auth/data/firebase_resident_session_boundary.dart';
 import '../features/auth/data/flutter_secure_resident_session_vault.dart';
+import '../features/tasks/application/task_campaign_boundary.dart';
+import '../features/tasks/data/firebase_task_campaign_boundary.dart';
 import '../firebase_options.dart';
 import 'app.dart';
 
@@ -21,12 +23,14 @@ Future<Widget> createBootstrapApp(
   AppConfig config, {
   OperatorAuthBoundary? operatorAuthBoundary,
   ResidentSessionController? residentSessionController,
+  TaskCampaignBoundary? taskCampaignBoundary,
 }) async {
   WidgetsFlutterBinding.ensureInitialized();
   AppConfig.initialize(config);
   return GuyubApp(
     operatorAuthBoundary: operatorAuthBoundary,
     residentSessionController: residentSessionController,
+    taskCampaignBoundary: taskCampaignBoundary,
   );
 }
 
@@ -39,7 +43,8 @@ Future<void> bootstrap(AppConfig config) async {
   WidgetsFlutterBinding.ensureInitialized();
   OperatorAuthBoundary? operatorAuthBoundary;
   ResidentSessionController? residentSessionController;
-  var residentAppCheckReady = false;
+  TaskCampaignBoundary? taskCampaignBoundary;
+  var callableAppCheckReady = false;
   final useEmulator =
       config.useEmulator || config.environment == AppEnvironment.development;
 
@@ -51,7 +56,7 @@ Future<void> bootstrap(AppConfig config) async {
             : DefaultFirebaseOptions.currentPlatform,
       );
       if (useEmulator) {
-        residentAppCheckReady = true;
+        callableAppCheckReady = true;
       } else {
         try {
           // [app-check:debug-provider]: Pakai debug provider saat kDebugMode agar build APK debug pilot tidak ditolak callable.
@@ -60,7 +65,7 @@ Future<void> bootstrap(AppConfig config) async {
                 ? const AndroidDebugProvider()
                 : const AndroidPlayIntegrityProvider(),
           );
-          residentAppCheckReady = true;
+          callableAppCheckReady = true;
         } catch (_) {
           // Resident enrollment stays unavailable without App Check.
         }
@@ -83,7 +88,7 @@ Future<void> bootstrap(AppConfig config) async {
       // Fail closed: no Firebase boundary is injected when setup is incomplete.
     }
 
-    if (operatorAuthBoundary != null && residentAppCheckReady) {
+    if (operatorAuthBoundary != null && callableAppCheckReady) {
       try {
         final functions = FirebaseFunctions.instanceFor(
           region: 'asia-southeast2',
@@ -98,8 +103,9 @@ Future<void> bootstrap(AppConfig config) async {
           boundary: FirebaseResidentSessionBoundary(functions),
           vault: FlutterSecureResidentSessionVault(),
         );
+        taskCampaignBoundary = FirebaseTaskCampaignBoundary(functions);
       } catch (_) {
-        // Operator sign-in remains available; resident access stays unavailable.
+        // Operator sign-in remains available; callable features stay unavailable.
       }
     }
   }
@@ -109,6 +115,7 @@ Future<void> bootstrap(AppConfig config) async {
       config,
       operatorAuthBoundary: operatorAuthBoundary,
       residentSessionController: residentSessionController,
+      taskCampaignBoundary: taskCampaignBoundary,
     ),
   );
 }
