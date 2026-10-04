@@ -11,7 +11,7 @@ This file reports repository evidence. It does not convert a domain unit test in
 | 2 — Safe task catalog/operator creation | PARTIAL | Callable catalog/draft/activation boundary; template content is returned only for enabled, reviewed versions; password operator membership is checked and RT scope is server-derived; activation rechecks the immutable template fingerprint, writes an RT-owned campaign and one audit record transactionally; replay/concurrency, forged content, cross-RT, privacy and widget tests. | No real human-reviewed template content is provisioned; the catalog therefore opens empty until trusted provisioning. No notification/recipient distribution exists. |
 | 3 — Resident task loop/RT verification | PARTIAL | Pull-based active task list, locked safety detail, voluntary JOIN/DECLINE, optional bounded completion note, `PENDING_RT_VERIFICATION`, same-RT operator queue/verification, deterministic audit, and response-only recap; Functions/Firestore Emulator and widget/domain tests. | Online-only; no durable offline outbox/cache/reconciliation, proxy update, campaign cancellation/history, recipient snapshot, or device-level validation. |
 | 4 — BMKG weather/suggestions | PARTIAL | Normalized timestamped BMKG snapshot, local last-valid cache, configurable threshold model, stale-data exclusion, deterministic suggestion-only evaluator. | No BMKG adapter/fetch schedule, production rules, persisted suggestion, review UI, or human-confirmed task connection. |
-| 5 — Distribution/FCM/reminders/escalation | MISSING | Resident-session callable Functions exist, but no notification/delivery Functions are implemented. | No FCM, scheduler, reminder/escalation policy or audit delivery path. |
+| 5 — Distribution/FCM/reminders/escalation | PARTIAL | Active campaigns provide a copy-only, human-readable WhatsApp summary with locked safety text and voluntary-participation copy; no message is sent. | No FCM, scheduler, reminder/escalation policy or audit delivery path. |
 | 6 — Proposals/assistance | MISSING | — | No proposal review/catalog mapping, vulnerable-resident/helper flow, or proxy status. |
 | 7 — Offline/emergency mode | PARTIAL | Local weather snapshot cache survives refresh failures by not overwriting on older/equal input; stale timestamp calculation is tested. | No active-task cache/queue/reconciliation, emergency directory, assembly-point UI, offline UI state or official route. |
 | 8 — Evidence/data lifecycle | MISSING | — | No image processing, EXIF stripping, storage, expiry/delete job, or data deletion workflow. |
@@ -59,7 +59,7 @@ This file reports repository evidence. It does not convert a domain unit test in
 | O-03 | MISSING | No offline DECLINE queue. |
 | O-04 | MISSING | No cancellation/reconciliation conflict handling. |
 | O-05 | PARTIAL | Cache preserves the newer valid snapshot and tests older/concurrent writes; live fetch-failure behavior is not connected. |
-| O-06 | MISSING | FCM/WhatsApp distribution is not implemented. |
+| O-06 | PARTIAL | A human can copy the active task summary for manual WhatsApp sharing. FCM, delivery failure handling, reminders, and escalation remain unimplemented. |
 | P-01 | VERIFIED | The resident profile contains only nickname, RT scope, assistance marker, creator attribution, and timestamps; unit/emulator tests assert the exact persisted field set. |
 | P-02 | MISSING | No evidence pipeline. |
 | P-03 | MISSING | No physical evidence deletion. |

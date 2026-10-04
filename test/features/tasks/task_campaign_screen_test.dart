@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:guyub/features/auth/application/operator_profile.dart';
 import 'package:guyub/features/tasks/application/task_campaign_boundary.dart';
+import 'package:guyub/features/tasks/application/task_campaign_copy_boundary.dart';
 import 'package:guyub/features/tasks/application/task_template.dart';
 import 'package:guyub/features/tasks/presentation/screens/task_catalog_screen.dart';
+import 'package:guyub/features/tasks/presentation/screens/task_campaign_confirmation_screen.dart';
 
 final _template = TaskTemplate(
   id: 'household_ready',
@@ -80,6 +82,15 @@ final class _FakeTaskBoundary implements TaskCampaignBoundary {
   );
 }
 
+final class _FakeCopyBoundary implements TaskCampaignCopyBoundary {
+  String? copiedText;
+
+  @override
+  Future<void> copy(String text) async {
+    copiedText = text;
+  }
+}
+
 Future<void> _selectTemplateAndCreateDraft(
   WidgetTester tester,
   _FakeTaskBoundary boundary,
@@ -152,6 +163,7 @@ void main() {
         scrollable: find.byType(Scrollable).last,
       );
       expect(find.byKey(const Key('task-campaign-draft')), findsOneWidget);
+      expect(find.byKey(const Key('task-copy-whatsapp')), findsNothing);
       expect(
         find.textContaining('Pemberitahuan otomatis belum tersedia'),
         findsOneWidget,
@@ -170,6 +182,7 @@ void main() {
       expect(boundary.activationCalls, 1);
       expect(boundary.lastCommandId, 'r' * 40);
       expect(find.byKey(const Key('task-campaign-active')), findsOneWidget);
+      expect(find.byKey(const Key('task-copy-whatsapp')), findsOneWidget);
       expect(find.text(_template.safetyInstruction), findsOneWidget);
     },
   );
@@ -187,4 +200,58 @@ void main() {
     expect(boundary.activationCalls, 0);
     expect(find.text('Siapkan Draf Tugas'), findsOneWidget);
   });
+  testWidgets(
+    'active campaign copies a reviewed summary for manual WhatsApp sharing',
+    (tester) async {
+      final campaignBoundary = _FakeTaskBoundary();
+      final copyBoundary = _FakeCopyBoundary();
+      final campaign = TaskCampaignRecord(
+        campaignId: 'a' * 40,
+        rtId: 'internal-rt-id',
+        templateSnapshot: _template.snapshot(),
+        deadline: DateTime(2026, 10, 5, 17),
+        status: 'ACTIVE',
+        createdAt: DateTime(2026, 10, 4),
+        locationReference: 'COMMUNITY_GENERAL_AREA',
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: TaskCampaignConfirmationScreen(
+            profile: _profile,
+            campaign: campaign,
+            controller: TaskCampaignController(campaignBoundary),
+            copyBoundary: copyBoundary,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('task-copy-whatsapp')),
+        200,
+        scrollable: find.byType(Scrollable).last,
+      );
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('task-copy-whatsapp')), findsOneWidget);
+      expect(campaignBoundary.activationCalls, 0);
+      await tester.tap(find.byKey(const Key('task-copy-whatsapp')));
+      await tester.pumpAndSettle();
+
+      expect(copyBoundary.copiedText, isNotNull);
+      expect(copyBoundary.copiedText, contains(_template.title));
+      expect(copyBoundary.copiedText, contains(_template.coreInstruction));
+      expect(copyBoundary.copiedText, contains(_template.safetyInstruction));
+      expect(
+        copyBoundary.copiedText,
+        contains('Keikutsertaan bersifat sukarela'),
+      );
+      expect(copyBoundary.copiedText, contains('bukan peringatan resmi'));
+      expect(copyBoundary.copiedText, isNot(contains('internal-rt-id')));
+      expect(campaignBoundary.activationCalls, 0);
+      expect(
+        find.textContaining('Teks disalin. Periksa kembali'),
+        findsOneWidget,
+      );
+    },
+  );
 }

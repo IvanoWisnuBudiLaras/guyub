@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../auth/application/operator_profile.dart';
 import '../../application/task_campaign_boundary.dart';
+import '../../application/task_campaign_copy_boundary.dart';
+import '../../application/task_campaign_share_text.dart';
 import '../../application/task_location_reference.dart';
 import '../widgets/locked_instructions_card.dart';
 
@@ -11,12 +14,14 @@ final class TaskCampaignConfirmationScreen extends StatefulWidget {
     required this.profile,
     required this.campaign,
     required this.controller,
+    this.copyBoundary,
     super.key,
   });
 
   final OperatorProfile profile;
   final TaskCampaignRecord campaign;
   final TaskCampaignController controller;
+  final TaskCampaignCopyBoundary? copyBoundary;
 
   @override
   State<TaskCampaignConfirmationScreen> createState() =>
@@ -30,6 +35,37 @@ final class _TaskCampaignConfirmationScreenState
   String? _error;
 
   bool get _isActive => _campaign.status == 'ACTIVE';
+
+  Future<void> _copyTaskSummary() async {
+    if (!_isActive) return;
+    final text = buildTaskCampaignWhatsAppText(
+      campaign: _campaign,
+      formattedDeadline: _formatDeadline(context, _campaign.deadline),
+    );
+    try {
+      await (widget.copyBoundary ?? const _ClipboardTaskCampaignCopyBoundary())
+          .copy(text);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Teks disalin. Periksa kembali sebelum membagikannya ke grup RT.',
+            ),
+          ),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Teks tidak dapat disalin. Tidak ada pesan yang dikirim.',
+            ),
+          ),
+        );
+      }
+    }
+  }
 
   Future<void> _activate() async {
     setState(() {
@@ -109,6 +145,15 @@ final class _TaskCampaignConfirmationScreenState
             leading: Icon(Icons.edit_note),
             title: Text('Draf belum aktif dan belum dibagikan.'),
           ),
+        if (_isActive) ...[
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            key: const Key('task-copy-whatsapp'),
+            onPressed: _copyTaskSummary,
+            icon: const Icon(Icons.copy),
+            label: const Text('Salin teks untuk WhatsApp'),
+          ),
+        ],
         if (_error != null) ...[
           const SizedBox(height: 8),
           Text(
@@ -141,6 +186,15 @@ final class _TaskCampaignConfirmationScreenState
       ],
     ),
   );
+}
+
+final class _ClipboardTaskCampaignCopyBoundary
+    implements TaskCampaignCopyBoundary {
+  const _ClipboardTaskCampaignCopyBoundary();
+
+  @override
+  Future<void> copy(String text) =>
+      Clipboard.setData(ClipboardData(text: text));
 }
 
 final class _SummaryRow extends StatelessWidget {
