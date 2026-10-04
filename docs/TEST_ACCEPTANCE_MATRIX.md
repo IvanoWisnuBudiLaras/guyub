@@ -19,6 +19,7 @@ This matrix maps implementation behavior back to the Master PRD. It is intended 
 | AT-013 | Official escalation route exists | Classify outside-capacity problem; assert configured official action | Widget/integration | Yes |
 | AT-014 | Proxy status supported | Authorized operator updates non-app resident status | Integration | Yes |
 | AT-015 | RT history survives operator change | Create history, replace operator, verify history | Integration/E2E | Yes |
+| AT-016 | WhatsApp summary is copy-only and active-only | Draft has no copy action; active copy contains locked safety/voluntary text and sends no message | Unit + widget | Yes |
 
 ---
 
