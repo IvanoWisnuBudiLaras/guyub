@@ -18,6 +18,11 @@ final class ResidentSessionInvalidException implements Exception {
   const ResidentSessionInvalidException();
 }
 
+/// The backend could not be reached; a secure local snapshot may be used read-only.
+final class ResidentSessionUnavailableException implements Exception {
+  const ResidentSessionUnavailableException();
+}
+
 /// A permanent rejection of this enrollment attempt; a fresh attempt gets a new id.
 final class ResidentSessionEnrollmentRejectedException implements Exception {
   const ResidentSessionEnrollmentRejectedException();

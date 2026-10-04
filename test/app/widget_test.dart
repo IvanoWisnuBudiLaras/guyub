@@ -43,4 +43,21 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Akses warga belum tersedia'), findsOneWidget);
   });
+
+  testWidgets('Darurat is reachable before sign-in', (
+    WidgetTester tester,
+  ) async {
+    AppConfig.initialize(AppConfig.test());
+    await tester.pumpWidget(const GuyubApp());
+
+    await tester.tap(find.byKey(const Key('emergency-directory-entry')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Informasi Darurat'), findsOneWidget);
+    expect(find.textContaining('Direktori belum tersedia'), findsOneWidget);
+    expect(
+      find.textContaining('Guyub.id tidak menggantikan layanan darurat'),
+      findsOneWidget,
+    );
+  });
 }

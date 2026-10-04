@@ -32,6 +32,7 @@ void main() {
 
       expect(result, session);
       expect(vault.token, 'opaque-token-not-for-ui');
+      expect(vault.cachedSession, session);
       expect(boundary.lastJoinCode, 'ABCD2345EFGH');
       expect(boundary.lastNickname, ' Rani ');
       expect(
@@ -89,6 +90,26 @@ void main() {
   );
 
   test(
+    'restores a secure profile snapshot read-only after transport loss',
+    () async {
+      final boundary = FakeResidentBoundary(session)..failUnavailable = true;
+      final vault = MemoryResidentSessionVault()
+        ..token = 'saved-opaque-token'
+        ..cachedSession = session;
+      final controller = ResidentSessionController(
+        boundary: boundary,
+        vault: vault,
+      );
+
+      final restored = await controller.restoreSession();
+
+      expect(restored, session.asOfflineSnapshot());
+      expect(restored!.isOfflineSnapshot, isTrue);
+      expect(vault.token, 'saved-opaque-token');
+    },
+  );
+
+  test(
     'clears invalid expired tokens rather than preserving stale access',
     () async {
       final boundary = FakeResidentBoundary(session)..failValidation = true;
@@ -121,7 +142,8 @@ void main() {
       final boundary = FakeResidentBoundary(session)..failRevocation = true;
       final vault = MemoryResidentSessionVault()
         ..token = 'saved-opaque-token'
-        ..pendingRequestId = 'pending-enrollment-request';
+        ..pendingRequestId = 'pending-enrollment-request'
+        ..cachedSession = session;
       final controller = ResidentSessionController(
         boundary: boundary,
         vault: vault,
@@ -131,14 +153,17 @@ void main() {
 
       expect(vault.token, isNull);
       expect(vault.pendingRequestId, isNull);
+      expect(vault.cachedSession, isNull);
       expect(boundary.revokedToken, 'saved-opaque-token');
     },
   );
 }
 
-final class MemoryResidentSessionVault implements ResidentSessionVault {
+final class MemoryResidentSessionVault
+    implements ResidentSessionVault, ResidentSessionMetadataVault {
   String? token;
   String? pendingRequestId;
+  ResidentSession? cachedSession;
 
   @override
   Future<void> clear() async => token = null;
@@ -158,6 +183,16 @@ final class MemoryResidentSessionVault implements ResidentSessionVault {
   @override
   Future<void> writePendingEnrollmentId(String value) async =>
       pendingRequestId = value;
+
+  @override
+  Future<void> writeCachedSession(ResidentSession session) async =>
+      cachedSession = session;
+
+  @override
+  Future<ResidentSession?> readCachedSession() async => cachedSession;
+
+  @override
+  Future<void> clearCachedSession() async => cachedSession = null;
 }
 
 final class FakeResidentBoundary implements ResidentSessionBoundary {
@@ -166,6 +201,7 @@ final class FakeResidentBoundary implements ResidentSessionBoundary {
   final ResidentSession session;
   bool failValidation = false;
   bool failTemporarily = false;
+  bool failUnavailable = false;
   bool failRevocation = false;
   bool failCreateTemporarily = false;
   String? lastJoinCode;
@@ -197,6 +233,7 @@ final class FakeResidentBoundary implements ResidentSessionBoundary {
     validatedToken = sessionToken;
     if (failValidation) throw const ResidentSessionInvalidException();
     if (failTemporarily) throw StateError('network unavailable');
+    if (failUnavailable) throw const ResidentSessionUnavailableException();
     return session;
   }
 

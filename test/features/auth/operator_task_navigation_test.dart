@@ -6,7 +6,7 @@ import 'package:guyub/features/auth/presentation/screens/operator_home_screen.da
 import 'package:guyub/features/tasks/application/task_campaign_boundary.dart';
 import 'package:guyub/features/tasks/application/task_template.dart';
 
-final class _EmptyTaskBoundary implements TaskCampaignBoundary {
+class _EmptyTaskBoundary implements TaskCampaignBoundary {
   const _EmptyTaskBoundary();
 
   @override
@@ -23,6 +23,21 @@ final class _EmptyTaskBoundary implements TaskCampaignBoundary {
   @override
   Future<TaskCampaignRecord> activateCampaign({
     required String campaignId,
+    required String commandId,
+  }) => throw UnimplementedError();
+}
+
+final class _ActiveTaskBoundary extends _EmptyTaskBoundary
+    implements TaskCampaignManagementBoundary {
+  const _ActiveTaskBoundary();
+
+  @override
+  Future<List<ActiveTaskCampaignRecord>> listActiveTaskCampaigns() async =>
+      const [];
+
+  @override
+  Future<TaskCampaignCancellationRecord> cancelTaskCampaign({
+    required String taskId,
     required String commandId,
   }) => throw UnimplementedError();
 }
@@ -60,5 +75,34 @@ void main() {
       find.textContaining('Belum ada template yang disetujui'),
       findsOneWidget,
     );
+  });
+
+  testWidgets('operator can reach server-scoped active task cancellation', (
+    tester,
+  ) async {
+    const boundary = _ActiveTaskBoundary();
+    final profile = OperatorProfile(
+      uid: 'operator-a',
+      communityId: 'rt-01',
+      role: OperatorRole.ketuaRtRw,
+      displayName: 'Ketua RT',
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: OperatorHomeScreen(
+          profile: profile,
+          authBoundary: null,
+          taskCampaignBoundary: boundary,
+        ),
+        onGenerateRoute: (settings) =>
+            AppRouter.onGenerateRoute(settings, taskCampaignBoundary: boundary),
+      ),
+    );
+
+    await tester.tap(find.byKey(const Key('operator-active-task-campaigns')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Tugas Aktif RT'), findsOneWidget);
+    expect(find.byKey(const Key('active-task-empty')), findsOneWidget);
   });
 }

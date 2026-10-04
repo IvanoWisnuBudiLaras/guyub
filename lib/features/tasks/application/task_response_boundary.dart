@@ -3,6 +3,7 @@
 import 'dart:convert';
 import 'dart:math';
 
+import '../../auth/application/resident_session.dart';
 import '../../auth/application/resident_session_vault.dart';
 import 'task_response.dart';
 import 'task_template.dart';
@@ -53,6 +54,9 @@ final class ResidentTaskRecord {
     this.completionNote,
     this.completionSubmittedAt,
     this.verifiedAt,
+    this.pendingChoice,
+    this.hasSyncConflict = false,
+    this.hasPendingCompletionSync = false,
   });
 
   final String taskId;
@@ -66,6 +70,13 @@ final class ResidentTaskRecord {
   final String? completionNote;
   final DateTime? completionSubmittedAt;
   final DateTime? verifiedAt;
+
+  /// Locally queued participation choice; never replaces server state.
+  final ParticipationChoice? pendingChoice;
+
+  /// True when the server has a conflicting or unavailable authoritative state.
+  final bool hasSyncConflict;
+  final bool hasPendingCompletionSync;
 
   factory ResidentTaskRecord.fromWire(Map<String, Object?> wire) {
     final snapshot = _asMap(wire['templateSnapshot'], 'templateSnapshot');
@@ -101,7 +112,12 @@ final class ResidentTaskRecord {
     );
   }
 
-  ResidentTaskRecord withResponse(TaskResponseRecord response) {
+  ResidentTaskRecord withResponse(
+    TaskResponseRecord response, {
+    bool clearPendingChoice = false,
+    bool? hasSyncConflict,
+    bool? hasPendingCompletionSync,
+  }) {
     if (response.taskId != taskId) {
       throw ArgumentError.value(response.taskId, 'response.taskId');
     }
@@ -117,16 +133,279 @@ final class ResidentTaskRecord {
       completionNote: response.completionNote,
       completionSubmittedAt: response.completionSubmittedAt,
       verifiedAt: response.verifiedAt,
+      pendingChoice: clearPendingChoice ? null : response.pendingChoice,
+      hasSyncConflict: hasSyncConflict ?? response.hasSyncConflict,
+      hasPendingCompletionSync:
+          hasPendingCompletionSync ?? response.isPendingCompletionSync,
     );
   }
 }
 
 /// Bounded active-task page; [isPartial] warns that more tasks exist.
 final class ResidentTaskList {
-  const ResidentTaskList({required this.items, required this.isPartial});
+  const ResidentTaskList({
+    required this.items,
+    required this.isPartial,
+    this.isCached = false,
+    this.lastSyncedAt,
+    this.syncIssues = const [],
+  });
 
   final List<ResidentTaskRecord> items;
   final bool isPartial;
+
+  /// True only when this list was loaded from the local snapshot.
+  final bool isCached;
+
+  /// Timestamp of the last successfully authorized server snapshot.
+  final DateTime? lastSyncedAt;
+  final List<ResidentTaskSyncIssue> syncIssues;
+}
+
+enum ResidentTaskSyncIssueKind {
+  choicePending,
+  choiceConflict,
+  completionPending,
+  completionConflict,
+  taskUnavailable,
+}
+
+/// A small, non-sensitive sync status suitable for resident UI.
+final class ResidentTaskSyncIssue {
+  const ResidentTaskSyncIssue({
+    required this.taskId,
+    required this.kind,
+    this.pendingChoice,
+    this.authoritativeParticipation,
+    this.taskTitle,
+  });
+
+  final String taskId;
+  final ResidentTaskSyncIssueKind kind;
+  final ParticipationChoice? pendingChoice;
+  final ParticipationState? authoritativeParticipation;
+  final String? taskTitle;
+}
+
+/// This exception is the only condition that allows resident-task cache fallback.
+final class TransientTaskNetworkUnavailableException implements Exception {
+  const TransientTaskNetworkUnavailableException();
+}
+
+/// A server response indicates an authoritative task/response conflict.
+final class TaskResponseConflictException implements Exception {
+  const TaskResponseConflictException({this.code = 'conflict'});
+
+  final String code;
+}
+
+/// A server rejected the command. It is not an offline/cache fallback signal.
+final class TaskResponseRejectedException implements Exception {
+  const TaskResponseRejectedException({required this.code});
+
+  final String code;
+}
+
+/// Application-layer contract for the resident task cache and durable outbox.
+abstract interface class ResidentTaskOfflineStore {
+  Future<void> cacheAuthorizedActiveTasks({
+    required ResidentSession session,
+    required ResidentTaskList taskList,
+    required DateTime syncedAt,
+  });
+
+  Future<ResidentTaskCacheSnapshot?> readCachedActiveTasks({
+    required ResidentSession session,
+  });
+
+  Future<PendingResidentTaskChoice> enqueueChoice({
+    required ResidentSession session,
+    required String taskId,
+    required ParticipationChoice choice,
+    required String commandId,
+    required DateTime queuedAt,
+    String? taskTitle,
+  });
+
+  Future<List<PendingResidentTaskChoice>> pendingChoices({
+    required ResidentSession session,
+  });
+
+  Future<void> removeChoice({
+    required ResidentSession session,
+    required String commandId,
+  });
+
+  Future<void> markChoiceConflict({
+    required ResidentSession session,
+    required String commandId,
+    ParticipationState? authoritativeParticipation,
+    bool taskNoLongerActive = false,
+  });
+
+  Future<void> markChoiceAttempted({
+    required ResidentSession session,
+    required String commandId,
+    required DateTime attemptedAt,
+  });
+
+  Future<PendingResidentTaskCompletion> enqueueCompletion({
+    required ResidentSession session,
+    required String taskId,
+    required String commandId,
+    required DateTime queuedAt,
+    String? taskTitle,
+  });
+
+  Future<List<PendingResidentTaskCompletion>> pendingCompletions({
+    required ResidentSession session,
+  });
+
+  Future<void> markCompletionAttempted({
+    required ResidentSession session,
+    required String commandId,
+    required DateTime attemptedAt,
+  });
+
+  Future<void> removeCompletion({
+    required ResidentSession session,
+    required String commandId,
+  });
+
+  Future<void> markCompletionConflict({
+    required ResidentSession session,
+    required String commandId,
+    bool taskNoLongerActive = false,
+  });
+}
+
+final class ResidentTaskCacheSnapshot {
+  const ResidentTaskCacheSnapshot({
+    required this.taskList,
+    required this.syncedAt,
+  });
+
+  final ResidentTaskList taskList;
+  final DateTime syncedAt;
+}
+
+const int maxResidentTaskRetryCount = 1000000;
+
+final class PendingResidentTaskChoice {
+  const PendingResidentTaskChoice({
+    required this.taskId,
+    required this.choice,
+    required this.commandId,
+    required this.queuedAt,
+    this.taskTitle,
+    this.hasConflict = false,
+    this.authoritativeParticipation,
+    this.taskNoLongerActive = false,
+    this.retryCount = 0,
+    this.lastAttemptAt,
+  });
+
+  final String taskId;
+  final ParticipationChoice choice;
+  final String commandId;
+  final DateTime queuedAt;
+  final String? taskTitle;
+  final bool hasConflict;
+  final ParticipationState? authoritativeParticipation;
+  final bool taskNoLongerActive;
+  final int retryCount;
+  final DateTime? lastAttemptAt;
+
+  PendingResidentTaskChoice withAttempt(DateTime at) =>
+      PendingResidentTaskChoice(
+        taskId: taskId,
+        choice: choice,
+        commandId: commandId,
+        queuedAt: queuedAt,
+        taskTitle: taskTitle,
+        hasConflict: hasConflict,
+        authoritativeParticipation: authoritativeParticipation,
+        taskNoLongerActive: taskNoLongerActive,
+        retryCount: retryCount < maxResidentTaskRetryCount
+            ? retryCount + 1
+            : maxResidentTaskRetryCount,
+        lastAttemptAt: at.toUtc(),
+      );
+
+  PendingResidentTaskChoice withConflict({
+    ParticipationState? authoritativeParticipation,
+    bool taskNoLongerActive = false,
+  }) => PendingResidentTaskChoice(
+    taskId: taskId,
+    choice: choice,
+    commandId: commandId,
+    queuedAt: queuedAt,
+    taskTitle: taskTitle,
+    hasConflict: true,
+    authoritativeParticipation: authoritativeParticipation,
+    taskNoLongerActive: taskNoLongerActive,
+    retryCount: retryCount,
+    lastAttemptAt: lastAttemptAt,
+  );
+}
+
+/// Durable no-note completion command. It intentionally has no note field.
+final class PendingResidentTaskCompletion {
+  const PendingResidentTaskCompletion({
+    required this.taskId,
+    required this.commandId,
+    required this.queuedAt,
+    this.taskTitle,
+    this.hasConflict = false,
+    this.taskNoLongerActive = false,
+    this.retryCount = 0,
+    this.lastAttemptAt,
+  });
+
+  final String taskId;
+  final String commandId;
+  final DateTime queuedAt;
+  final String? taskTitle;
+  final bool hasConflict;
+  final bool taskNoLongerActive;
+  final int retryCount;
+  final DateTime? lastAttemptAt;
+
+  PendingResidentTaskCompletion withAttempt(DateTime at) =>
+      PendingResidentTaskCompletion(
+        taskId: taskId,
+        commandId: commandId,
+        queuedAt: queuedAt,
+        taskTitle: taskTitle,
+        hasConflict: hasConflict,
+        taskNoLongerActive: taskNoLongerActive,
+        retryCount: retryCount < maxResidentTaskRetryCount
+            ? retryCount + 1
+            : maxResidentTaskRetryCount,
+        lastAttemptAt: at.toUtc(),
+      );
+
+  PendingResidentTaskCompletion withConflict({
+    bool taskNoLongerActive = false,
+  }) => PendingResidentTaskCompletion(
+    taskId: taskId,
+    commandId: commandId,
+    queuedAt: queuedAt,
+    taskTitle: taskTitle,
+    hasConflict: true,
+    taskNoLongerActive: taskNoLongerActive,
+    retryCount: retryCount,
+    lastAttemptAt: lastAttemptAt,
+  );
+}
+
+/// An optional completion note cannot be safely queued offline.
+final class OfflineCompletionNoteException implements Exception {
+  const OfflineCompletionNoteException();
+
+  @override
+  String toString() =>
+      'Completion with a note needs a connection. The note was not saved.';
 }
 
 /// Response state returned by one resident or operator command.
@@ -138,6 +417,10 @@ final class TaskResponseRecord {
     this.completionNote,
     this.completionSubmittedAt,
     this.verifiedAt,
+    this.pendingChoice,
+    this.isPendingSync = false,
+    this.hasSyncConflict = false,
+    this.isPendingCompletionSync = false,
   });
 
   final String taskId;
@@ -146,6 +429,10 @@ final class TaskResponseRecord {
   final String? completionNote;
   final DateTime? completionSubmittedAt;
   final DateTime? verifiedAt;
+  final ParticipationChoice? pendingChoice;
+  final bool isPendingSync;
+  final bool hasSyncConflict;
+  final bool isPendingCompletionSync;
 
   factory TaskResponseRecord.fromWire(Map<String, Object?> wire) =>
       TaskResponseRecord(
@@ -256,42 +543,318 @@ final class TaskResponseController {
   TaskResponseController({
     required TaskResponseBoundary boundary,
     required ResidentSessionVault vault,
+    ResidentTaskOfflineStore? offlineStore,
     String Function()? commandIdFactory,
+    DateTime Function()? clock,
   }) : _boundary = boundary,
        _vault = vault,
-       _commandIdFactory = commandIdFactory ?? _newCommandId;
+       _offlineStore = offlineStore,
+       _commandIdFactory = commandIdFactory ?? _newCommandId,
+       _clock = clock ?? DateTime.now;
 
   final TaskResponseBoundary _boundary;
   final ResidentSessionVault _vault;
+  final ResidentTaskOfflineStore? _offlineStore;
   final String Function() _commandIdFactory;
+  final DateTime Function() _clock;
   final Map<String, String> _choiceCommands = {};
   final Map<String, String> _completionCommands = {};
   final Map<String, String?> _completionNotes = {};
   final Map<String, String> _verificationCommands = {};
 
-  Future<ResidentTaskList> listResidentActiveTasks() async =>
-      _boundary.listResidentActiveTasks(sessionToken: await _sessionToken());
+  Future<ResidentTaskList> listResidentActiveTasks({
+    ResidentSession? session,
+  }) async {
+    final token = await _sessionToken();
+    late final ResidentTaskList serverList;
+    try {
+      serverList = await _boundary.listResidentActiveTasks(sessionToken: token);
+    } on TransientTaskNetworkUnavailableException {
+      final store = _offlineStore;
+      if (store == null || session == null) rethrow;
+      final cached = await store.readCachedActiveTasks(session: session);
+      if (cached == null) rethrow;
+      final choices = await store.pendingChoices(session: session);
+      final completions = await store.pendingCompletions(session: session);
+      return _decorateList(
+        cached.taskList,
+        choices: choices,
+        completions: completions,
+        isCached: true,
+        lastSyncedAt: cached.syncedAt,
+      );
+    }
+
+    final store = _offlineStore;
+    if (store == null || session == null) return serverList;
+    _validateListScope(serverList, session);
+    final syncedAt = _clock().toUtc();
+    // A local persistence failure must not hide a valid remote list.
+    try {
+      await store.cacheAuthorizedActiveTasks(
+        session: session,
+        taskList: serverList,
+        syncedAt: syncedAt,
+      );
+    } catch (_) {
+      // The remote response is still safe to display.
+    }
+    return _replayQueuedCommands(
+      serverList,
+      session: session,
+      sessionToken: token,
+      syncedAt: syncedAt,
+    );
+  }
 
   Future<TaskResponseRecord> recordParticipation({
     required String taskId,
     required ParticipationChoice choice,
+    ResidentSession? session,
   }) async {
-    final commandId = _choiceCommands.putIfAbsent(taskId, _commandIdFactory);
-    final result = await _boundary.recordResidentTaskResponse(
-      sessionToken: await _sessionToken(),
+    final token = await _sessionToken();
+    final store = _offlineStore;
+    if (store == null || session == null) {
+      final commandId = _choiceCommands.putIfAbsent(taskId, _commandIdFactory);
+      final result = await _boundary.recordResidentTaskResponse(
+        sessionToken: token,
+        taskId: taskId,
+        choice: choice,
+        commandId: commandId,
+      );
+      _choiceCommands.remove(taskId);
+      return result;
+    }
+
+    final queued = await store.pendingChoices(session: session);
+    PendingResidentTaskChoice? existing;
+    for (final command in queued) {
+      if (command.taskId == taskId) existing = command;
+    }
+    if (existing != null && existing.choice != choice) {
+      throw StateError('A different participation choice is already pending.');
+    }
+    final cached = await _cachedTask(store, session, taskId);
+    if (existing?.hasConflict ?? false) {
+      return TaskResponseRecord(
+        taskId: taskId,
+        participation:
+            existing!.authoritativeParticipation ??
+            cached?.participation ??
+            ParticipationState.unresponded,
+        completion: cached?.completion ?? CompletionState.notSubmitted,
+        pendingChoice: choice,
+        isPendingSync: true,
+        hasSyncConflict: true,
+      );
+    }
+
+    // Enqueue is durable and intentionally happens before the callable request.
+    // If it fails, no request is sent and no action is reported as queued.
+    final command = await store.enqueueChoice(
+      session: session,
       taskId: taskId,
       choice: choice,
-      commandId: commandId,
+      commandId: existing?.commandId ?? _commandIdFactory(),
+      queuedAt: _clock().toUtc(),
+      taskTitle: cached?.templateSnapshot.title,
     );
-    _choiceCommands.remove(taskId);
-    return result;
+    try {
+      final result = await _boundary.recordResidentTaskResponse(
+        sessionToken: token,
+        taskId: taskId,
+        choice: choice,
+        commandId: command.commandId,
+      );
+      if (result.participation != _stateFor(choice)) {
+        await store.markChoiceConflict(
+          session: session,
+          commandId: command.commandId,
+          authoritativeParticipation: result.participation,
+        );
+        return _responseWithChoiceState(
+          result,
+          pendingChoice: choice,
+          pending: true,
+          conflict: true,
+        );
+      }
+      // The server accepted it. Failures in local cleanup/cache must not turn a
+      // successful online response into an apparent failure; the idempotent
+      // command remains available for reconciliation if cleanup did not persist.
+      try {
+        await store.removeChoice(
+          session: session,
+          commandId: command.commandId,
+        );
+      } catch (_) {}
+      try {
+        await _updateCachedTask(store, session, result);
+      } catch (_) {}
+      return result;
+    } on TransientTaskNetworkUnavailableException {
+      return TaskResponseRecord(
+        taskId: taskId,
+        participation: cached?.participation ?? ParticipationState.unresponded,
+        completion: cached?.completion ?? CompletionState.notSubmitted,
+        pendingChoice: choice,
+        isPendingSync: true,
+      );
+    } on TaskResponseConflictException {
+      await store.markChoiceConflict(
+        session: session,
+        commandId: command.commandId,
+        authoritativeParticipation: cached?.participation,
+        taskNoLongerActive: true,
+      );
+      return TaskResponseRecord(
+        taskId: taskId,
+        participation: cached?.participation ?? ParticipationState.unresponded,
+        completion: cached?.completion ?? CompletionState.notSubmitted,
+        pendingChoice: choice,
+        isPendingSync: true,
+        hasSyncConflict: true,
+      );
+    } on TaskResponseRejectedException {
+      await store.markChoiceConflict(
+        session: session,
+        commandId: command.commandId,
+        authoritativeParticipation: cached?.participation,
+      );
+      return TaskResponseRecord(
+        taskId: taskId,
+        participation: cached?.participation ?? ParticipationState.unresponded,
+        completion: cached?.completion ?? CompletionState.notSubmitted,
+        pendingChoice: choice,
+        isPendingSync: true,
+        hasSyncConflict: true,
+      );
+    } catch (_) {
+      // Preserve the durable intent and stop automatic retries until the next
+      // authorized list explains the server state.
+      try {
+        await store.markChoiceConflict(
+          session: session,
+          commandId: command.commandId,
+          authoritativeParticipation: cached?.participation,
+        );
+      } catch (_) {}
+      rethrow;
+    }
   }
 
   Future<TaskResponseRecord> submitCompletion({
     required String taskId,
     required String? note,
+    ResidentSession? session,
   }) async {
     final normalizedNote = _normalizeOptionalText(note);
+    final token = await _sessionToken();
+    final store = _offlineStore;
+    if (normalizedNote == null && store != null && session != null) {
+      final cached = await _cachedTask(store, session, taskId);
+      final queued = await store.pendingCompletions(session: session);
+      PendingResidentTaskCompletion? existing;
+      for (final command in queued) {
+        if (command.taskId == taskId) existing = command;
+      }
+      if (existing?.hasConflict ?? false) {
+        return TaskResponseRecord(
+          taskId: taskId,
+          participation:
+              cached?.participation ?? ParticipationState.unresponded,
+          completion: cached?.completion ?? CompletionState.notSubmitted,
+          isPendingSync: true,
+          isPendingCompletionSync: true,
+          hasSyncConflict: true,
+        );
+      }
+      final command = await store.enqueueCompletion(
+        session: session,
+        taskId: taskId,
+        commandId: existing?.commandId ?? _commandIdFactory(),
+        queuedAt: _clock().toUtc(),
+        taskTitle: cached?.templateSnapshot.title,
+      );
+      try {
+        final result = await _boundary.submitTaskCompletion(
+          sessionToken: token,
+          taskId: taskId,
+          note: null,
+          commandId: command.commandId,
+        );
+        if (result.completion == CompletionState.notSubmitted) {
+          await store.markCompletionConflict(
+            session: session,
+            commandId: command.commandId,
+          );
+          return _completionWithPendingState(
+            result,
+            pending: true,
+            conflict: true,
+          );
+        }
+        try {
+          await store.removeCompletion(
+            session: session,
+            commandId: command.commandId,
+          );
+        } catch (_) {}
+        try {
+          await _updateCachedTask(store, session, result);
+        } catch (_) {}
+        return result;
+      } on TransientTaskNetworkUnavailableException {
+        return TaskResponseRecord(
+          taskId: taskId,
+          participation:
+              cached?.participation ?? ParticipationState.unresponded,
+          completion: cached?.completion ?? CompletionState.notSubmitted,
+          isPendingSync: true,
+          isPendingCompletionSync: true,
+        );
+      } on TaskResponseConflictException {
+        await store.markCompletionConflict(
+          session: session,
+          commandId: command.commandId,
+          taskNoLongerActive: true,
+        );
+        return TaskResponseRecord(
+          taskId: taskId,
+          participation:
+              cached?.participation ?? ParticipationState.unresponded,
+          completion: cached?.completion ?? CompletionState.notSubmitted,
+          isPendingSync: true,
+          isPendingCompletionSync: true,
+          hasSyncConflict: true,
+        );
+      } on TaskResponseRejectedException {
+        await store.markCompletionConflict(
+          session: session,
+          commandId: command.commandId,
+        );
+        return TaskResponseRecord(
+          taskId: taskId,
+          participation:
+              cached?.participation ?? ParticipationState.unresponded,
+          completion: cached?.completion ?? CompletionState.notSubmitted,
+          isPendingSync: true,
+          isPendingCompletionSync: true,
+          hasSyncConflict: true,
+        );
+      } catch (_) {
+        try {
+          await store.markCompletionConflict(
+            session: session,
+            commandId: command.commandId,
+          );
+        } catch (_) {}
+        rethrow;
+      }
+    }
+
+    // Notes are optional but private. Never add one to the outbox. If the call
+    // is unavailable, tell the caller it was not saved locally.
     final previousNote = _completionNotes[taskId];
     if (_completionCommands.containsKey(taskId) &&
         previousNote != normalizedNote) {
@@ -303,15 +866,24 @@ final class TaskResponseController {
       _commandIdFactory,
     );
     _completionNotes.putIfAbsent(taskId, () => normalizedNote);
-    final result = await _boundary.submitTaskCompletion(
-      sessionToken: await _sessionToken(),
-      taskId: taskId,
-      note: normalizedNote,
-      commandId: commandId,
-    );
-    _completionCommands.remove(taskId);
-    _completionNotes.remove(taskId);
-    return result;
+    try {
+      final result = await _boundary.submitTaskCompletion(
+        sessionToken: token,
+        taskId: taskId,
+        note: normalizedNote,
+        commandId: commandId,
+      );
+      _completionCommands.remove(taskId);
+      _completionNotes.remove(taskId);
+      return result;
+    } on TransientTaskNetworkUnavailableException {
+      _completionCommands.remove(taskId);
+      _completionNotes.remove(taskId);
+      if (normalizedNote != null) {
+        throw const OfflineCompletionNoteException();
+      }
+      rethrow;
+    }
   }
 
   Future<TaskVerificationQueue> listPendingVerifications() =>
@@ -335,6 +907,399 @@ final class TaskResponseController {
   Future<TaskResponseRecap> getResponseRecap({required String taskId}) =>
       _boundary.getResponseRecap(taskId: taskId);
 
+  Future<ResidentTaskList> _replayQueuedCommands(
+    ResidentTaskList serverList, {
+    required ResidentSession session,
+    required String sessionToken,
+    required DateTime syncedAt,
+  }) async {
+    final store = _offlineStore!;
+    final choices = await store.pendingChoices(session: session);
+    final completions = await store.pendingCompletions(session: session);
+    final items = serverList.items.toList(growable: true);
+    final issues = <ResidentTaskSyncIssue>[];
+
+    for (final command in choices) {
+      final index = items.indexWhere((task) => task.taskId == command.taskId);
+      if (command.hasConflict) {
+        _applyPendingChoice(items, index, command);
+        issues.add(_choiceIssue(command));
+        continue;
+      }
+      if (index < 0) {
+        await store.markChoiceConflict(
+          session: session,
+          commandId: command.commandId,
+          taskNoLongerActive: true,
+        );
+        final conflict = command.withConflict(taskNoLongerActive: true);
+        issues.add(_choiceIssue(conflict));
+        continue;
+      }
+      final task = items[index];
+      final desired = _stateFor(command.choice);
+      if (task.participation != ParticipationState.unresponded) {
+        if (task.participation == desired) {
+          await store.removeChoice(
+            session: session,
+            commandId: command.commandId,
+          );
+        } else {
+          await store.markChoiceConflict(
+            session: session,
+            commandId: command.commandId,
+            authoritativeParticipation: task.participation,
+          );
+          final conflict = command.withConflict(
+            authoritativeParticipation: task.participation,
+          );
+          _applyPendingChoice(items, index, conflict);
+          issues.add(_choiceIssue(conflict));
+        }
+        continue;
+      }
+      await store.markChoiceAttempted(
+        session: session,
+        commandId: command.commandId,
+        attemptedAt: _clock().toUtc(),
+      );
+      try {
+        final response = await _boundary.recordResidentTaskResponse(
+          sessionToken: sessionToken,
+          taskId: command.taskId,
+          choice: command.choice,
+          commandId: command.commandId,
+        );
+        if (response.participation == desired) {
+          await store.removeChoice(
+            session: session,
+            commandId: command.commandId,
+          );
+          items[index] = task.withResponse(
+            response,
+            clearPendingChoice: true,
+            hasSyncConflict: false,
+          );
+        } else {
+          await store.markChoiceConflict(
+            session: session,
+            commandId: command.commandId,
+            authoritativeParticipation: response.participation,
+          );
+          final conflict = command.withConflict(
+            authoritativeParticipation: response.participation,
+          );
+          items[index] = task
+              .withResponse(response, hasSyncConflict: true)
+              ._withPendingChoice(command.choice, conflict: true);
+          issues.add(_choiceIssue(conflict));
+        }
+      } on TransientTaskNetworkUnavailableException {
+        _applyPendingChoice(items, index, command);
+        issues.add(_choiceIssue(command));
+      } on TaskResponseConflictException {
+        await store.markChoiceConflict(
+          session: session,
+          commandId: command.commandId,
+          authoritativeParticipation: task.participation,
+          taskNoLongerActive: true,
+        );
+        final conflict = command.withConflict(
+          authoritativeParticipation: task.participation,
+          taskNoLongerActive: true,
+        );
+        if (index >= 0) items.removeAt(index);
+        issues.add(_choiceIssue(conflict));
+      } on TaskResponseRejectedException {
+        await store.markChoiceConflict(
+          session: session,
+          commandId: command.commandId,
+          authoritativeParticipation: task.participation,
+        );
+        final conflict = command.withConflict(
+          authoritativeParticipation: task.participation,
+        );
+        _applyPendingChoice(items, index, conflict);
+        issues.add(_choiceIssue(conflict));
+      }
+    }
+
+    for (final command in completions) {
+      final index = items.indexWhere((task) => task.taskId == command.taskId);
+      if (command.hasConflict) {
+        _applyPendingCompletion(items, index, command);
+        issues.add(_completionIssue(command));
+        continue;
+      }
+      if (index < 0) {
+        await store.markCompletionConflict(
+          session: session,
+          commandId: command.commandId,
+          taskNoLongerActive: true,
+        );
+        final conflict = command.withConflict(taskNoLongerActive: true);
+        issues.add(_completionIssue(conflict));
+        continue;
+      }
+      final task = items[index];
+      if (task.completion != CompletionState.notSubmitted) {
+        // The prior command may have committed before its response was lost.
+        await store.removeCompletion(
+          session: session,
+          commandId: command.commandId,
+        );
+        continue;
+      }
+      if (task.participation != ParticipationState.joined) {
+        await store.markCompletionConflict(
+          session: session,
+          commandId: command.commandId,
+        );
+        final conflict = command.withConflict();
+        _applyPendingCompletion(items, index, conflict);
+        issues.add(_completionIssue(conflict));
+        continue;
+      }
+      await store.markCompletionAttempted(
+        session: session,
+        commandId: command.commandId,
+        attemptedAt: _clock().toUtc(),
+      );
+      try {
+        final response = await _boundary.submitTaskCompletion(
+          sessionToken: sessionToken,
+          taskId: command.taskId,
+          note: null,
+          commandId: command.commandId,
+        );
+        if (response.completion != CompletionState.notSubmitted) {
+          await store.removeCompletion(
+            session: session,
+            commandId: command.commandId,
+          );
+          items[index] = task.withResponse(
+            response,
+            hasPendingCompletionSync: false,
+            hasSyncConflict: false,
+          );
+        } else {
+          await store.markCompletionConflict(
+            session: session,
+            commandId: command.commandId,
+          );
+          final conflict = command.withConflict();
+          _applyPendingCompletion(items, index, conflict);
+          issues.add(_completionIssue(conflict));
+        }
+      } on TransientTaskNetworkUnavailableException {
+        _applyPendingCompletion(items, index, command);
+        issues.add(_completionIssue(command));
+      } on TaskResponseConflictException {
+        await store.markCompletionConflict(
+          session: session,
+          commandId: command.commandId,
+          taskNoLongerActive: true,
+        );
+        final conflict = command.withConflict(taskNoLongerActive: true);
+        if (index >= 0) items.removeAt(index);
+        issues.add(_completionIssue(conflict));
+      } on TaskResponseRejectedException {
+        await store.markCompletionConflict(
+          session: session,
+          commandId: command.commandId,
+        );
+        final conflict = command.withConflict();
+        _applyPendingCompletion(items, index, conflict);
+        issues.add(_completionIssue(conflict));
+      }
+    }
+
+    final result = ResidentTaskList(
+      items: List<ResidentTaskRecord>.unmodifiable(items),
+      isPartial: serverList.isPartial,
+      isCached: false,
+      lastSyncedAt: syncedAt,
+      syncIssues: List<ResidentTaskSyncIssue>.unmodifiable(issues),
+    );
+    try {
+      await store.cacheAuthorizedActiveTasks(
+        session: session,
+        taskList: result,
+        syncedAt: syncedAt,
+      );
+    } catch (_) {
+      // Fresh server data remains displayable when local writes fail.
+    }
+    return result;
+  }
+
+  ResidentTaskList _decorateList(
+    ResidentTaskList list, {
+    required List<PendingResidentTaskChoice> choices,
+    required List<PendingResidentTaskCompletion> completions,
+    required bool isCached,
+    required DateTime lastSyncedAt,
+  }) {
+    final items = list.items.toList(growable: true);
+    final issues = <ResidentTaskSyncIssue>[];
+    for (final command in choices) {
+      final index = items.indexWhere((task) => task.taskId == command.taskId);
+      _applyPendingChoice(items, index, command);
+      issues.add(_choiceIssue(command));
+    }
+    for (final command in completions) {
+      final index = items.indexWhere((task) => task.taskId == command.taskId);
+      _applyPendingCompletion(items, index, command);
+      issues.add(_completionIssue(command));
+    }
+    return ResidentTaskList(
+      items: List<ResidentTaskRecord>.unmodifiable(items),
+      isPartial: list.isPartial,
+      isCached: isCached,
+      lastSyncedAt: lastSyncedAt,
+      syncIssues: List<ResidentTaskSyncIssue>.unmodifiable(issues),
+    );
+  }
+
+  void _applyPendingChoice(
+    List<ResidentTaskRecord> items,
+    int index,
+    PendingResidentTaskChoice command,
+  ) {
+    if (index >= 0) {
+      items[index] = items[index]._withPendingChoice(
+        command.choice,
+        conflict: command.hasConflict,
+      );
+    }
+  }
+
+  void _applyPendingCompletion(
+    List<ResidentTaskRecord> items,
+    int index,
+    PendingResidentTaskCompletion command,
+  ) {
+    if (index >= 0) {
+      items[index] = items[index]._withPendingCompletion(
+        conflict: command.hasConflict,
+      );
+    }
+  }
+
+  ResidentTaskSyncIssue _choiceIssue(PendingResidentTaskChoice command) =>
+      ResidentTaskSyncIssue(
+        taskId: command.taskId,
+        taskTitle: command.taskTitle,
+        kind: command.taskNoLongerActive
+            ? ResidentTaskSyncIssueKind.taskUnavailable
+            : command.hasConflict
+            ? ResidentTaskSyncIssueKind.choiceConflict
+            : ResidentTaskSyncIssueKind.choicePending,
+        pendingChoice: command.choice,
+        authoritativeParticipation: command.authoritativeParticipation,
+      );
+
+  ResidentTaskSyncIssue _completionIssue(
+    PendingResidentTaskCompletion command,
+  ) => ResidentTaskSyncIssue(
+    taskId: command.taskId,
+    taskTitle: command.taskTitle,
+    kind: command.taskNoLongerActive
+        ? ResidentTaskSyncIssueKind.taskUnavailable
+        : command.hasConflict
+        ? ResidentTaskSyncIssueKind.completionConflict
+        : ResidentTaskSyncIssueKind.completionPending,
+  );
+
+  Future<ResidentTaskRecord?> _cachedTask(
+    ResidentTaskOfflineStore store,
+    ResidentSession session,
+    String taskId,
+  ) async {
+    try {
+      final cached = await store.readCachedActiveTasks(session: session);
+      for (final task
+          in cached?.taskList.items ?? const <ResidentTaskRecord>[]) {
+        if (task.taskId == taskId) return task;
+      }
+    } catch (_) {
+      // The cache is advisory; the authorized callable remains authoritative.
+    }
+    return null;
+  }
+
+  Future<void> _updateCachedTask(
+    ResidentTaskOfflineStore store,
+    ResidentSession session,
+    TaskResponseRecord response,
+  ) async {
+    final cached = await store.readCachedActiveTasks(session: session);
+    if (cached == null) return;
+    final items = cached.taskList.items
+        .map(
+          (task) => task.taskId == response.taskId
+              ? task.withResponse(
+                  response,
+                  clearPendingChoice: true,
+                  hasSyncConflict: false,
+                  hasPendingCompletionSync: false,
+                )
+              : task,
+        )
+        .toList(growable: false);
+    await store.cacheAuthorizedActiveTasks(
+      session: session,
+      taskList: ResidentTaskList(
+        items: items,
+        isPartial: cached.taskList.isPartial,
+      ),
+      syncedAt: _clock().toUtc(),
+    );
+  }
+
+  TaskResponseRecord _responseWithChoiceState(
+    TaskResponseRecord response, {
+    required ParticipationChoice pendingChoice,
+    required bool pending,
+    required bool conflict,
+  }) => TaskResponseRecord(
+    taskId: response.taskId,
+    participation: response.participation,
+    completion: response.completion,
+    completionNote: response.completionNote,
+    completionSubmittedAt: response.completionSubmittedAt,
+    verifiedAt: response.verifiedAt,
+    pendingChoice: pendingChoice,
+    isPendingSync: pending,
+    hasSyncConflict: conflict,
+  );
+
+  TaskResponseRecord _completionWithPendingState(
+    TaskResponseRecord response, {
+    required bool pending,
+    required bool conflict,
+  }) => TaskResponseRecord(
+    taskId: response.taskId,
+    participation: response.participation,
+    completion: response.completion,
+    completionNote: response.completionNote,
+    completionSubmittedAt: response.completionSubmittedAt,
+    verifiedAt: response.verifiedAt,
+    isPendingSync: pending,
+    isPendingCompletionSync: pending,
+    hasSyncConflict: conflict,
+  );
+
+  void _validateListScope(ResidentTaskList list, ResidentSession session) {
+    for (final task in list.items) {
+      if (task.rtId != session.communityId || task.status != 'ACTIVE') {
+        throw const FormatException(
+          'Resident task scope does not match session.',
+        );
+      }
+    }
+  }
+
   Future<String> _sessionToken() async {
     final token = await _vault.read();
     if (token == null || token.isEmpty) {
@@ -345,6 +1310,51 @@ final class TaskResponseController {
     return token;
   }
 }
+
+extension on ResidentTaskRecord {
+  ResidentTaskRecord _withPendingChoice(
+    ParticipationChoice choice, {
+    required bool conflict,
+  }) => ResidentTaskRecord(
+    taskId: taskId,
+    rtId: rtId,
+    templateSnapshot: templateSnapshot,
+    deadline: deadline,
+    status: status,
+    participation: participation,
+    completion: completion,
+    locationReference: locationReference,
+    completionNote: completionNote,
+    completionSubmittedAt: completionSubmittedAt,
+    verifiedAt: verifiedAt,
+    pendingChoice: choice,
+    hasSyncConflict: conflict,
+    hasPendingCompletionSync: hasPendingCompletionSync,
+  );
+
+  ResidentTaskRecord _withPendingCompletion({required bool conflict}) =>
+      ResidentTaskRecord(
+        taskId: taskId,
+        rtId: rtId,
+        templateSnapshot: templateSnapshot,
+        deadline: deadline,
+        status: status,
+        participation: participation,
+        completion: completion,
+        locationReference: locationReference,
+        completionNote: completionNote,
+        completionSubmittedAt: completionSubmittedAt,
+        verifiedAt: verifiedAt,
+        pendingChoice: pendingChoice,
+        hasSyncConflict: conflict,
+        hasPendingCompletionSync: true,
+      );
+}
+
+ParticipationState _stateFor(ParticipationChoice choice) => switch (choice) {
+  ParticipationChoice.join => ParticipationState.joined,
+  ParticipationChoice.decline => ParticipationState.declined,
+};
 
 TaskTemplateSnapshot _snapshotFromWire(Map<String, Object?> wire) {
   final duration = wire['estimatedDurationMinutes'];

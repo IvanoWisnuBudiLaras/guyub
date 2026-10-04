@@ -53,6 +53,7 @@ final class ResidentSessionController {
       }
       rethrow;
     }
+    await _writeCachedSession(grant.session);
     try {
       await _vault.clearPendingEnrollmentId();
     } catch (_) {
@@ -66,10 +67,17 @@ final class ResidentSessionController {
     final token = await _vault.read();
     if (token == null || token.isEmpty) return null;
     try {
-      return await _boundary.validateSession(token);
+      final session = await _boundary.validateSession(token);
+      await _writeCachedSession(session);
+      return session;
     } on ResidentSessionInvalidException {
       await _vault.clear();
+      await _clearCachedSession();
       return null;
+    } on ResidentSessionUnavailableException {
+      final cached = await _readCachedSession();
+      if (cached != null) return cached.asOfflineSnapshot();
+      rethrow;
     }
   }
 
@@ -77,6 +85,7 @@ final class ResidentSessionController {
   Future<void> signOut() async {
     final token = await _vault.read();
     await _vault.clear();
+    await _clearCachedSession();
     try {
       await _vault.clearPendingEnrollmentId();
     } catch (_) {
@@ -87,6 +96,36 @@ final class ResidentSessionController {
       await _boundary.revokeSession(token);
     } catch (_) {
       // The server-side expiry bounds any still-valid token.
+    }
+  }
+
+  Future<void> _writeCachedSession(ResidentSession session) async {
+    final vault = _vault;
+    if (vault is! ResidentSessionMetadataVault) return;
+    try {
+      await (vault as ResidentSessionMetadataVault).writeCachedSession(session);
+    } catch (_) {
+      // A profile snapshot is a convenience, never a reason to fail sign-in.
+    }
+  }
+
+  Future<ResidentSession?> _readCachedSession() async {
+    final vault = _vault;
+    if (vault is! ResidentSessionMetadataVault) return null;
+    try {
+      return await (vault as ResidentSessionMetadataVault).readCachedSession();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _clearCachedSession() async {
+    final vault = _vault;
+    if (vault is! ResidentSessionMetadataVault) return;
+    try {
+      await (vault as ResidentSessionMetadataVault).clearCachedSession();
+    } catch (_) {
+      // Revocation is not delayed by local metadata cleanup.
     }
   }
 

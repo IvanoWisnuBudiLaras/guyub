@@ -1,6 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
+const { hashJoinCode } = require('../src/resident_session_service');
 
 const PROJECT_ID = 'demo-guyub-functions';
 const REGION = 'asia-southeast2';
@@ -68,6 +69,15 @@ async function seedOperator(uid, {
   rtId = 'rt-task-a', role = 'KETUA_RT_RW', active = true,
 } = {}) {
   await seedDocument('operators', uid, { rtId, role, active });
+}
+
+async function seedCommunity(rtId, joinCode) {
+  await seedDocument('rt_communities', rtId, {
+    displayName: `Komunitas ${rtId}`,
+    rtLabel: 'RT Uji',
+    joinCodeHash: hashJoinCode(joinCode),
+    joinCodeActive: true,
+  });
 }
 
 async function seedTemplate({
@@ -282,6 +292,124 @@ test('operator task callables enforce RT scope, reviewed templates, locked conte
     commandId: randomRequestId(),
   }, operatorA.idToken);
   assertError(differentCommand, 'FAILED_PRECONDITION');
+
+  const foreignDraftResponse = await callFunction('createTaskDraft', {
+    ...draftPayload,
+    requestId: randomRequestId(),
+  }, operatorB.idToken);
+  assert.equal(foreignDraftResponse.status, 200, JSON.stringify(foreignDraftResponse.body));
+  const foreignTaskId = foreignDraftResponse.body.result.campaignId;
+  const foreignActivation = await callFunction('activateTaskCampaign', {
+    campaignId: foreignTaskId,
+    commandId: randomRequestId(),
+  }, operatorB.idToken);
+  assert.equal(foreignActivation.status, 200, JSON.stringify(foreignActivation.body));
+
+  const unauthenticatedActiveList = await callFunction('listActiveTaskCampaigns', {});
+  assertError(unauthenticatedActiveList, 'PERMISSION_DENIED');
+  const residentActiveList = await callFunction(
+    'listActiveTaskCampaigns', {}, resident.idToken,
+  );
+  assertError(residentActiveList, 'PERMISSION_DENIED');
+  const inactiveActiveList = await callFunction(
+    'listActiveTaskCampaigns', {}, inactive.idToken,
+  );
+  assertError(inactiveActiveList, 'PERMISSION_DENIED');
+  const activeListA = await callFunction('listActiveTaskCampaigns', {}, operatorA.idToken);
+  assert.equal(activeListA.status, 200, JSON.stringify(activeListA.body));
+  assert.deepEqual(activeListA.body.result.tasks.map((item) => item.taskId), [draft.campaignId]);
+  const listedTask = activeListA.body.result.tasks[0];
+  assert.deepEqual(Object.keys(listedTask).sort(), [
+    'deadline', 'locationReference', 'taskId', 'templateSnapshot',
+  ]);
+  assert.equal(listedTask.templateSnapshot.title, 'Persiapan rumah tangga');
+  assert.equal('rtId' in listedTask, false);
+  const activeListB = await callFunction('listActiveTaskCampaigns', {}, operatorB.idToken);
+  assert.equal(activeListB.status, 200, JSON.stringify(activeListB.body));
+  assert.deepEqual(activeListB.body.result.tasks.map((item) => item.taskId), [foreignTaskId]);
+
+  const cancelPayload = { taskId: draft.campaignId, commandId: randomRequestId() };
+  const crossRtCancel = await callFunction('cancelTaskCampaign', cancelPayload, operatorB.idToken);
+  assertError(crossRtCancel, 'PERMISSION_DENIED');
+  const inactiveCancel = await callFunction('cancelTaskCampaign', cancelPayload, inactive.idToken);
+  assertError(inactiveCancel, 'PERMISSION_DENIED');
+  const missingCancel = await callFunction('cancelTaskCampaign', {
+    taskId: '0'.repeat(40), commandId: cancelPayload.commandId,
+  }, operatorB.idToken);
+  assertError(missingCancel, 'PERMISSION_DENIED');
+  assert.equal(missingCancel.body.error.status, crossRtCancel.body.error.status);
+  assert.equal(missingCancel.body.error.message, crossRtCancel.body.error.message);
+  assertError(await callFunction('cancelTaskCampaign', {
+    ...cancelPayload, rtId: 'rt-task-a',
+  }, operatorA.idToken), 'INVALID_ARGUMENT');
+  assertError(await callFunction('cancelTaskCampaign', {
+    ...cancelPayload, actorUid: operatorA.localId,
+  }, operatorA.idToken), 'INVALID_ARGUMENT');
+  assertError(await callFunction('cancelTaskCampaign', cancelPayload, resident.idToken),
+    'PERMISSION_DENIED');
+
+  const joinCode = `JC${crypto.randomBytes(8).toString('hex').toUpperCase()}`;
+  await seedCommunity('rt-task-a', joinCode);
+  const residentSession = await callFunction('createResidentSession', {
+    joinCode,
+    nickname: 'Sari',
+    requestId: randomRequestId(),
+  });
+  assert.equal(residentSession.status, 200, JSON.stringify(residentSession.body));
+  const residentTasksBeforeCancel = await callFunction('listResidentActiveTasks', {
+    sessionToken: residentSession.body.result.sessionToken,
+  });
+  assert.equal(residentTasksBeforeCancel.status, 200,
+    JSON.stringify(residentTasksBeforeCancel.body));
+  assert.deepEqual(residentTasksBeforeCancel.body.result.items.map((item) => item.taskId),
+    [draft.campaignId]);
+
+  const cancellationResults = await Promise.all([
+    callFunction('cancelTaskCampaign', cancelPayload, operatorA.idToken),
+    callFunction('cancelTaskCampaign', cancelPayload, operatorA.idToken),
+  ]);
+  for (const result of cancellationResults) {
+    assert.equal(result.status, 200, JSON.stringify(result.body));
+    assert.deepEqual(result.body.result, { taskId: draft.campaignId, status: 'CANCELLED' });
+  }
+  const cancelReplay = await callFunction('cancelTaskCampaign', cancelPayload, operatorA.idToken);
+  assert.equal(cancelReplay.status, 200, JSON.stringify(cancelReplay.body));
+  const conflictingCancel = await callFunction('cancelTaskCampaign', {
+    taskId: draft.campaignId,
+    commandId: randomRequestId(),
+  }, operatorA.idToken);
+  assertError(conflictingCancel, 'FAILED_PRECONDITION');
+
+  const cancelledTask = await readDocument('task_campaigns', draft.campaignId);
+  assert.equal(cancelledTask.status, 200, JSON.stringify(cancelledTask.body));
+  assert.equal(cancelledTask.body.fields.status.stringValue, 'CANCELLED');
+  assert.equal(cancelledTask.body.fields.cancelledByOperatorUid.stringValue, operatorA.localId);
+  assert.equal(cancelledTask.body.fields.cancellationCommandHash.stringValue,
+    crypto.createHash('sha256').update(cancelPayload.commandId).digest('hex'));
+  assert.equal(cancelledTask.body.fields.commandId, undefined);
+  const cancellationAuditId = `${draft.campaignId}_cancelled`;
+  const cancellationAudit = await readDocument('task_audit_events', cancellationAuditId);
+  assert.equal(cancellationAudit.status, 200, JSON.stringify(cancellationAudit.body));
+  assert.equal(cancellationAudit.body.fields.action.stringValue, 'CAMPAIGN_CANCELLED');
+  assert.equal(cancellationAudit.body.fields.actorUid.stringValue, operatorA.localId);
+  assert.equal(cancellationAudit.body.fields.commandHash.stringValue,
+    crypto.createHash('sha256').update(cancelPayload.commandId).digest('hex'));
+  assert.equal(cancellationAudit.body.fields.commandId, undefined);
+  const auditEvents = await request('GET', `${FIRESTORE_BASE}/task_audit_events?pageSize=100`, {
+    token: 'owner',
+  });
+  assert.equal(auditEvents.status, 200, JSON.stringify(auditEvents.body));
+  assert.equal((auditEvents.body.documents ?? []).filter((document) =>
+    document.name.endsWith(`/${cancellationAuditId}`)).length, 1);
+
+  const listAfterCancel = await callFunction('listActiveTaskCampaigns', {}, operatorA.idToken);
+  assert.equal(listAfterCancel.status, 200, JSON.stringify(listAfterCancel.body));
+  assert.deepEqual(listAfterCancel.body.result.tasks, []);
+  const residentTasksAfterCancel = await callFunction('listResidentActiveTasks', {
+    sessionToken: residentSession.body.result.sessionToken,
+  });
+  assert.equal(residentTasksAfterCancel.status, 200, JSON.stringify(residentTasksAfterCancel.body));
+  assert.deepEqual(residentTasksAfterCancel.body.result.items, []);
 
   const auditId = `${draft.campaignId}_activated`;
   const audit = await readDocument('task_audit_events', auditId);
