@@ -155,6 +155,12 @@ test('draft request accepts only safe editable slots and is bound to a stable re
     additionalNote: 'Masuk ke saluran air untuk membersihkan sampah',
   })), { code: 'invalid-argument' });
   await assert.rejects(service.createDraft(AUTH, draftPayload({
+    additionalNote: 'NIK 1234567890123456',
+  })), { code: 'invalid-argument' });
+  await assert.rejects(service.createDraft(AUTH, draftPayload({
+    additionalNote: 'Hubungi 081234567890',
+  })), { code: 'invalid-argument' });
+  await assert.rejects(service.createDraft(AUTH, draftPayload({
     deadline: '2026-10-04T11:59:00.000Z',
   })), { code: 'invalid-argument' });
   assert.equal(repository.drafts.length, 2);

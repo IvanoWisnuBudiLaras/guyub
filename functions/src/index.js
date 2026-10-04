@@ -3,8 +3,10 @@ const { initializeApp, getApps } = require('firebase-admin/app');
 const { getFirestore } = require('firebase-admin/firestore');
 const { FirestoreResidentSessionRepository } = require('./firestore_resident_session_repository');
 const { FirestoreTaskCampaignRepository } = require('./firestore_task_campaign_repository');
+const { FirestoreTaskResponseRepository } = require('./firestore_task_response_repository');
 const { ResidentSessionService, SessionServiceError } = require('./resident_session_service');
 const { TaskCampaignService, TaskCampaignError } = require('./task_campaign_service');
+const { TaskResponseService } = require('./task_response_service');
 const { protectedCallableOptions } = require('./callable_options');
 
 if (getApps().length === 0) initializeApp();
@@ -15,6 +17,10 @@ const sessions = new ResidentSessionService(
 );
 const tasks = new TaskCampaignService(
   new FirestoreTaskCampaignRepository(firestore),
+);
+const taskResponses = new TaskResponseService(
+  new FirestoreTaskResponseRepository(firestore),
+  sessions,
 );
 const callableOptions = protectedCallableOptions();
 
@@ -66,6 +72,56 @@ exports.createTaskDraft = onCall(callableOptions, async (request) => {
 exports.activateTaskCampaign = onCall(callableOptions, async (request) => {
   try {
     return await tasks.activateCampaign(operatorAuth(request), request.data);
+  } catch (error) {
+    throw toHttpsError(error);
+  }
+});
+
+exports.listResidentActiveTasks = onCall(callableOptions, async (request) => {
+  try {
+    return await taskResponses.listResidentActiveTasks(request.data);
+  } catch (error) {
+    throw toHttpsError(error);
+  }
+});
+
+exports.recordResidentTaskResponse = onCall(callableOptions, async (request) => {
+  try {
+    return await taskResponses.recordResidentTaskResponse(request.data);
+  } catch (error) {
+    throw toHttpsError(error);
+  }
+});
+
+exports.submitTaskCompletion = onCall(callableOptions, async (request) => {
+  try {
+    return await taskResponses.submitTaskCompletion(request.data);
+  } catch (error) {
+    throw toHttpsError(error);
+  }
+});
+
+exports.listPendingTaskVerifications = onCall(callableOptions, async (request) => {
+  try {
+    return await taskResponses.listPendingTaskVerifications(
+      operatorAuth(request), request.data,
+    );
+  } catch (error) {
+    throw toHttpsError(error);
+  }
+});
+
+exports.verifyTaskCompletion = onCall(callableOptions, async (request) => {
+  try {
+    return await taskResponses.verifyTaskCompletion(operatorAuth(request), request.data);
+  } catch (error) {
+    throw toHttpsError(error);
+  }
+});
+
+exports.getTaskResponseRecap = onCall(callableOptions, async (request) => {
+  try {
+    return await taskResponses.getTaskResponseRecap(operatorAuth(request), request.data);
   } catch (error) {
     throw toHttpsError(error);
   }

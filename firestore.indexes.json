@@ -1,0 +1,55 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "task_campaigns",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "rtId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "deadline",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "task_responses",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "rtId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "completionState",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "completionSubmittedAt",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "task_responses",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "rtId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "taskId",
+          "order": "ASCENDING"
+        }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}
