@@ -31,6 +31,9 @@ final class AppConfig {
   /// Port emulator Firestore/database dokumen.
   final int firestorePort;
 
+  /// Port Functions emulator; production ignores this setting.
+  final int functionsPort;
+
   // ponytail: static singleton ceiling; ganti dengan InheritedWidget/Riverpod jika aplikasi membutuhkan multi-tenant dinamis.
   static AppConfig? _instance;
 
@@ -60,6 +63,7 @@ final class AppConfig {
     required this.emulatorHost,
     this.authPort = 9099,
     this.firestorePort = 8080,
+    this.functionsPort = 5001,
   });
 
   /// Menentukan default emulator host berdasarkan platform eksekusi.

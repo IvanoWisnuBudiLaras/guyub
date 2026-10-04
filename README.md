@@ -97,8 +97,8 @@ Aplikasi membedakan konfigurasi runtime menjadi tiga profil melalui `AppConfig`:
 ### Mode Pengembangan (Development / Emulator)
 Terminal pertama menjalankan emulator lokal:
 ```bash
-npx --yes firebase-tools@13.35.1 emulators:start \
-  --project demo-guyub-development --only auth,firestore
+npx --yes firebase-tools@15.32.1 emulators:start \
+  --project demo-guyub-development --only auth,firestore,functions
 ```
 Terminal kedua menjalankan aplikasi:
 ```bash
@@ -155,25 +155,27 @@ flutter test test/app/
 flutter test test/features/
 ```
 
-Aturan akses Firestore diuji dengan Auth/Firestore Emulator (Java 17+ dan Node.js):
+Aturan akses Firestore dan sesi warga diuji dengan Auth/Firestore/Functions Emulator (Java 21+ dan Node.js 22):
 ```bash
 ./tool/test_firestore_rules.sh
+./tool/test_functions.sh
 ```
 
 ---
 
-## 10. Status Backend & Cloud Provider: DEFERRED
+## 10. Status Backend & Cloud Provider
 
 ### Firebase Cloud Functions
-**Status: DEFERRED; not production-operational.**
-- **Alasan**: Scheduled retrieval, reminders, escalation, and evidence cleanup need a trusted backend job runner. Cloud Functions production use remains deferred because it may require Blaze billing.
-- **Ketentuan**: This repository does not deploy Functions or enable billing. The current Firebase Auth/Firestore client uses emulator endpoints in development; Firestore rules deny unconfigured protected collections.
-- **Boundary**: Weather rules in Dart create suggestions only. No scheduled production job or task distribution is configured.
+**Status: callable resident-session slice implemented for Emulator; production deployment deferred.**
+- `functions/` implements opaque resident session issue/validate/revoke callables. Functions, Auth, and Firestore emulators are configured for development and integration tests.
+- Production resident callables require Firebase App Check; the Android client uses Play Integrity. App Check is intentionally disabled only in the demo emulator and must be registered for the signed Android app before production use. Enrollment retries reuse a pending secure request ID so one attempt does not create duplicate resident profiles.
+- Protected collections remain client-deny by Firestore rules. No production function is deployed and no scheduled weather, reminder, escalation, or evidence-cleanup job is configured yet.
+- Production deployment and scheduled automation may require a Firebase billing/provider decision. This repository does not enable billing or deploy production infrastructure.
 
 ### Firebase Cloud Storage
 **Status: DEFERRED / NOT A PRODUCTION PROVIDER.**
-- **Alasan**: Do not enable Blaze or attach billing for this implementation. Evidence upload and physical 30-day deletion are not implemented.
-- **Ketentuan**: No Storage deployment or billing change was made. A provider decision and security/retention tests remain required before Phase 8.
+- Optional evidence upload, metadata stripping, and physical 30-day deletion have not been implemented.
+- No Storage deployment or billing change was made. Provider activation and production retention validation remain external blockers.
 
 ---
 

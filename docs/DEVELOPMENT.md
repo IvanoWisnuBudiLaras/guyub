@@ -76,4 +76,4 @@ Sebelum membuka PR, jalankan juga pengujian aturan Firestore:
 ./tool/test_firestore_rules.sh
 ```
 
-Perintah ini memakai project demo dan emulator Auth/Firestore saja. Dibutuhkan Node.js dan Java 17+. Tidak ada data atau layanan Firebase produksi yang digunakan. CI menjalankan perintah ini setelah `./tool/verify.sh`.
+Perintah ini memakai project demo dan emulator Auth/Firestore saja. Dibutuhkan Node.js 22 dan Java 21+. Tidak ada data atau layanan Firebase produksi yang digunakan. CI menjalankan perintah ini setelah `./tool/verify.sh`. Untuk callable Functions dan sesi warga, jalankan `./tool/test_functions.sh`; skrip ini menguji service lalu menjalankan Auth/Firestore/Functions Emulator dengan project demo. Functions Emulator disables App Check enforcement only for demo tests; production resident callables require the Android app to be registered with Firebase App Check and use Play Integrity.

@@ -1,17 +1,20 @@
 # Feature: Auth & Onboarding
 
-**Status: PARTIAL.** The app has distinct role entry screens and a Firebase Auth email/password path for operators, followed by a server-ruled read of that operator's active RT membership record.
+**Status: PARTIAL.** Operators sign in with Firebase email/password and read only their own active RT membership. Residents can create and restore a short-lived, RT-scoped participant session through callable Functions. Task operations are not yet available.
 
 ## Implemented
-- Role selection, operator login, operator home, and a fail-closed resident entry screen.
-- `application/operator_profile.dart` restricts roles to `KETUA_RT_RW` and `PENDAMPING_RT` and holds only UID, RT scope, role, and display name.
-- `data/firebase_operator_auth_boundary.dart` authenticates and checks `/operators/{uid}` membership.
-- `firestore.rules` permits an active password-authenticated operator to read only their own membership; clients cannot write membership or any unconfigured collection.
-- Auth/Firestore emulators are configured for development. `./tool/test_firestore_rules.sh` runs authorization tests.
+- Role selection and separate operator/resident paths.
+- `data/firebase_operator_auth_boundary.dart` authenticates operators and checks `/operators/{uid}` membership; Firestore rules prevent membership writes and cross-operator reads.
+- `functions/src/resident_session_service.js` accepts only a high-entropy 12–32 character RT code and a nickname. Invalid/malformed/disabled codes return the same generic denial.
+- Callable Functions issue a cryptographically random 7-day participant token. Firestore stores only its SHA-256 hash. The session profile stores only RT scope, nickname, assistance marker, origin, and timestamps.
+- A secure, random per-attempt request ID makes enrollment retries reuse one profile; a retry rotates the token and revokes the older session. The raw request ID is kept in platform secure storage only while enrollment is pending.
+- Production callable access requires Firebase App Check. Android uses Play Integrity; the demo emulator bypasses App Check enforcement. Production enrollment fails closed until the signed app is registered in Firebase Console.
+- `ResidentSessionController` keeps the bearer token out of UI models. `FlutterSecureResidentSessionVault` uses platform secure storage. A temporary network error preserves the saved token; revoked/expired sessions are cleared.
+- All direct client reads/writes to resident and other protected collections remain denied. Mutations in this slice are Admin-SDK-only through callable Functions.
+- Tests: Dart controller/widget tests, Node service tests, and Functions/Firestore emulator integration tests in `./tool/test_functions.sh`; Firestore rules tests in `./tool/test_firestore_rules.sh`.
 
-## Not yet production-operational
-- Operator credentials and membership records need trusted pilot provisioning. Each `/operators/{uid}` document must be provisioned outside the app with `rtId`, `role` (`KETUA_RT_RW` or `PENDAMPING_RT`), `displayName`, and `active: true`.
-- Production Firebase client options must be supplied through compile-time defines; no project API configuration is committed.
-- Resident RT-code entry is intentionally disabled: a code alone is not a scoped session or authorization.
-- Operator actions, resident sessions, task data rules, cross-RT data flows, and operator handover are not implemented.
-- No real pilot account was used; production Firebase was not contacted.
+## Provisioning and limitations
+- A trusted administrator must provision `/rt_communities/{rtId}` with a display name, RT label, `joinCodeHash` (SHA-256 of a random uppercase alphanumeric code, 12–32 characters), and `joinCodeActive: true`. The raw join code must be shared privately with that RT. The app never reads this document.
+- Operator Firebase Auth users and `/operators/{uid}` membership records also require trusted provisioning. No credentials or project IDs are included in the repository.
+- No task/proposal/assistance command is exposed to resident sessions yet. Do not add direct Firestore client writes; future commands must validate token scope and state transitions server-side.
+- Production Functions are not deployed. Billing/provider activation, App Check registration, and real pilot provisioning remain external decisions. No per-RT enrollment quota is set without a stakeholder-approved limit. Emulator tests use a demo project only.
