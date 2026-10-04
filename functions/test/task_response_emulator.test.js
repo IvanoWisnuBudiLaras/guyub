@@ -146,7 +146,7 @@ test('resident task participation, completion, RT verification, recap, and acces
     templateId,
     version: 1,
     deadline: DEADLINE,
-    locationReference: 'Balai warga',
+    locationReference: 'COMMUNITY_GENERAL_AREA',
     requestId: randomRequestId(),
   }, operatorA.idToken);
   assert.equal(draftResponse.status, 200, JSON.stringify(draftResponse.body));

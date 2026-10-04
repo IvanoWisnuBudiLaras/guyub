@@ -6,6 +6,7 @@ import 'dart:math';
 import '../../auth/application/resident_session_vault.dart';
 import 'task_response.dart';
 import 'task_template.dart';
+import 'task_location_reference.dart';
 
 /// Callable-only resident response and RT-verification boundary.
 /// Resident bearer tokens are supplied only by the controller, never by UI.
@@ -49,7 +50,6 @@ final class ResidentTaskRecord {
     required this.participation,
     required this.completion,
     this.locationReference,
-    this.additionalNote,
     this.completionNote,
     this.completionSubmittedAt,
     this.verifiedAt,
@@ -63,7 +63,6 @@ final class ResidentTaskRecord {
   final ParticipationState participation;
   final CompletionState completion;
   final String? locationReference;
-  final String? additionalNote;
   final String? completionNote;
   final DateTime? completionSubmittedAt;
   final DateTime? verifiedAt;
@@ -74,13 +73,16 @@ final class ResidentTaskRecord {
       wire['locationReference'],
       'locationReference',
     );
-    final note = _optionalString(wire['additionalNote'], 'additionalNote');
     final completionNote = _optionalString(
       wire['completionNote'],
       'completionNote',
     );
     final status = _requiredString(wire['status'], 'status');
     if (status != 'ACTIVE') throw const FormatException('Invalid task status.');
+    if (location != null &&
+        !TaskLocationReferences.allowed.contains(location)) {
+      throw const FormatException('Invalid task location.');
+    }
     return ResidentTaskRecord(
       taskId: _requiredString(wire['taskId'], 'taskId'),
       rtId: _requiredString(wire['rtId'], 'rtId'),
@@ -90,7 +92,6 @@ final class ResidentTaskRecord {
       participation: _participationFromWire(wire['participationState']),
       completion: _completionFromWire(wire['completionState']),
       locationReference: location,
-      additionalNote: note,
       completionNote: completionNote,
       completionSubmittedAt: _optionalDate(
         wire['completionSubmittedAt'],
@@ -113,7 +114,6 @@ final class ResidentTaskRecord {
       participation: response.participation,
       completion: response.completion,
       locationReference: locationReference,
-      additionalNote: additionalNote,
       completionNote: response.completionNote,
       completionSubmittedAt: response.completionSubmittedAt,
       verifiedAt: response.verifiedAt,

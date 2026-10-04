@@ -60,8 +60,8 @@ function normalizeCompletionNote(value) {
       /-?\d{1,3}\.\d{3,}\s*[,; ]\s*-?\d{1,3}\.\d{3,}/u.test(note) ||
       /\b(?:alamat|rumah|jalan|jl\.?|gang|gg\.?|blok|perumahan)\b/iu.test(note) ||
       /\b(?:no\.?|nomor)\s*\d/iu.test(note) ||
-      /\b\d{16}\b/u.test(note) ||
-      /\b(?:\+?62|0)8\d{8,11}\b/u.test(note)) {
+      /(?<!\d)(?:\d[\s.-]?){15}\d(?!\d)/u.test(note) ||
+      /(?<!\d)(?:\+?62|0)[\s.-]*8(?:[\s.-]?\d){8,11}(?!\d)/u.test(note)) {
     throw invalidArgument('Gunakan catatan singkat tanpa alamat, data pribadi, atau koordinat GPS.');
   }
   return note;
@@ -87,7 +87,6 @@ function residentTask(campaign, response) {
     templateSnapshot: campaign.templateSnapshot,
     deadline: iso(campaign.deadline),
     locationReference: campaign.locationReference ?? null,
-    additionalNote: campaign.additionalNote ?? null,
     status: campaign.status,
     participationState: response?.participationState ?? 'UNRESPONDED',
     completionState: response?.completionState ?? 'NOT_SUBMITTED',

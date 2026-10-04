@@ -4,6 +4,7 @@ import '../../../auth/application/operator_profile.dart';
 import '../../../auth/application/resident_session.dart';
 import '../../application/task_response.dart';
 import '../../application/task_response_boundary.dart';
+import '../../application/task_location_reference.dart';
 import '../widgets/locked_instructions_card.dart';
 
 /// Pull-based resident task list. No notification delivery is implied.
@@ -231,11 +232,7 @@ final class _ResidentTaskDetailScreenState
         Text('Batas waktu: ${_formatDate(_task.deadline)}'),
         if (_task.locationReference case final location?) ...[
           const SizedBox(height: 8),
-          Text('Lokasi umum: $location'),
-        ],
-        if (_task.additionalNote case final note?) ...[
-          const SizedBox(height: 8),
-          Text(note),
+          Text('Jenis lokasi umum: ${TaskLocationReferences.label(location)}'),
         ],
         const SizedBox(height: 16),
         LockedTaskInstructionsCard(snapshot: _task.templateSnapshot),

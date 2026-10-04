@@ -33,8 +33,8 @@ class FakeRepository {
         rtId: 'rt-a',
         templateSnapshot: SNAPSHOT,
         deadline: new Date('2026-10-05T12:00:00.000Z'),
-        locationReference: 'Balai warga',
-        additionalNote: null,
+        locationReference: 'COMMUNITY_GENERAL_AREA',
+        additionalNote: 'Masuk ke saluran air untuk membersihkan sampah',
         status: 'ACTIVE',
       },
       response: null,
@@ -126,6 +126,7 @@ test('resident task listing derives the RT from the validated session and return
   assert.equal(result.items[0].templateSnapshot.safetyInstruction, SNAPSHOT.safetyInstruction);
   assert.equal(JSON.stringify(result).includes(SESSION_TOKEN), false);
   assert.equal('residentId' in result.items[0], false);
+  assert.equal('additionalNote' in result.items[0], false);
 });
 
 test('resident requests reject caller-supplied identity and unknown fields', async () => {
@@ -181,6 +182,15 @@ test('completion note is optional, bounded, normalized, and excludes common addr
     code: 'invalid-argument',
   });
   assert.throws(() => normalizeCompletionNote('Hubungi 081234567890'), {
+    code: 'invalid-argument',
+  });
+  assert.throws(() => normalizeCompletionNote('NIK 1234 5678 9012 3456'), {
+    code: 'invalid-argument',
+  });
+  assert.throws(() => normalizeCompletionNote('Hubungi 0812 3456 7890'), {
+    code: 'invalid-argument',
+  });
+  assert.throws(() => normalizeCompletionNote('Hubungi +62 812-3456-7890'), {
     code: 'invalid-argument',
   });
   assert.throws(() => normalizeCompletionNote('x'.repeat(501)), {

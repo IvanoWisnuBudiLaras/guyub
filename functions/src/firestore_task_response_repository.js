@@ -91,7 +91,6 @@ function campaignView(snapshot) {
     templateSnapshot: campaign.templateSnapshot,
     deadline: campaign.deadline,
     locationReference: campaign.locationReference ?? null,
-    additionalNote: campaign.additionalNote ?? null,
     status: campaign.status,
   };
 }
