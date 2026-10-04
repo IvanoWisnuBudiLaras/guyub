@@ -75,14 +75,11 @@ final class AppConfig {
   }
 
   /// Konfigurasi untuk lingkungan pengembangan lokal (development).
-  factory AppConfig.development({
-    bool useEmulator = true,
-    String? emulatorHost,
-  }) {
+  factory AppConfig.development({String? emulatorHost}) {
     return AppConfig(
       environment: AppEnvironment.development,
       appName: 'Guyub [DEV]',
-      useEmulator: useEmulator,
+      useEmulator: true,
       emulatorHost: emulatorHost ?? defaultEmulatorHost,
     );
   }

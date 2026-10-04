@@ -2,7 +2,7 @@
 set -euo pipefail
 
 echo "========================================================"
-echo " Guyub.id — Unified Verification Gate (Phase 0 Baseline)"
+echo " Guyub.id — Unified Verification Gate"
 echo "========================================================"
 
 echo ""

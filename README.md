@@ -50,7 +50,7 @@ Aplikasi dibangun sebagai satu aplikasi monolith Flutter terstruktur menggunakan
 ```text
 lib/
 ├── app/                  # Perakitan aplikasi (wiring), tema, router, & bootstrap
-│   ├── app.dart          # Root widget GuyubApp & smoke screen Phase 0
+│   ├── app.dart          # Root widget GuyubApp & role-aware router
 │   ├── bootstrap.dart    # Orkestrasi startup & penyuntikan AppConfig
 │   ├── router.dart       # Routing table deklaratif
 │   └── README.md
@@ -84,7 +84,7 @@ lib/
 
 ## 6. Environment & Konfigurasi Runtime
 Aplikasi membedakan konfigurasi runtime menjadi tiga profil melalui `AppConfig`:
-- **`development`**: Menggunakan konfigurasi lokal dengan Firebase Emulator untuk Auth (9099) dan Firestore (8080) pada IP `10.0.2.2` untuk Android.
+- **`development`**: Auth dan Firestore diarahkan ke Firebase Emulator (9099/8080). Aplikasi memakai project ID emulator `demo-guyub-development` dan key dummy; emulator yang mati tidak menyebabkan fallback ke Firebase produksi.
 - **`test`**: Mode isolasi tanpa koneksi jaringan/Firebase untuk automated tests yang deterministik.
 - **`production`**: Mode rilis nyata tanpa emulator.
 
@@ -95,18 +95,29 @@ Aplikasi membedakan konfigurasi runtime menjadi tiga profil melalui `AppConfig`:
 ## 7. Cara Menjalankan Project
 
 ### Mode Pengembangan (Development / Emulator)
+Terminal pertama menjalankan emulator lokal:
+```bash
+npx --yes firebase-tools@13.35.1 emulators:start \
+  --project demo-guyub-development --only auth,firestore
+```
+Terminal kedua menjalankan aplikasi:
 ```bash
 flutter run -t lib/main_dev.dart
 # atau dengan flag compile-time:
 flutter run --dart-define=ENV=development
 ```
+Jika emulator tidak tersedia, aplikasi tetap membuka pilihan peran tetapi masuk operator gagal tertutup. Data autentikasi dan Firestore pengembangan tidak dikirim ke project produksi.
 
 ### Mode Produksi (Production)
+Supply the Firebase client options from the protected build environment; they are not stored in the repository:
 ```bash
-flutter run -t lib/main_prod.dart
-# atau:
-flutter run --dart-define=ENV=production
+flutter run -t lib/main_prod.dart \
+  --dart-define=FIREBASE_API_KEY="$FIREBASE_API_KEY" \
+  --dart-define=FIREBASE_APP_ID="$FIREBASE_APP_ID" \
+  --dart-define=FIREBASE_MESSAGING_SENDER_ID="$FIREBASE_MESSAGING_SENDER_ID" \
+  --dart-define=FIREBASE_PROJECT_ID="$FIREBASE_PROJECT_ID"
 ```
+Without these values, the app fails closed and operator access remains unavailable. Do not use production options for development.
 
 ---
 
@@ -127,7 +138,7 @@ Perintah ini secara berurutan mengeksekusi:
 
 ## 9. Cara Menjalankan Pengujian Otomatis (Tests)
 
-Menjalankan seluruh unit test dan widget test baseline:
+Menjalankan unit/widget test Flutter:
 ```bash
 flutter test
 ```
@@ -139,6 +150,14 @@ flutter test test/core/
 
 # Test App (Widget & Bootstrap)
 flutter test test/app/
+
+# Test alur operator, task, dan weather
+flutter test test/features/
+```
+
+Aturan akses Firestore diuji dengan Auth/Firestore Emulator (Java 17+ dan Node.js):
+```bash
+./tool/test_firestore_rules.sh
 ```
 
 ---
@@ -146,16 +165,15 @@ flutter test test/app/
 ## 10. Status Backend & Cloud Provider: DEFERRED
 
 ### Firebase Cloud Functions
-**Status: DEFERRED (Ditunda secara eksplisit pada Phase 0).**
-- **Alasan**: Keputusan arsitektur serverless provider backend masih dalam evaluasi dan paket Firebase Spark (Gratis) tidak mendukung Cloud Functions tanpa aktivasi kartu kredit (Blaze Plan).
-- **Ketentuan**: Tidak ada inisialisasi folder `functions/`, emulator Functions, ataupun dependensi Cloud Functions yang dibuat pada Phase 0.
-- **Boundary**: Kebutuhan scheduled job cuaca BMKG (Phase 4) didesain sebagai boundary layanan mandiri tanpa membocorkan detail infrastruktur ke presentation layer.
+**Status: DEFERRED; not production-operational.**
+- **Alasan**: Scheduled retrieval, reminders, escalation, and evidence cleanup need a trusted backend job runner. Cloud Functions production use remains deferred because it may require Blaze billing.
+- **Ketentuan**: This repository does not deploy Functions or enable billing. The current Firebase Auth/Firestore client uses emulator endpoints in development; Firestore rules deny unconfigured protected collections.
+- **Boundary**: Weather rules in Dart create suggestions only. No scheduled production job or task distribution is configured.
 
 ### Firebase Cloud Storage
 **Status: DEFERRED / NOT A PRODUCTION PROVIDER.**
-- **Alasan**: Firebase Spark Plan tidak memungkinkan penggunaan Cloud Storage untuk beban produksi tanpa Blaze Plan.
-- **Ketentuan**: Konfigurasi Storage emulator dihapus dari baseline Phase 0 dan tidak dianggap sebagai keputusan produksi.
-- **Boundary**: Abstraksi penyimpanan bukti foto (`evidence`) tetap dipertahankan pada application/data layer agar provider konkret (lokal/S3-compatible/alternatif) dapat diputuskan pada **Phase 8**.
+- **Alasan**: Do not enable Blaze or attach billing for this implementation. Evidence upload and physical 30-day deletion are not implemented.
+- **Ketentuan**: No Storage deployment or billing change was made. A provider decision and security/retention tests remain required before Phase 8.
 
 ---
 

@@ -1,0 +1,27 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isActiveOperator(operatorUid) {
+      return request.auth != null
+        && request.auth.uid == operatorUid
+        && request.auth.token.firebase.sign_in_provider == 'password'
+        && resource.data.active == true
+        && resource.data.role in ['KETUA_RT_RW', 'PENDAMPING_RT']
+        && resource.data.rtId is string
+        && resource.data.rtId.size() > 0;
+    }
+
+    // Operator membership is provisioned by a trusted administrator. A signed-in
+    // operator may read only their own active membership; clients cannot change it.
+    match /operators/{operatorUid} {
+      allow get: if isActiveOperator(operatorUid);
+      allow list, create, update, delete: if false;
+    }
+
+    // Deny everything until each collection has an explicit RT-scoped policy.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
