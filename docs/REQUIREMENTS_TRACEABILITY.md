@@ -36,7 +36,7 @@ This file reports repository evidence. It does not convert a domain unit test in
 | AT-013 | MISSING | No configured official reporting route. |
 | AT-014 | MISSING | No proxy update path. |
 | AT-015 | MISSING | No RT-owned persistent history/handover path. |
-| AT-016 | VERIFIED | Active-only WhatsApp copy formatter/widget tests verify locked template text, voluntary wording, no internal identifiers, and no dispatch. Clipboard delivery is manual and no message is sent. |
+| AT-016 | PARTIAL | Active-only formatter/widget tests verify locked template text, voluntary wording, no internal identifiers, and a copy-boundary call. Android clipboard behavior has not been device-tested; no message is sent. |
 
 ## Security matrix
 
