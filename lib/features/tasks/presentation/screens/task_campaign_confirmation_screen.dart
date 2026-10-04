@@ -74,10 +74,7 @@ final class _TaskCampaignConfirmationScreenState
         const SizedBox(height: 8),
         LockedTaskInstructionsCard(snapshot: _campaign.templateSnapshot),
         const SizedBox(height: 12),
-        _SummaryRow(
-          label: 'RT tujuan',
-          value: 'RT ${_campaign.rtId}',
-        ),
+        _SummaryRow(label: 'RT tujuan', value: 'RT ${_campaign.rtId}'),
         _SummaryRow(
           label: 'Batas waktu',
           value: _formatDeadline(context, _campaign.deadline),
