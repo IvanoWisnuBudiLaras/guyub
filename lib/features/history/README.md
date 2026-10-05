@@ -9,6 +9,6 @@
 - The operator history screen shows `Aktif`, `Ditutup`, or `Dibatalkan`, allows the operator to expand a lifecycle timeline, and opens the aggregate-only response recap. The recap counts verified completions but shows no resident rows, response denominator, or ranking.
 - The history and lifecycle callables can be accessed by a replacement operator provisioned for the same RT. An operator transfer/provisioning UI is not implemented; trusted Firebase membership provisioning remains external.
 
-## Remaining validation
-- Functions service and Emulator tests cover close authorization/replay, resident exclusion, audit consistency, pagination, same-RT operator replacement, cross-RT isolation, and malformed records. Java 21 Emulator CI must pass before review readiness.
+## Validation and remaining work
+- Functions service and Emulator tests cover close authorization/replay, resident exclusion, audit consistency, pagination, same-RT operator replacement, cross-RT isolation, and malformed records. PR #33 Java 21 Emulator CI passes.
 - Android usability/accessibility and real pilot handover validation remain open. No history data is cached offline; the screen reports server load errors instead of showing stale data.
