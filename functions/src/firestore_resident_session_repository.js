@@ -24,6 +24,7 @@ class FirestoreResidentSessionRepository {
       .doc(record.residentId);
     const sessionRef = this.firestore.collection('resident_sessions').doc(record.sessionId);
     let committedResidentId;
+    let previousSessionToCleanup = null;
 
     await this.firestore.runTransaction(async (transaction) => {
       const communitySnapshot = await transaction.get(communityRef);
@@ -79,6 +80,7 @@ class FirestoreResidentSessionRepository {
           ...record.session,
           residentId: enrollment.residentId,
         };
+        previousSessionToCleanup = enrollment.sessionHash;
         transaction.create(sessionRef, replacementSession);
         if (previousSessionSnapshot.exists && previousSessionSnapshot.data().active === true) {
           transaction.update(previousSessionRef, {
@@ -106,6 +108,9 @@ class FirestoreResidentSessionRepository {
       });
       committedResidentId = record.residentId;
     });
+    if (previousSessionToCleanup && previousSessionToCleanup !== record.sessionId) {
+      await this._deletePushTokensForSession(previousSessionToCleanup);
+    }
     return { residentId: committedResidentId };
   }
 
@@ -131,6 +136,18 @@ class FirestoreResidentSessionRepository {
       if (!snapshot.exists || snapshot.data().active !== true) return;
       transaction.update(sessionRef, { active: false, revokedAt });
     });
+    await this._deletePushTokensForSession(sessionId);
+  }
+
+  async _deletePushTokensForSession(sessionId) {
+    const tokenCollection = this.firestore.collection('resident_push_tokens');
+    while (true) {
+      const tokens = await tokenCollection.where('sessionIdHash', '==', sessionId).limit(400).get();
+      if (tokens.empty) return;
+      const batch = this.firestore.batch();
+      for (const token of tokens.docs) batch.delete(token.ref);
+      await batch.commit();
+    }
   }
 }
 

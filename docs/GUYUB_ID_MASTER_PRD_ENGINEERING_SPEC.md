@@ -514,6 +514,8 @@ System can notify Pendamping RT when a task is not being responded to according 
 **OPEN GAP:** Proposal does not define exact reminder times or escalation thresholds.  
 **Default:** store these as configuration per environment/RT; seed conservative demo values rather than hard-code product truth.
 
+Implementation safety boundary: an RT policy must be enabled, reviewed, versioned, and validated before scheduling. Missing, disabled, stale, or malformed policy disables automation only; it must not block task activation or offline task access. A campaign snapshots the policy document ID, version, and fingerprint at activation. Reminder windows, resident cohorts, escalation threshold/cohort, and delivery retry delays remain configuration; no pilot values or recipients are product defaults. Declined residents are never reminded. Escalation is an administrative notice, not a resident penalty or official warning. Logical events are idempotent; provider-level exactly-once delivery is not guaranteed.
+
 ---
 
 ## 8.5 Two-way coordination
@@ -983,6 +985,27 @@ Administrative/safety-relevant actions:
 - template version changed.
 
 Audit data must avoid unnecessary personal information.
+
+## 12.14 `task_reminder_policies`
+
+Server-provisioned, RT-scoped configuration only. A reviewed policy contains:
+- `policyDocumentId`, `policyId`, `version`, and `rtId`,
+- `enabled`, `reviewStatus`, `reviewedBy`, and `reviewedAt`,
+- zero or more `reminderWindows` with a unique `windowId`, configured minutes before deadline, and cohort,
+- `escalation` enablement, window ID, configured deadline offset, cohort, and minimum eligible cohort size,
+- ordered `deliveryRetrySeconds`.
+
+Only reviewed/enabled policies with bounded, valid values are used. `rt_communities.reminderPolicyId` selects the policy for new campaign activation. Client reads/writes are denied. Updating policy never rewrites active campaign history; an active campaign keeps its activation snapshot and automation stops safely if the selected policy is no longer current.
+
+## 12.15 `task_notification_events` and `task_notification_audit_events`
+
+The server creates one deterministic outbox event and one audit marker transactionally for each campaign/window/recipient hash. Events carry policy identity/fingerprint, event type, window/cohort, status, retry count, bounded lease, and timestamps. Resident recipients are represented only by a server-derived opaque hash; do not store resident names, resident IDs, completion notes, evidence references, phone numbers, or FCM tokens in events or audit. Audit records contain aggregate-safe event type, RT, campaign, policy version, window, and timestamp only. These collections are server-only.
+
+FCM is a hint; task state remains in the campaign/response collections. Retry uses stable event IDs, but an FCM provider can accept a message before a worker failure, so transport duplicates remain possible. Do not claim exactly-once external delivery.
+
+## 12.16 `resident_push_tokens` and `operator_push_tokens`
+
+FCM tokens are sensitive device data. Store them only in server-only collections. A resident token is bound to the validated resident session hash and RT; an operator token is bound to the authenticated operator and server-derived RT/role. Registration and removal use callable Functions; client Firestore access is denied. Revoke/removal of a resident session and resident-data deletion also remove its push-token records. Never write raw tokens to logs, notification payloads, or audit records.
 
 ---
 
