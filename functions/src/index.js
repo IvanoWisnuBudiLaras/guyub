@@ -11,6 +11,8 @@ const { FirestoreResidentProposalRepository } = require('./firestore_resident_pr
 const { FirestoreEmergencyDirectoryRepository } = require('./firestore_emergency_directory_repository');
 const { FirestoreWeatherSuggestionRepository } = require('./firestore_weather_suggestion_repository');
 const { FirestoreProxyResidentRepository } = require('./firestore_proxy_resident_repository');
+const { FirestoreResidentDataDeletionRepository } = require('./firestore_resident_data_deletion_repository');
+const { FirestoreAssistanceAssignmentRepository } = require('./firestore_assistance_assignment_repository');
 const { fetchBmkgPayload } = require('./bmkg_forecast_client');
 const { ResidentSessionService, SessionServiceError } = require('./resident_session_service');
 const { TaskCampaignService, TaskCampaignError } = require('./task_campaign_service');
@@ -20,7 +22,10 @@ const { ResidentProposalService, ResidentProposalError } = require('./resident_p
 const { EmergencyDirectoryService, EmergencyDirectoryError } = require('./emergency_directory_service');
 const { WeatherSuggestionService, WeatherPipelineError } = require('./weather_suggestion_service');
 const { ProxyResidentService, ProxyResidentError } = require('./proxy_resident_service');
+const { ResidentDataDeletionService } = require('./resident_data_deletion_service');
+const { AssistanceAssignmentService } = require('./assistance_assignment_service');
 const { protectedCallableOptions } = require('./callable_options');
+const { UPLOAD_TIMEOUT_SECONDS } = require('./task_evidence_upload_lease');
 
 if (getApps().length === 0) initializeApp();
 
@@ -74,6 +79,13 @@ const taskEvidence = new TaskEvidenceService(
   sessions,
   taskEvidenceStorage,
 );
+const residentDataDeletion = new ResidentDataDeletionService(
+  new FirestoreResidentDataDeletionRepository(firestore, taskEvidenceStorage),
+);
+const assistanceAssignments = new AssistanceAssignmentService(
+  new FirestoreAssistanceAssignmentRepository(firestore),
+  sessions,
+);
 const weatherSuggestions = new WeatherSuggestionService(
   new FirestoreWeatherSuggestionRepository(firestore),
   { fetchPayload: fetchBmkgPayload },
@@ -82,7 +94,7 @@ const callableOptions = protectedCallableOptions();
 const evidenceUploadOptions = {
   ...callableOptions,
   maxInstances: 5,
-  timeoutSeconds: 120,
+  timeoutSeconds: UPLOAD_TIMEOUT_SECONDS,
   memory: '1GiB',
 };
 
@@ -301,6 +313,16 @@ exports.createProxyResident = onCall(callableOptions, async (request) => {
   }
 });
 
+exports.cancelPendingProxyResidentCreate = onCall(callableOptions, async (request) => {
+  try {
+    return await proxyResidents.cancelPendingProxyResidentCreate(
+      operatorAuth(request), request.data,
+    );
+  } catch (error) {
+    throw toHttpsError(error);
+  }
+});
+
 exports.listProxyResidents = onCall(callableOptions, async (request) => {
   try {
     return await proxyResidents.listProxyResidents(operatorAuth(request), request.data);
@@ -328,6 +350,54 @@ exports.updateProxyResidentAssistance = onCall(callableOptions, async (request) 
 exports.updateProxyTaskStatus = onCall(callableOptions, async (request) => {
   try {
     return await proxyResidents.updateProxyTaskStatus(operatorAuth(request), request.data);
+  } catch (error) {
+    throw toHttpsError(error);
+  }
+});
+
+exports.deleteResidentData = onCall(callableOptions, async (request) => {
+  try {
+    return await residentDataDeletion.deleteResidentData(operatorAuth(request), request.data);
+  } catch (error) {
+    throw toHttpsError(error);
+  }
+});
+
+exports.getAssistanceVolunteerData = onCall(callableOptions, async (request) => {
+  try {
+    return await assistanceAssignments.getVolunteerData(request.data);
+  } catch (error) {
+    throw toHttpsError(error);
+  }
+});
+
+exports.updateAssistanceVolunteerConsent = onCall(callableOptions, async (request) => {
+  try {
+    return await assistanceAssignments.updateVolunteerConsent(request.data);
+  } catch (error) {
+    throw toHttpsError(error);
+  }
+});
+
+exports.listAvailableAssistanceHelpers = onCall(callableOptions, async (request) => {
+  try {
+    return await assistanceAssignments.listVolunteerHelpers(operatorAuth(request), request.data);
+  } catch (error) {
+    throw toHttpsError(error);
+  }
+});
+
+exports.createAssistanceHelperAssignment = onCall(callableOptions, async (request) => {
+  try {
+    return await assistanceAssignments.createHelperAssignment(operatorAuth(request), request.data);
+  } catch (error) {
+    throw toHttpsError(error);
+  }
+});
+
+exports.respondToAssistanceAssignment = onCall(callableOptions, async (request) => {
+  try {
+    return await assistanceAssignments.respondToHelperAssignment(request.data);
   } catch (error) {
     throw toHttpsError(error);
   }

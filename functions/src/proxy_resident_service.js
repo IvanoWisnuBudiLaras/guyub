@@ -4,6 +4,7 @@ const { OPERATOR_ROLES, asDate } = require('./task_campaign_service');
 
 const REQUEST_ID_PATTERN = /^[A-Za-z0-9_-]{32,128}$/;
 const ID_PATTERN = /^[a-f0-9]{40}$/;
+const RESIDENT_ID_PATTERN = /^(?:[a-f0-9]{40}|[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12})$/i;
 const NICKNAME_LIMIT = 40;
 const HOUSE_NUMBER_PATTERN = /^[A-Za-z0-9-]{1,12}$/;
 
@@ -44,7 +45,7 @@ function requireRequestId(value) {
   return value;
 }
 function requireResidentId(value) {
-  if (typeof value !== 'string' || !ID_PATTERN.test(value)) {
+  if (typeof value !== 'string' || !RESIDENT_ID_PATTERN.test(value)) {
     throw invalidArgument('Warga tidak valid.');
   }
   return value;
@@ -91,6 +92,7 @@ function publicProxyResident(record) {
     nickname: record.nickname,
     houseNumber: record.houseNumber ?? null,
     needsAssistance: record.needsAssistance === true,
+    deletionPending: record.deletionPending === true,
     createdAt: iso(record.createdAt),
   };
 }
@@ -134,6 +136,20 @@ class ProxyResidentService {
       now,
     });
     return publicProxyResident(result);
+  }
+
+  async cancelPendingProxyResidentCreate(auth, data) {
+    validateOperatorAuth(auth);
+    assertOnlyKeys(data, ['requestId']);
+    const requestId = requireRequestId(data.requestId);
+    const rtId = await this.repository.getOperatorRtId(auth.operatorUid);
+    return this.repository.cancelProxyResidentCreate({
+      operatorUid: auth.operatorUid,
+      expectedRtId: rtId,
+      residentId: proxyResidentDocumentId(rtId, requestId),
+      requestHash: sha256(requestId),
+      now: this.clock(),
+    });
   }
 
   async listProxyResidents(auth, data) {
@@ -218,6 +234,7 @@ class ProxyResidentService {
 
 module.exports = {
   ID_PATTERN,
+  RESIDENT_ID_PATTERN,
   ProxyResidentError,
   ProxyResidentService,
   normalizeHouseNumber,

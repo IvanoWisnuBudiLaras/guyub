@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:guyub/features/assistance/application/assistance_volunteer_boundary.dart';
 import 'package:guyub/features/assistance/application/proxy_resident_boundary.dart';
 import 'package:guyub/features/assistance/presentation/proxy_resident_screen.dart';
 import 'package:guyub/features/auth/application/operator_profile.dart';
@@ -16,13 +17,29 @@ final class _ProxyBoundary implements ProxyResidentBoundary {
       'nickname': 'Nenek Sari',
       'houseNumber': '12A',
       'needsAssistance': true,
+      'deletionPending': false,
       'createdAt': '2026-10-06T12:00:00.000Z',
     }),
   ];
   final calls = <String, Object?>{};
+  bool partial = false;
+  bool failDeleteOnce = false;
+  bool failCreateAfterCommitOnce = false;
+  final createdByRequestId = <String, ProxyResidentRecord>{};
+  VolunteerHelperList helpers = VolunteerHelperList(
+    items: const [],
+    isPartial: false,
+  );
 
   @override
-  Future<List<ProxyResidentRecord>> listProxyResidents() async => residents;
+  Future<String> cancelPendingProxyResidentCreate({
+    required String requestId,
+  }) async =>
+      createdByRequestId.containsKey(requestId) ? 'CREATED' : 'CANCELLED';
+
+  @override
+  Future<ProxyResidentList> listProxyResidents() async =>
+      ProxyResidentList(residents: residents, isPartial: partial);
 
   @override
   Future<ProxyTaskStatusRecord> getProxyTaskStatus({
@@ -48,6 +65,9 @@ final class _ProxyBoundary implements ProxyResidentBoundary {
   }) async {
     calls['created'] = true;
     calls['consent'] = residentConsentConfirmed;
+    calls['createCount'] = (calls['createCount'] as int? ?? 0) + 1;
+    final existing = createdByRequestId[requestId];
+    if (existing != null) return existing;
     final result = ProxyResidentRecord(
       residentId: List.filled(40, 'c').join(),
       nickname: nickname.trim(),
@@ -55,7 +75,12 @@ final class _ProxyBoundary implements ProxyResidentBoundary {
       needsAssistance: needsAssistance,
       createdAt: DateTime.utc(2026, 10, 6, 12),
     );
+    createdByRequestId[requestId] = result;
     residents.add(result);
+    if (failCreateAfterCommitOnce) {
+      failCreateAfterCommitOnce = false;
+      throw StateError('server committed but response was lost');
+    }
     return result;
   }
 
@@ -69,6 +94,51 @@ final class _ProxyBoundary implements ProxyResidentBoundary {
     residentId: residentId,
     needsAssistance: needsAssistance,
   );
+
+  @override
+  Future<void> deleteResidentData({
+    required String residentId,
+    required bool residentRequestConfirmed,
+    required bool identityVerificationConfirmed,
+    required String commandId,
+  }) async {
+    calls['deleted'] = residentId;
+    calls['residentRequestConfirmed'] = residentRequestConfirmed;
+    calls['identityVerificationConfirmed'] = identityVerificationConfirmed;
+    if (failDeleteOnce) {
+      failDeleteOnce = false;
+      final index = residents.indexWhere(
+        (item) => item.residentId == residentId,
+      );
+      final current = residents[index];
+      residents[index] = ProxyResidentRecord(
+        residentId: current.residentId,
+        nickname: current.nickname,
+        houseNumber: null,
+        needsAssistance: false,
+        deletionPending: true,
+        createdAt: current.createdAt,
+      );
+      throw StateError('storage cleanup still pending');
+    }
+  }
+
+  @override
+  Future<VolunteerHelperList> listVolunteerHelpers() async => helpers;
+
+  @override
+  Future<HelperAssignmentResult> createHelperAssignment({
+    required String residentId,
+    required String helperResidentId,
+    required String commandId,
+  }) async {
+    calls['assignedResidentId'] = residentId;
+    calls['assignedHelperId'] = helperResidentId;
+    return HelperAssignmentResult(
+      assignmentId: List.filled(40, 'f').join(),
+      state: 'OFFERED',
+    );
+  }
 
   @override
   Future<ProxyTaskStatusRecord> updateProxyTaskStatus({
@@ -165,6 +235,209 @@ void main() {
     expect(find.textContaining('Alamat lengkap'), findsNothing);
   });
 
+  testWidgets('shows a clear warning when the resident list is partial', (
+    tester,
+  ) async {
+    final boundary = _ProxyBoundary()..partial = true;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ProxyResidentScreen(
+          profile: _profile(),
+          controller: ProxyResidentController(boundary),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const Key('proxy-resident-partial-warning')),
+      findsOneWidget,
+    );
+    expect(find.textContaining('200 warga pertama'), findsOneWidget);
+    expect(find.textContaining('Daftar belum lengkap'), findsOneWidget);
+  });
+
+  testWidgets('failed deletion refreshes to a locked retry state', (
+    tester,
+  ) async {
+    final boundary = _ProxyBoundary()..failDeleteOnce = true;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ProxyResidentScreen(
+          profile: _profile(),
+          controller: ProxyResidentController(boundary),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('proxy-resident-delete')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('proxy-delete-request-consent')));
+    await tester.tap(find.byKey(const Key('proxy-delete-identity-check')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('proxy-delete-confirm')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('proxy-deletion-pending')), findsOneWidget);
+    expect(find.text('Nomor rumah 12A'), findsNothing);
+    expect(
+      tester
+          .widget<TextButton>(find.byKey(const Key('proxy-assistance-toggle')))
+          .onPressed,
+      isNull,
+    );
+    expect(find.text('Lanjutkan penghapusan'), findsOneWidget);
+  });
+
+  testWidgets('pending deletion remains visible only for retry', (
+    tester,
+  ) async {
+    final boundary = _ProxyBoundary();
+    boundary.residents
+      ..clear()
+      ..add(
+        ProxyResidentRecord(
+          residentId: _residentId,
+          nickname: 'Nenek Sari',
+          houseNumber: '12A',
+          needsAssistance: true,
+          deletionPending: true,
+          createdAt: DateTime.utc(2026, 10, 6, 12),
+        ),
+      );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ProxyResidentScreen(
+          profile: _profile(),
+          controller: ProxyResidentController(boundary),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('proxy-deletion-pending')), findsOneWidget);
+    expect(find.text('Nomor rumah 12A'), findsNothing);
+    final assistance = tester.widget<TextButton>(
+      find.byKey(const Key('proxy-assistance-toggle')),
+    );
+    final delete = tester.widget<TextButton>(
+      find.byKey(const Key('proxy-resident-delete')),
+    );
+    expect(assistance.onPressed, isNull);
+    expect(delete.onPressed, isNotNull);
+    expect(find.text('Lanjutkan penghapusan'), findsOneWidget);
+  });
+
+  testWidgets('RT offers help only to a resident who opted in', (tester) async {
+    tester.view.physicalSize = const Size(800, 1400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final boundary = _ProxyBoundary()
+      ..helpers = VolunteerHelperList(
+        items: [
+          VolunteerHelperRecord(
+            residentId: List.filled(40, 'd').join(),
+            nickname: 'Relawan Sari',
+          ),
+        ],
+        isPartial: false,
+      );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ProxyResidentScreen(
+          profile: _profile(),
+          controller: ProxyResidentController(boundary),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('proxy-helper-assign')));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Relawan Sari'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('proxy-helper-assign-confirm')));
+    await tester.pumpAndSettle();
+    expect(boundary.calls['assignedResidentId'], _residentId);
+    expect(boundary.calls['assignedHelperId'], List.filled(40, 'd').join());
+  });
+
+  testWidgets('RT deletion requires request and offline identity checks', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 1400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final boundary = _ProxyBoundary();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ProxyResidentScreen(
+          profile: _profile(),
+          controller: ProxyResidentController(boundary),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('proxy-resident-delete')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('proxy-delete-confirm')));
+    await tester.pumpAndSettle();
+    expect(boundary.calls['deleted'], isNull);
+    await tester.tap(find.byKey(const Key('proxy-delete-request-consent')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('proxy-delete-identity-check')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('proxy-delete-confirm')));
+    await tester.pumpAndSettle();
+    expect(boundary.calls['deleted'], _residentId);
+    expect(boundary.calls['residentRequestConfirmed'], isTrue);
+    expect(boundary.calls['identityVerificationConfirmed'], isTrue);
+  });
+
+  testWidgets(
+    'confirmed pending create clears local payload and reloads profile',
+    (tester) async {
+      final boundary = _ProxyBoundary()..failCreateAfterCommitOnce = true;
+      final controller = ProxyResidentController(boundary);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ProxyResidentScreen(
+            profile: _profile(),
+            controller: controller,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('proxy-resident-create')));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('proxy-nickname')),
+        'Warga Baru',
+      );
+      await tester.tap(find.byKey(const Key('proxy-consent-attestation')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('proxy-create-confirm')));
+      await tester.pumpAndSettle();
+      expect(boundary.calls['createCount'], 1);
+      expect(find.byKey(const Key('proxy-create-retry-notice')), findsNothing);
+      await tester.tap(find.widgetWithText(TextButton, 'Batal'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('proxy-resident-create')));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const Key('proxy-create-retry-notice')),
+        findsOneWidget,
+      );
+      await tester.tap(find.byKey(const Key('proxy-create-cancel-pending')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('proxy-create-cancel-confirm')));
+      await tester.pumpAndSettle();
+
+      expect(boundary.calls['createCount'], 1);
+      expect(await controller.getPendingCreate(communityId: 'rt-a'), isNull);
+      await tester.scrollUntilVisible(find.text('Warga Baru'), 200);
+      expect(find.text('Warga Baru'), findsOneWidget);
+    },
+  );
+
   testWidgets('creating a proxy profile requires consent attestation', (
     tester,
   ) async {
@@ -195,6 +468,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(boundary.calls['created'], isTrue);
     expect(boundary.calls['consent'], isTrue);
+    await tester.scrollUntilVisible(find.text('Warga Baru'), 200);
     expect(find.text('Warga Baru'), findsOneWidget);
   });
 

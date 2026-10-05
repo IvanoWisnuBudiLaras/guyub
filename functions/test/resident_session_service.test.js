@@ -132,6 +132,7 @@ test('creates a scoped minimal profile and stores only a token hash', async () =
   const [storedResident] = repository.residents.values();
   assert.deepEqual(Object.keys(storedResident).sort(), [
     'createdAt', 'createdBy', 'needsAssistance', 'nickname', 'rtId', 'updatedAt',
+    'willingToHelp',
   ]);
   assert.equal(storedResident.nickname, 'Rani');
 });

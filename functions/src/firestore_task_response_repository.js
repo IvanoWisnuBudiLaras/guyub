@@ -41,7 +41,8 @@ function requireResidentSession(sessionSnapshot, residentSnapshot, input) {
   if (!sessionSnapshot.exists || session?.active !== true || !expiresAt ||
       expiresAt <= input.now || session.residentId !== input.residentId ||
       session.rtId !== input.rtId || !residentSnapshot.exists ||
-      resident?.rtId !== input.rtId || typeof resident?.nickname !== 'string') {
+      resident?.rtId !== input.rtId || resident?.deletionPending === true ||
+      typeof resident?.nickname !== 'string') {
     throw deny();
   }
 }
@@ -300,7 +301,8 @@ class FirestoreTaskResponseRepository {
         const campaign = campaignSnapshot.data();
         const resident = residentSnapshot.data();
         if (campaign.rtId !== operator.rtId || response.rtId !== operator.rtId ||
-            resident.rtId !== operator.rtId || typeof resident.nickname !== 'string' ||
+            resident.rtId !== operator.rtId || resident.deletionPending === true ||
+            typeof resident.nickname !== 'string' ||
             campaign.campaignId !== response.taskId ||
             response.responseId !== responseSnapshot.id ||
             responseDocumentId(response.rtId, response.taskId, response.residentId) !==

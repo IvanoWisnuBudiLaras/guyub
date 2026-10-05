@@ -31,7 +31,8 @@ function requireResidentSession(sessionSnapshot, residentSnapshot, communitySnap
   if (!sessionSnapshot.exists || session?.active !== true || !expiresAt ||
       expiresAt <= input.now || session.residentId !== input.residentId ||
       session.rtId !== input.rtId || !residentSnapshot.exists ||
-      resident?.rtId !== input.rtId || typeof resident?.nickname !== 'string' ||
+      resident?.rtId !== input.rtId || resident?.deletionPending === true ||
+      typeof resident?.nickname !== 'string' ||
       !resident.nickname.trim() || !communitySnapshot.exists ||
       communitySnapshot.id !== input.rtId) {
     throw deny();

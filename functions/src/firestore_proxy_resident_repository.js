@@ -1,6 +1,7 @@
 const { OPERATOR_ROLES, asDate } = require('./task_campaign_service');
 const { ProxyResidentError } = require('./proxy_resident_service');
 const { responseDocumentId } = require('./task_response_service');
+const { residentProfileTombstoneId } = require('./resident_profile_tombstone');
 
 const OPERATOR_COLLECTION = 'operators';
 const RESIDENT_COLLECTION = 'resident_profiles';
@@ -21,10 +22,11 @@ function requireOperator(snapshot) {
 }
 function requireProxyResident(snapshot, residentId, rtId) {
   const resident = snapshot.data();
-  if (!snapshot.exists || resident?.residentId !== residentId || resident.rtId !== rtId ||
-      resident.createdBy !== 'proxy' || typeof resident.nickname !== 'string' ||
+  if (!snapshot.exists || snapshot.id !== residentId || resident.rtId !== rtId ||
+      !['proxy', 'self'].includes(resident.createdBy) ||
+      resident.deletionPending === true || typeof resident.nickname !== 'string' ||
       typeof resident.needsAssistance !== 'boolean') deny();
-  return resident;
+  return { ...resident, residentId: snapshot.id };
 }
 function auditMatches(audit, { auditId, action, input, operator }) {
   return audit?.auditId === auditId && audit.action === action &&
@@ -35,15 +37,18 @@ function auditMatches(audit, { auditId, action, input, operator }) {
 }
 function publicProfile(snapshot) {
   const record = snapshot.data();
-  if (record.residentId !== snapshot.id || record.createdBy !== 'proxy' ||
-      typeof record.nickname !== 'string' || typeof record.needsAssistance !== 'boolean' ||
-      !asDate(record.createdAt)) return null;
+  if (!['proxy', 'self'].includes(record.createdBy) ||
+      typeof record.rtId !== 'string' || typeof record.nickname !== 'string' ||
+      typeof record.needsAssistance !== 'boolean' || !asDate(record.createdAt)) return null;
+  if (record.residentId != null && record.residentId !== snapshot.id) return null;
+  const deletionPending = record.deletionPending === true;
   return {
-    residentId: record.residentId,
+    residentId: snapshot.id,
     rtId: record.rtId,
     nickname: record.nickname,
-    houseNumber: record.houseNumber ?? null,
-    needsAssistance: record.needsAssistance,
+    houseNumber: deletionPending ? null : record.houseNumber ?? null,
+    needsAssistance: deletionPending ? false : record.needsAssistance,
+    deletionPending,
     createdAt: record.createdAt,
   };
 }
@@ -86,14 +91,21 @@ class FirestoreProxyResidentRepository {
     const residentRef = this.firestore.collection(RESIDENT_COLLECTION).doc(input.residentId);
     const auditId = `${input.residentId}_created`;
     const auditRef = this.firestore.collection(PROXY_AUDIT_COLLECTION).doc(auditId);
+    const tombstoneRef = this.firestore.collection('resident_profile_tombstones')
+      .doc(residentProfileTombstoneId(input.expectedRtId, input.residentId));
     let result;
 
     await this.firestore.runTransaction(async (transaction) => {
-      const [operatorSnapshot, residentSnapshot, auditSnapshot] = await Promise.all([
-        transaction.get(operatorRef), transaction.get(residentRef), transaction.get(auditRef),
-      ]);
+      const [operatorSnapshot, residentSnapshot, auditSnapshot, tombstoneSnapshot] =
+        await Promise.all([
+          transaction.get(operatorRef), transaction.get(residentRef),
+          transaction.get(auditRef), transaction.get(tombstoneRef),
+        ]);
       const operator = requireOperator(operatorSnapshot);
       if (operator.rtId !== input.expectedRtId) deny();
+      if (tombstoneSnapshot.exists) {
+        throw fail('failed-precondition', 'Permintaan warga tidak dapat dipulihkan.');
+      }
       if (residentSnapshot.exists) {
         const existing = residentSnapshot.data();
         const audit = auditSnapshot.data();
@@ -114,6 +126,7 @@ class FirestoreProxyResidentRepository {
         nickname: input.nickname,
         ...(input.houseNumber == null ? {} : { houseNumber: input.houseNumber }),
         needsAssistance: input.needsAssistance,
+        willingToHelp: false,
         createdBy: 'proxy',
         createdAt: input.now,
         updatedAt: input.now,
@@ -135,6 +148,64 @@ class FirestoreProxyResidentRepository {
     return result;
   }
 
+  async cancelProxyResidentCreate(input) {
+    const operatorRef = this.firestore.collection(OPERATOR_COLLECTION).doc(input.operatorUid);
+    const residentRef = this.firestore.collection(RESIDENT_COLLECTION).doc(input.residentId);
+    const auditRef = this.firestore.collection(PROXY_AUDIT_COLLECTION)
+      .doc(`${input.residentId}_created`);
+    const tombstoneId = residentProfileTombstoneId(input.expectedRtId, input.residentId);
+    const tombstoneRef = this.firestore.collection('resident_profile_tombstones').doc(tombstoneId);
+    let result;
+    await this.firestore.runTransaction(async (transaction) => {
+      const [operatorSnapshot, residentSnapshot, auditSnapshot, tombstoneSnapshot] =
+        await Promise.all([
+          transaction.get(operatorRef), transaction.get(residentRef),
+          transaction.get(auditRef), transaction.get(tombstoneRef),
+        ]);
+      const operator = requireOperator(operatorSnapshot);
+      if (operator.rtId !== input.expectedRtId) deny();
+      if (residentSnapshot.exists) {
+        const resident = residentSnapshot.data();
+        const audit = auditSnapshot.data();
+        if (residentSnapshot.id !== input.residentId || resident.rtId !== operator.rtId ||
+            resident.createdBy !== 'proxy' || resident.residentId !== input.residentId ||
+            !auditMatches(audit, {
+              auditId: auditRef.id,
+              action: 'PROXY_RESIDENT_CREATED',
+              input: { ...input, requestHash: input.requestHash },
+              operator,
+            })) deny();
+        result = { state: 'CREATED' };
+        return;
+      }
+      if (tombstoneSnapshot.exists) {
+        const tombstone = tombstoneSnapshot.data();
+        if (tombstone.rtId !== operator.rtId ||
+            tombstone.targetResidentHash !== tombstoneId) deny();
+        if (tombstone.action === 'PROXY_CREATE_CANCELLED') {
+          result = { state: 'CANCELLED' };
+          return;
+        }
+        if (tombstone.action === 'RESIDENT_DATA_DELETED') {
+          result = { state: 'DELETED' };
+          return;
+        }
+        deny();
+      }
+      transaction.create(tombstoneRef, {
+        tombstoneId,
+        rtId: operator.rtId,
+        targetResidentHash: tombstoneId,
+        action: 'PROXY_CREATE_CANCELLED',
+        actorUid: input.operatorUid,
+        requestHash: input.requestHash,
+        occurredAt: input.now,
+      });
+      result = { state: 'CANCELLED' };
+    });
+    return result;
+  }
+
   async listProxyResidents({ operatorUid }) {
     const operatorRef = this.firestore.collection(OPERATOR_COLLECTION).doc(operatorUid);
     return this.firestore.runTransaction(async (transaction) => {
@@ -142,14 +213,17 @@ class FirestoreProxyResidentRepository {
       const operator = requireOperator(operatorSnapshot);
       const query = this.firestore.collection(RESIDENT_COLLECTION)
         .where('rtId', '==', operator.rtId)
-        .where('createdBy', '==', 'proxy')
+        .where('createdBy', 'in', ['proxy', 'self'])
         .orderBy('createdAt', 'asc')
         .limit(MAX_PROXY_RESIDENTS + 1);
       const snapshot = await transaction.get(query);
       const items = snapshot.docs.slice(0, MAX_PROXY_RESIDENTS).map(publicProfile)
         .filter((item) => item !== null && item.rtId === operator.rtId)
         .map(({ rtId: _rtId, ...item }) => item);
-      return { items, isPartial: snapshot.size > MAX_PROXY_RESIDENTS };
+      return {
+        items,
+        isPartial: snapshot.size > MAX_PROXY_RESIDENTS || items.length !== snapshot.size,
+      };
     });
   }
 
@@ -181,8 +255,7 @@ class FirestoreProxyResidentRepository {
       }
       const response = responseSnapshot.data();
       if (response.responseId !== responseId || response.taskId !== input.taskId ||
-          response.rtId !== operator.rtId || response.residentId !== input.residentId ||
-          response.proxyRecordedBy !== true) deny();
+          response.rtId !== operator.rtId || response.residentId !== input.residentId) deny();
       return responseView(responseSnapshot);
     });
   }
@@ -262,8 +335,7 @@ class FirestoreProxyResidentRepository {
       if (responseSnapshot.exists) {
         const current = responseSnapshot.data();
         if (current.responseId !== responseId || current.taskId !== input.taskId ||
-            current.rtId !== operator.rtId || current.residentId !== input.residentId ||
-            current.proxyRecordedBy !== true) deny();
+            current.rtId !== operator.rtId || current.residentId !== input.residentId) deny();
         if (auditSnapshot.exists) {
           if (proxyStatusAuditMatches(
             auditSnapshot.data(), input, operator, responseId, action,

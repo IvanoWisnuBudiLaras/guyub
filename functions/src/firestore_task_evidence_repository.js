@@ -1,6 +1,7 @@
 const { FieldValue } = require('firebase-admin/firestore');
 const { OPERATOR_ROLES, TaskCampaignError, asDate } = require('./task_campaign_service');
 const { responseDocumentId } = require('./task_response_service');
+const { hasActiveUploadLease } = require('./task_evidence_upload_lease');
 
 const EVIDENCE_COLLECTION = 'task_evidence';
 const SESSION_COLLECTION = 'resident_sessions';
@@ -24,7 +25,8 @@ function requireResidentSession(sessionSnapshot, residentSnapshot, communitySnap
   if (!sessionSnapshot.exists || session?.active !== true || !expiresAt ||
       expiresAt <= input.now || session.residentId !== input.residentId ||
       session.rtId !== input.rtId || !residentSnapshot.exists ||
-      resident?.rtId !== input.rtId || typeof resident?.nickname !== 'string' ||
+      resident?.rtId !== input.rtId || resident?.deletionPending === true ||
+      typeof resident?.nickname !== 'string' ||
       !resident.nickname.trim() || !communitySnapshot.exists || communitySnapshot.id !== input.rtId) {
     throw deny();
   }
@@ -120,6 +122,10 @@ class FirestoreTaskEvidenceRepository {
       requireActiveJoinedTask(campaignSnapshot, responseSnapshot, transactionInput, responseId);
       if (evidenceSnapshot.exists) {
         const record = validateEvidenceRecord(evidenceSnapshot, transactionInput);
+        if (record.status === 'UPLOADING') {
+          transaction.update(evidenceRef, { uploadLeaseUntil: input.uploadLeaseUntil });
+          return { ...record, uploadLeaseUntil: input.uploadLeaseUntil };
+        }
         return record;
       }
 
@@ -135,6 +141,7 @@ class FirestoreTaskEvidenceRepository {
         status: 'UPLOADING',
         createdAt: input.now,
         expiresAt: input.expiresAt,
+        uploadLeaseUntil: input.uploadLeaseUntil,
         deletionCommandHash: null,
         deleteAttemptCount: 0,
       };
@@ -156,7 +163,10 @@ class FirestoreTaskEvidenceRepository {
       if (record.status !== 'UPLOADING') {
         throw fail('failed-precondition', 'Bukti tidak dapat diaktifkan kembali.');
       }
-      transaction.update(evidenceRef, { status: 'READY', uploadedAt: input.now });
+      transaction.update(evidenceRef, {
+        status: 'READY', uploadedAt: input.now,
+        uploadLeaseUntil: FieldValue.delete(),
+      });
       return { ...record, status: 'READY', uploadedAt: input.now };
     });
   }
@@ -179,6 +189,9 @@ class FirestoreTaskEvidenceRepository {
         throw deny();
       }
       if (record.status === 'DELETED') return record;
+      if (hasActiveUploadLease(record, input.now)) {
+        throw fail('failed-precondition', 'Unggahan bukti masih berlangsung. Coba lagi.');
+      }
       if (record.deletionCommandHash && record.deletionCommandHash !== input.commandHash) {
         throw fail('failed-precondition', 'Penghapusan bukti sedang diproses.');
       }
@@ -220,6 +233,10 @@ class FirestoreTaskEvidenceRepository {
       if (typeof record.storagePath !== 'string' || !record.storagePath) {
         throw fail('failed-precondition', 'Lokasi penyimpanan bukti tidak valid.');
       }
+      if (!['UPLOADING', 'READY', 'DELETE_PENDING'].includes(record.status)) {
+        throw fail('failed-precondition', 'Status bukti tidak valid.');
+      }
+      if (hasActiveUploadLease(record, input.now)) return null;
       if (record.status !== 'DELETE_PENDING') {
         transaction.update(evidenceRef, { status: 'DELETE_PENDING', deleteRequestedAt: input.now });
       }
@@ -247,6 +264,7 @@ class FirestoreTaskEvidenceRepository {
         createdAt: FieldValue.delete(),
         expiresAt: FieldValue.delete(),
         uploadedAt: FieldValue.delete(),
+        uploadLeaseUntil: FieldValue.delete(),
         deleteRequestedAt: FieldValue.delete(),
         lastDeleteAttemptAt: FieldValue.delete(),
         deleteAttemptCount: FieldValue.delete(),
