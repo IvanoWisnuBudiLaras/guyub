@@ -155,6 +155,71 @@ void main() {
       );
     });
 
+    test(
+      'closing is explicit, same-community, idempotent, and not completion',
+      () {
+        final active = activeCampaign();
+        final closedAt = now.add(const Duration(hours: 1));
+        final closed = active.close(
+          operatorId: 'operator-1',
+          operatorCommunityId: 'rt-1',
+          closedAt: closedAt,
+          commandId: 'close-1',
+        );
+        expect(closed.status, TaskCampaignStatus.closed);
+        expect(closed.closedAt, closedAt);
+        expect(closed.closedByOperatorId, 'operator-1');
+        expect(closed.closureCommandId, 'close-1');
+        expect(
+          identical(
+            closed.close(
+              operatorId: 'operator-1',
+              operatorCommunityId: 'rt-1',
+              closedAt: closedAt,
+              commandId: 'close-1',
+            ),
+            closed,
+          ),
+          isTrue,
+        );
+        expect(
+          () => active.close(
+            operatorId: 'operator-1',
+            operatorCommunityId: 'rt-2',
+            closedAt: closedAt,
+            commandId: 'close-1',
+          ),
+          throwsStateError,
+        );
+        expect(
+          () => closed.close(
+            operatorId: 'operator-1',
+            operatorCommunityId: 'rt-1',
+            closedAt: closedAt,
+            commandId: 'close-2',
+          ),
+          throwsStateError,
+        );
+        expect(
+          () => draft().close(
+            operatorId: 'operator-1',
+            operatorCommunityId: 'rt-1',
+            closedAt: closedAt,
+            commandId: 'close-1',
+          ),
+          throwsStateError,
+        );
+        expect(
+          () => TaskResponse.unresponded(
+            taskId: closed.id,
+            communityId: closed.communityId,
+            residentId: 'resident-1',
+          ).chooseParticipation(ParticipationChoice.join, campaign: closed),
+          throwsStateError,
+        );
+      },
+    );
+
     test('deadline and editable parameter bounds are validated', () {
       expect(
         () => TaskCampaign.createDraft(

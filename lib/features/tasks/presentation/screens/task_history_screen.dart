@@ -156,6 +156,7 @@ final class _TaskHistoryScreenState extends State<TaskHistoryScreen> {
                 for (final task in _tasks)
                   _HistoryTaskCard(
                     profile: widget.profile,
+                    controller: widget.controller,
                     task: task,
                     taskResponseController: widget.taskResponseController,
                   ),
@@ -188,20 +189,48 @@ final class _TaskHistoryScreenState extends State<TaskHistoryScreen> {
   );
 }
 
-final class _HistoryTaskCard extends StatelessWidget {
+final class _HistoryTaskCard extends StatefulWidget {
   const _HistoryTaskCard({
     required this.profile,
+    required this.controller,
     required this.task,
     required this.taskResponseController,
   });
 
   final OperatorProfile profile;
+  final TaskCampaignController controller;
   final RtTaskHistoryRecord task;
   final TaskResponseController? taskResponseController;
 
   @override
+  State<_HistoryTaskCard> createState() => _HistoryTaskCardState();
+}
+
+final class _HistoryTaskCardState extends State<_HistoryTaskCard> {
+  bool _showEvents = false;
+  Future<List<RtTaskLifecycleEvent>>? _eventsFuture;
+
+  void _toggleEvents() {
+    setState(() {
+      _showEvents = !_showEvents;
+      if (_showEvents) _eventsFuture ??= _loadEvents();
+    });
+  }
+
+  Future<List<RtTaskLifecycleEvent>> _loadEvents() =>
+      widget.controller.listTaskLifecycleEvents(taskId: widget.task.taskId);
+
+  void _retryEvents() => setState(() => _eventsFuture = _loadEvents());
+
+  String get _statusLabel => switch (widget.task.status) {
+    'CANCELLED' => 'Dibatalkan',
+    'CLOSED' => 'Ditutup',
+    _ => 'Aktif',
+  };
+
+  @override
   Widget build(BuildContext context) {
-    final isCancelled = task.status == 'CANCELLED';
+    final task = widget.task;
     return Card(
       key: Key('history-task-${task.taskId}'),
       margin: const EdgeInsets.only(bottom: 12),
@@ -215,12 +244,14 @@ final class _HistoryTaskCard extends StatelessWidget {
               style: Theme.of(context).textTheme.titleMedium,
             ),
             const SizedBox(height: 6),
-            Text('Status: ${isCancelled ? 'Dibatalkan' : 'Aktif'}'),
+            Text('Status: $_statusLabel'),
             Text('Versi template: ${task.templateSnapshot.version}'),
             Text('Batas waktu: ${_formatDate(task.deadline)}'),
             Text('Diaktifkan: ${_formatDate(task.activatedAt)}'),
             if (task.cancelledAt case final cancelledAt?)
               Text('Dibatalkan: ${_formatDate(cancelledAt)}'),
+            if (task.closedAt case final closedAt?)
+              Text('Ditutup: ${_formatDate(closedAt)}'),
             if (task.locationReference case final location?)
               Text('Lokasi umum: ${TaskLocationReferences.label(location)}'),
             const SizedBox(height: 12),
@@ -233,14 +264,26 @@ final class _HistoryTaskCard extends StatelessWidget {
               'Keselamatan: ${task.templateSnapshot.safetyInstruction}',
               style: Theme.of(context).textTheme.bodyMedium,
             ),
-            const SizedBox(height: 12),
-            if (taskResponseController case final controller?)
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              key: Key('history-events-toggle-${task.taskId}'),
+              onPressed: _toggleEvents,
+              icon: Icon(_showEvents ? Icons.expand_less : Icons.history),
+              label: Text(
+                _showEvents
+                    ? 'Sembunyikan riwayat perubahan'
+                    : 'Lihat riwayat perubahan',
+              ),
+            ),
+            if (_showEvents) _lifecycleEvents(context),
+            const SizedBox(height: 8),
+            if (widget.taskResponseController case final controller?)
               OutlinedButton.icon(
                 key: Key('history-recap-${task.taskId}'),
                 onPressed: () => Navigator.of(context).push<void>(
                   MaterialPageRoute<void>(
                     builder: (_) => TaskResponseRecapScreen(
-                      profile: profile,
+                      profile: widget.profile,
                       taskId: task.taskId,
                       controller: controller,
                     ),
@@ -252,14 +295,65 @@ final class _HistoryTaskCard extends StatelessWidget {
             else
               OutlinedButton.icon(
                 onPressed: null,
-                icon: const Icon(Icons.analytics_outlined),
-                label: const Text('Rekap tanggapan tidak tersedia'),
+                icon: Icon(Icons.analytics_outlined),
+                label: Text('Rekap tanggapan tidak tersedia'),
               ),
           ],
         ),
       ),
     );
   }
+
+  Widget _lifecycleEvents(BuildContext context) => Semantics(
+    container: true,
+    explicitChildNodes: true,
+    label: 'Riwayat perubahan tugas',
+    child: FutureBuilder<List<RtTaskLifecycleEvent>>(
+      future: _eventsFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Padding(
+            padding: EdgeInsets.symmetric(vertical: 12),
+            child: LinearProgressIndicator(),
+          );
+        }
+        if (snapshot.hasError || snapshot.data == null) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Riwayat perubahan belum dapat dimuat.'),
+              OutlinedButton(
+                key: Key('history-events-retry-${widget.task.taskId}'),
+                onPressed: _retryEvents,
+                child: const Text('Coba muat perubahan lagi'),
+              ),
+            ],
+          );
+        }
+        final events = snapshot.data!;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Perubahan yang dicatat server:'),
+            for (final event in events)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Text(
+                  '${_eventLabel(event.eventType)}: ${_formatDate(event.occurredAt)}',
+                ),
+              ),
+          ],
+        );
+      },
+    ),
+  );
+
+  String _eventLabel(String eventType) => switch (eventType) {
+    'ACTIVATED' => 'Diaktifkan',
+    'CLOSED' => 'Ditutup',
+    'CANCELLED' => 'Dibatalkan',
+    _ => 'Perubahan',
+  };
 }
 
 String _formatDate(DateTime value) {

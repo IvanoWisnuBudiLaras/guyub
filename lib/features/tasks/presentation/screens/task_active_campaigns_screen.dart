@@ -26,9 +26,11 @@ final class _TaskActiveCampaignsScreenState
     extends State<TaskActiveCampaignsScreen> {
   late Future<List<ActiveTaskCampaignRecord>> _campaignsFuture;
   final Set<String> _cancellingTaskIds = {};
+  final Set<String> _closingTaskIds = {};
   String? _actionError;
 
-  bool get _isCancelling => _cancellingTaskIds.isNotEmpty;
+  bool get _isActing =>
+      _cancellingTaskIds.isNotEmpty || _closingTaskIds.isNotEmpty;
 
   @override
   void initState() {
@@ -112,6 +114,59 @@ final class _TaskActiveCampaignsScreenState
     }
   }
 
+  Future<void> _close(ActiveTaskCampaignRecord task) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Tutup tugas aktif?'),
+        content: Text(
+          '“${task.templateSnapshot.title}” akan dikeluarkan dari daftar tugas '
+          'aktif warga. Penutupan tidak menandai tanggapan sebagai selesai; '
+          'verifikasi RT tetap menjadi acuan. Perubahan dicatat dalam riwayat.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Kembali'),
+          ),
+          FilledButton(
+            key: const Key('task-campaign-close-confirm'),
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Tutup tugas'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() {
+      _closingTaskIds.add(task.taskId);
+      _actionError = null;
+    });
+    try {
+      final result = await widget.controller.closeTaskCampaign(
+        taskId: task.taskId,
+      );
+      if (result.taskId != task.taskId || result.status != 'CLOSED') {
+        throw const FormatException('Invalid closure response.');
+      }
+      if (mounted) _reload();
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _actionError =
+              'Penutupan belum dapat dipastikan. Status tugas sedang dimuat '
+              'ulang dari server; jangan menganggap tugas sudah ditutup.';
+          _campaignsFuture = widget.controller.listActiveTaskCampaigns();
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _closingTaskIds.remove(task.taskId));
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
@@ -120,7 +175,7 @@ final class _TaskActiveCampaignsScreenState
         IconButton(
           key: const Key('active-task-reload'),
           tooltip: 'Muat ulang tugas aktif',
-          onPressed: _isCancelling ? null : () => _reload(),
+          onPressed: _isActing ? null : () => _reload(),
           icon: const Icon(Icons.refresh),
         ),
       ],
@@ -134,7 +189,7 @@ final class _TaskActiveCampaignsScreenState
         if (snapshot.hasError || snapshot.data == null) {
           return _LoadFailure(
             actionError: _actionError,
-            onRetry: _isCancelling ? null : () => _reload(),
+            onRetry: _isActing ? null : () => _reload(),
           );
         }
         final tasks = snapshot.data!;
@@ -175,8 +230,10 @@ final class _TaskActiveCampaignsScreenState
                   _ActiveTaskCard(
                     task: task,
                     cancelling: _cancellingTaskIds.contains(task.taskId),
-                    actionsDisabled: _isCancelling,
+                    actionsDisabled: _isActing,
                     onCancel: () => _cancel(task),
+                    closing: _closingTaskIds.contains(task.taskId),
+                    onClose: () => _close(task),
                   ),
                   const SizedBox(height: 12),
                 ],
@@ -192,14 +249,18 @@ final class _ActiveTaskCard extends StatelessWidget {
   const _ActiveTaskCard({
     required this.task,
     required this.cancelling,
+    required this.closing,
     required this.actionsDisabled,
     required this.onCancel,
+    required this.onClose,
   });
 
   final ActiveTaskCampaignRecord task;
   final bool cancelling;
+  final bool closing;
   final bool actionsDisabled;
   final VoidCallback onCancel;
+  final VoidCallback onClose;
 
   @override
   Widget build(BuildContext context) => Card(
@@ -246,6 +307,18 @@ final class _ActiveTaskCard extends StatelessWidget {
                 : const Icon(Icons.cancel_outlined),
             label: Text(cancelling ? 'Memproses…' : 'Batalkan tugas'),
           ),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            key: Key('task-campaign-close-${task.taskId}'),
+            onPressed: actionsDisabled ? null : onClose,
+            icon: closing
+                ? const SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.archive_outlined),
+            label: Text(closing ? 'Memproses…' : 'Tutup tugas aktif'),
+          ),
         ],
       ),
     ),
@@ -284,9 +357,11 @@ final class _CancellationNotice extends StatelessWidget {
     child: const Padding(
       padding: EdgeInsets.all(16),
       child: Text(
-        'Pembatalan dicatat dalam riwayat audit dan tidak mengirim '
-        'notifikasi. Pilihan warga yang masih antre secara offline dapat '
-        'berkonflik saat disinkronkan; status server tetap menjadi acuan.',
+        'Pembatalan dan penutupan adalah tindakan operator yang dicatat dalam '
+        'riwayat audit. Penutupan tidak menandai tanggapan warga selesai; '
+        'verifikasi RT tetap menjadi acuan. Pilihan warga yang masih antre '
+        'secara offline dapat berkonflik saat disinkronkan; status server tetap '
+        'menjadi acuan.',
       ),
     ),
   );

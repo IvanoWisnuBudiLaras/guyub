@@ -23,14 +23,21 @@ ActiveTaskCampaignRecord _activeTask() => ActiveTaskCampaignRecord(
 );
 
 final class _ActiveBoundary
-    implements TaskCampaignBoundary, TaskCampaignManagementBoundary {
+    implements
+        TaskCampaignBoundary,
+        TaskCampaignManagementBoundary,
+        TaskCampaignLifecycleBoundary {
   List<ActiveTaskCampaignRecord> tasks = [_activeTask()];
   bool failList = false;
   bool failCancellation = false;
+  bool failClosure = false;
   int listCalls = 0;
   int cancellationCalls = 0;
+  int closureCalls = 0;
   String? lastTaskId;
   String? lastCommandId;
+  String? lastClosureTaskId;
+  String? lastClosureCommandId;
 
   @override
   Future<List<ActiveTaskCampaignRecord>> listActiveTaskCampaigns() async {
@@ -51,6 +58,29 @@ final class _ActiveBoundary
     tasks = tasks.where((task) => task.taskId != taskId).toList();
     return TaskCampaignCancellationRecord(taskId: taskId, status: 'CANCELLED');
   }
+
+  @override
+  Future<TaskCampaignClosureRecord> closeTaskCampaign({
+    required String taskId,
+    required String commandId,
+  }) async {
+    closureCalls++;
+    lastClosureTaskId = taskId;
+    lastClosureCommandId = commandId;
+    if (failClosure) throw StateError('lost response');
+    tasks = tasks.where((task) => task.taskId != taskId).toList();
+    return TaskCampaignClosureRecord(taskId: taskId, status: 'CLOSED');
+  }
+
+  @override
+  Future<List<RtTaskLifecycleEvent>> listTaskLifecycleEvents({
+    required String taskId,
+  }) async => [
+    RtTaskLifecycleEvent(
+      eventType: 'ACTIVATED',
+      occurredAt: DateTime.utc(2026, 10, 4),
+    ),
+  ];
 
   @override
   Future<List<TaskTemplate>> listApprovedTemplates() async => const [];
@@ -94,6 +124,14 @@ Future<void> _openCancellationDialog(WidgetTester tester) async {
   await tester.drag(find.byType(ListView), const Offset(0, -600));
   await tester.pumpAndSettle();
   await tester.tap(cancelButton);
+  await tester.pumpAndSettle();
+}
+
+Future<void> _openClosureDialog(WidgetTester tester) async {
+  final closeButton = find.byKey(Key('task-campaign-close-$_taskId'));
+  await tester.drag(find.byType(ListView), const Offset(0, -600));
+  await tester.pumpAndSettle();
+  await tester.tap(closeButton);
   await tester.pumpAndSettle();
 }
 
@@ -151,6 +189,86 @@ void main() {
       expect(find.byKey(const Key('active-task-empty')), findsOneWidget);
     },
   );
+
+  testWidgets(
+    'closure requires confirmation and remains distinct from completion',
+    (tester) async {
+      final boundary = _ActiveBoundary();
+      await _mount(tester, boundary);
+      await _openClosureDialog(tester);
+
+      expect(boundary.closureCalls, 0);
+      expect(find.text('Tutup tugas aktif?'), findsOneWidget);
+      expect(
+        find.textContaining('tidak menandai tanggapan sebagai selesai'),
+        findsOneWidget,
+      );
+      await tester.tap(find.text('Kembali'));
+      await tester.pumpAndSettle();
+      expect(boundary.closureCalls, 0);
+
+      await _openClosureDialog(tester);
+      await tester.tap(find.byKey(const Key('task-campaign-close-confirm')));
+      await tester.pumpAndSettle();
+      expect(boundary.closureCalls, 1);
+      expect(boundary.lastClosureTaskId, _taskId);
+      expect(boundary.lastClosureCommandId, 'c' * 40);
+      expect(boundary.cancellationCalls, 0);
+      expect(boundary.listCalls, 2);
+      expect(find.byKey(const Key('active-task-empty')), findsOneWidget);
+    },
+  );
+
+  testWidgets('uncertain closure is not shown as success', (tester) async {
+    final boundary = _ActiveBoundary()..failClosure = true;
+    await _mount(tester, boundary);
+    await _openClosureDialog(tester);
+    await tester.tap(find.byKey(const Key('task-campaign-close-confirm')));
+    await tester.pumpAndSettle();
+
+    expect(boundary.closureCalls, 1);
+    expect(find.text(_snapshot.title), findsOneWidget);
+    expect(
+      find.textContaining('Penutupan belum dapat dipastikan'),
+      findsOneWidget,
+    );
+    expect(find.text('Tidak ada tugas aktif untuk RT ini.'), findsNothing);
+  });
+
+  testWidgets('close control keeps its name and supports large text', (
+    tester,
+  ) async {
+    final boundary = _ActiveBoundary();
+    final semantics = tester.ensureSemantics();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MediaQuery(
+          data: const MediaQueryData(textScaler: TextScaler.linear(2)),
+          child: TaskActiveCampaignsScreen(
+            profile: _profile,
+            controller: TaskCampaignController(
+              boundary,
+              idFactory: () => 'c' * 40,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final closeButton = find.byKey(Key('task-campaign-close-$_taskId'));
+    await tester.dragUntilVisible(
+      closeButton,
+      find.byType(ListView),
+      const Offset(0, -400),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      tester.getSemantics(closeButton).label,
+      contains('Tutup tugas aktif'),
+    );
+    expect(tester.takeException(), isNull);
+    semantics.dispose();
+  });
 
   testWidgets('callable errors fail closed without showing a local task list', (
     tester,

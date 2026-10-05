@@ -13,7 +13,8 @@ final class FirebaseTaskCampaignBoundary
     implements
         TaskCampaignBoundary,
         TaskCampaignManagementBoundary,
-        TaskCampaignHistoryBoundary {
+        TaskCampaignHistoryBoundary,
+        TaskCampaignLifecycleBoundary {
   const FirebaseTaskCampaignBoundary(this.functions) : _invoker = null;
 
   const FirebaseTaskCampaignBoundary.withInvoker(this._invoker)
@@ -140,6 +141,33 @@ final class FirebaseTaskCampaignBoundary
       result,
       expectedTaskId: taskId,
     );
+  }
+
+  @override
+  Future<TaskCampaignClosureRecord> closeTaskCampaign({
+    required String taskId,
+    required String commandId,
+  }) async {
+    if (!_taskIdPattern.hasMatch(taskId) ||
+        !_commandIdPattern.hasMatch(commandId)) {
+      throw ArgumentError('Invalid task closure command.');
+    }
+    final result = await _call('closeTaskCampaign', {
+      'taskId': taskId,
+      'commandId': commandId,
+    });
+    return TaskCampaignClosureRecord.fromWire(result, expectedTaskId: taskId);
+  }
+
+  @override
+  Future<List<RtTaskLifecycleEvent>> listTaskLifecycleEvents({
+    required String taskId,
+  }) async {
+    if (!_taskIdPattern.hasMatch(taskId)) {
+      throw ArgumentError.value(taskId, 'taskId', 'Invalid task ID.');
+    }
+    final result = await _call('listTaskLifecycleEvents', {'taskId': taskId});
+    return RtTaskLifecycleEvent.listFromWire(result);
   }
 }
 
