@@ -762,14 +762,14 @@ test('explicit closure is same-RT, idempotent, excluded from residents, and expo
     choice: 'JOINED',
     commandId: randomRequestId(),
   });
-  assertError(queuedResponseReplay, 'FAILED_PRECONDITION');
+  assertError(queuedResponseReplay, 'PERMISSION_DENIED');
   const queuedCompletionReplay = await callFunction('submitTaskCompletion', {
     sessionToken: session.body.result.sessionToken,
     taskId,
     note: null,
     commandId: randomRequestId(),
   });
-  assertError(queuedCompletionReplay, 'FAILED_PRECONDITION');
+  assertError(queuedCompletionReplay, 'PERMISSION_DENIED');
 
   const history = await callFunction('listRtTaskHistory', { pageSize: 1 }, operator.idToken);
   assert.equal(history.status, 200, JSON.stringify(history.body));
