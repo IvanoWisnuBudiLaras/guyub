@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:guyub/features/auth/application/resident_session_vault.dart';
 import 'package:guyub/features/proposals/application/resident_proposal_boundary.dart';
+import 'package:guyub/features/tasks/application/task_template.dart';
 
 void main() {
   test(
@@ -55,6 +56,60 @@ void main() {
     expect(boundary.commandIds, ['c' * 40, 'c' * 40]);
     expect(boundary.decisions, ['DISMISSED', 'DISMISSED']);
   });
+
+  test(
+    'proposal mapping command ID is stable across fresh controllers',
+    () async {
+      final boundary = _FakeProposalBoundary();
+      final template = TaskTemplate(
+        id: 'safe_household_prep',
+        version: 2,
+        title: 'Persiapan rumah',
+        category: 'HOUSEHOLD_PREPARATION',
+        coreInstruction: 'Simpan dokumen.',
+        safetyInstruction: 'Jangan dekati air banjir.',
+        enabled: true,
+      );
+      final deadline = DateTime.now().add(const Duration(days: 3));
+      for (var attempt = 0; attempt < 2; attempt++) {
+        final controller = ResidentProposalReviewController(
+          boundary: boundary,
+          commandIdFactory: () => 'random-never-used-' * 3,
+        );
+        await expectLater(
+          controller.mapToDraft(
+            proposalId: 'a' * 40,
+            template: template,
+            deadline: deadline,
+            locationReference: 'HOUSEHOLD',
+          ),
+          throwsStateError,
+        );
+      }
+      expect(boundary.mappingCommandIds, hasLength(2));
+      expect(boundary.mappingCommandIds[0], boundary.mappingCommandIds[1]);
+      expect(
+        boundary.mappingCommandIds.first,
+        matches(RegExp(r'^[a-f0-9]{64}$')),
+      );
+      final changedController = ResidentProposalReviewController(
+        boundary: boundary,
+      );
+      await expectLater(
+        changedController.mapToDraft(
+          proposalId: 'a' * 40,
+          template: template,
+          deadline: deadline.add(const Duration(hours: 1)),
+          locationReference: 'HOUSEHOLD',
+        ),
+        throwsStateError,
+      );
+      expect(
+        boundary.mappingCommandIds[2],
+        isNot(boundary.mappingCommandIds[0]),
+      );
+    },
+  );
 
   test('wire parser accepts NEEDS_OFFICIAL_REPORT and rejects unknown workflow states', () {
     final payload = _proposalWire();
@@ -137,6 +192,7 @@ final class _FakeProposalBoundary implements ResidentProposalBoundary {
   final List<String> commandIds = [];
   final List<String> decisions = [];
   final List<String> states = [];
+  final List<String> mappingCommandIds = [];
 
   ResidentProposalRecord _record({String state = 'SUBMITTED'}) =>
       ResidentProposalRecord.fromWire(_proposalWire(state: state));
@@ -177,5 +233,18 @@ final class _FakeProposalBoundary implements ResidentProposalBoundary {
       throw StateError('simulated lost response');
     }
     return _record(state: decision);
+  }
+
+  @override
+  Future<ResidentProposalDraftMapping> mapResidentProposalToDraft({
+    required String proposalId,
+    required String templateId,
+    required int version,
+    required DateTime deadline,
+    required String? locationReference,
+    required String commandId,
+  }) async {
+    mappingCommandIds.add(commandId);
+    throw StateError('simulated lost mapping response');
   }
 }

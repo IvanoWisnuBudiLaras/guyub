@@ -79,8 +79,8 @@ final class _ResidentProposalScreenState extends State<ResidentProposalScreen> {
         ),
         const SizedBox(height: 12),
         const Text(
-          'Usulan akan ditinjau RT dan tidak menjadi tugas aktif secara otomatis. '
-          'RT dapat meninjau usulan. Fitur untuk mengubah usulan menjadi tugas belum tersedia; usulan tidak menjadi tugas aktif secara otomatis.',
+          'Usulan tidak otomatis menjadi tugas aktif. RT dapat memilih template aman untuk membuat draf; '
+          'teks usulan bukan instruksi, dan aktivasi tetap memerlukan konfirmasi operator.',
         ),
         const SizedBox(height: 16),
         TextField(
