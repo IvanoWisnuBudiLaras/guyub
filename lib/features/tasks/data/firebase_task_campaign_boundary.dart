@@ -10,7 +10,10 @@ typedef TaskCampaignCallableInvoker = Future<Object?> Function(
 );
 
 final class FirebaseTaskCampaignBoundary
-    implements TaskCampaignBoundary, TaskCampaignManagementBoundary {
+    implements
+        TaskCampaignBoundary,
+        TaskCampaignManagementBoundary,
+        TaskCampaignHistoryBoundary {
   const FirebaseTaskCampaignBoundary(this.functions) : _invoker = null;
 
   const FirebaseTaskCampaignBoundary.withInvoker(this._invoker)
@@ -100,6 +103,27 @@ final class FirebaseTaskCampaignBoundary
   }
 
   @override
+  Future<RtTaskHistoryPage> listRtTaskHistory({
+    int pageSize = 25,
+    String? cursor,
+  }) async {
+    if (pageSize < 1 || pageSize > 50) {
+      throw ArgumentError.value(
+        pageSize,
+        'pageSize',
+        'Must be between 1 and 50.',
+      );
+    }
+    if (cursor != null && !_historyCursorPattern.hasMatch(cursor)) {
+      throw ArgumentError.value(cursor, 'cursor', 'Invalid history cursor.');
+    }
+    final request = <String, Object?>{'pageSize': pageSize};
+    if (cursor != null) request['cursor'] = cursor;
+    final result = await _call('listRtTaskHistory', request);
+    return RtTaskHistoryPage.fromWire(result, pageSize: pageSize);
+  }
+
+  @override
   Future<TaskCampaignCancellationRecord> cancelTaskCampaign({
     required String taskId,
     required String commandId,
@@ -121,6 +145,7 @@ final class FirebaseTaskCampaignBoundary
 
 final _taskIdPattern = RegExp(r'^[a-f0-9]{40}$');
 final _commandIdPattern = RegExp(r'^[A-Za-z0-9_-]{32,128}$');
+final _historyCursorPattern = RegExp(r'^[A-Za-z0-9_-]{1,256}$');
 
 Map<String, Object?> _asMap(Object? value) {
   if (value is Map<String, Object?>) return value;

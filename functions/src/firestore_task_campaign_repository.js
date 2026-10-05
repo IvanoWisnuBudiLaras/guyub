@@ -1,11 +1,14 @@
+const { Timestamp } = require('firebase-admin/firestore');
 const {
   OPERATOR_ROLES,
+  TASK_CATEGORIES,
   TASK_LOCATION_REFERENCES,
   TaskCampaignError,
   approvedTemplateFromRecord,
   asDate,
   publicTemplate,
   templateDocumentId,
+  templateFingerprint,
 } = require('./task_campaign_service');
 
 function denyOperator() {
@@ -29,12 +32,22 @@ function templateFromSnapshot(snapshot, templateId, version) {
 const MAX_ACTIVE_CAMPAIGNS = 200;
 
 function campaignTemplateSnapshot(value) {
+  const allowedKeys = new Set([
+    'templateId', 'version', 'title', 'category', 'coreInstruction',
+    'safetyInstruction', 'estimatedDurationMinutes',
+  ]);
+  const requiredTextValue = (text, maxLength) => typeof text === 'string' &&
+    text === text.normalize('NFC').trim() && text.length > 0 && [...text].length <= maxLength;
   if (!value || typeof value !== 'object' || Array.isArray(value) ||
-      typeof value.templateId !== 'string' || typeof value.version !== 'number' ||
+      Object.keys(value).some((key) => !allowedKeys.has(key)) ||
+      typeof value.templateId !== 'string' || !/^[a-z][a-z0-9_-]{0,63}$/u.test(value.templateId) ||
       !Number.isInteger(value.version) || value.version < 1 ||
-      typeof value.title !== 'string' || typeof value.category !== 'string' ||
-      typeof value.coreInstruction !== 'string' ||
-      typeof value.safetyInstruction !== 'string') {
+      !requiredTextValue(value.title, 120) || !TASK_CATEGORIES.has(value.category) ||
+      !requiredTextValue(value.coreInstruction, 3000) ||
+      !requiredTextValue(value.safetyInstruction, 3000) ||
+      (Object.hasOwn(value, 'estimatedDurationMinutes') &&
+        (!Number.isInteger(value.estimatedDurationMinutes) ||
+          value.estimatedDurationMinutes < 1 || value.estimatedDurationMinutes > 480))) {
     throw new TaskCampaignError('failed-precondition', 'Data tugas tidak konsisten.');
   }
   return {
@@ -44,9 +57,67 @@ function campaignTemplateSnapshot(value) {
     category: value.category,
     coreInstruction: value.coreInstruction,
     safetyInstruction: value.safetyInstruction,
-    ...(Number.isInteger(value.estimatedDurationMinutes) ? {
+    ...(Object.hasOwn(value, 'estimatedDurationMinutes') ? {
       estimatedDurationMinutes: value.estimatedDurationMinutes,
     } : {}),
+  };
+}
+
+function historyTimestampParts(value) {
+  if (value instanceof Date) {
+    const millis = value.getTime();
+    if (!Number.isFinite(millis)) return null;
+    const seconds = Math.floor(millis / 1000);
+    return {
+      date: value,
+      seconds,
+      nanoseconds: (millis - seconds * 1000) * 1000000,
+    };
+  }
+  if (!value || !Number.isInteger(value.seconds) || !Number.isInteger(value.nanoseconds) ||
+      value.nanoseconds < 0 || value.nanoseconds > 999999999 ||
+      value.seconds < -62135596800 || value.seconds > 253402300799 ||
+      typeof value.toDate !== 'function') return null;
+  const date = value.toDate();
+  if (!(date instanceof Date) || !Number.isFinite(date.getTime())) return null;
+  return { date, seconds: value.seconds, nanoseconds: value.nanoseconds };
+}
+
+function historyCampaignFromSnapshot(snapshot, rtId) {
+  const campaign = snapshot.data();
+  if (!campaign || typeof campaign !== 'object' || Array.isArray(campaign)) {
+    throw new TaskCampaignError('failed-precondition', 'Data tugas tidak konsisten.');
+  }
+  const activatedAt = historyTimestampParts(campaign.activatedAt);
+  const deadline = historyTimestampParts(campaign.deadline);
+  const cancelledAt = campaign.cancelledAt == null
+    ? null : historyTimestampParts(campaign.cancelledAt);
+  const templateSnapshot = campaignTemplateSnapshot(campaign.templateSnapshot);
+  if (snapshot.id !== campaign.campaignId || !/^[a-f0-9]{40}$/u.test(snapshot.id) ||
+      campaign.rtId !== rtId || !['ACTIVE', 'CANCELLED'].includes(campaign.status) ||
+      !activatedAt || !deadline ||
+      (campaign.locationReference != null &&
+        !TASK_LOCATION_REFERENCES.has(campaign.locationReference)) ||
+      (campaign.status === 'ACTIVE' && cancelledAt !== null) ||
+      (campaign.status === 'CANCELLED' && !cancelledAt) ||
+      campaign.templateId !== templateSnapshot.templateId ||
+      campaign.templateVersion !== templateSnapshot.version ||
+      campaign.templateFingerprint !== templateFingerprint(templateSnapshot)) {
+    throw new TaskCampaignError('failed-precondition', 'Data tugas tidak konsisten.');
+  }
+  return {
+    campaignId: campaign.campaignId,
+    templateSnapshot,
+    deadline: deadline.date,
+    locationReference: campaign.locationReference ?? null,
+    status: campaign.status,
+    activatedAt: activatedAt.date,
+    cancelledAt: cancelledAt?.date ?? null,
+    cursor: {
+      seconds: activatedAt.seconds,
+      nanoseconds: activatedAt.nanoseconds,
+      campaignId: campaign.campaignId,
+    },
   };
 }
 
@@ -95,6 +166,34 @@ class FirestoreTaskCampaignRepository {
         }),
         fingerprint: template.fingerprint,
       }));
+  }
+
+  async listRtTaskHistory(operatorUid, { pageSize, cursor }) {
+    const operatorRef = this.firestore.collection('operators').doc(operatorUid);
+    return this.firestore.runTransaction(async (transaction) => {
+      const operatorSnapshot = await transaction.get(operatorRef);
+      const operator = requireOperator(operatorSnapshot);
+      let query = this.firestore.collection('task_campaigns')
+        .where('rtId', '==', operator.rtId)
+        .where('status', 'in', ['ACTIVE', 'CANCELLED'])
+        .orderBy('activatedAt', 'desc')
+        .orderBy('campaignId', 'desc');
+      if (cursor) {
+        query = query.startAfter(
+          new Timestamp(cursor.seconds, cursor.nanoseconds),
+          cursor.campaignId,
+        );
+      }
+      const historySnapshot = await transaction.get(query.limit(pageSize + 1));
+      const rows = historySnapshot.docs.map((snapshot) =>
+        historyCampaignFromSnapshot(snapshot, operator.rtId));
+      const hasMore = rows.length > pageSize;
+      const visibleRows = hasMore ? rows.slice(0, pageSize) : rows;
+      return {
+        tasks: visibleRows.map(({ cursor: ignored, ...task }) => task),
+        nextCursor: hasMore ? visibleRows[visibleRows.length - 1].cursor : null,
+      };
+    });
   }
 
   async listActiveCampaigns(operatorUid) {

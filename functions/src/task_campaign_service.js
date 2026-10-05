@@ -9,7 +9,11 @@ const TASK_CATEGORIES = new Set([
 ]);
 const TEMPLATE_ID_PATTERN = /^[a-z][a-z0-9_-]{0,63}$/;
 const REQUEST_ID_PATTERN = /^[A-Za-z0-9_-]{32,128}$/;
+const TASK_ID_PATTERN = /^[a-f0-9]{40}$/;
 const TASK_LOCATION_REFERENCES = new Set(['COMMUNITY_GENERAL_AREA', 'HOUSEHOLD']);
+const DEFAULT_HISTORY_PAGE_SIZE = 25;
+const MAX_HISTORY_PAGE_SIZE = 50;
+const MAX_HISTORY_CURSOR_LENGTH = 256;
 
 class TaskCampaignError extends Error {
   constructor(code, message) {
@@ -105,6 +109,50 @@ function asDate(value) {
     return Number.isFinite(parsed.getTime()) ? parsed : null;
   }
   return null;
+}
+
+function parseTaskHistoryCursor(value) {
+  if (typeof value !== 'string' || value.length === 0 ||
+      value.length > MAX_HISTORY_CURSOR_LENGTH || !/^[A-Za-z0-9_-]+$/u.test(value)) {
+    throw invalidArgument('Kursor riwayat tugas tidak valid.');
+  }
+  let text;
+  let cursor;
+  try {
+    text = Buffer.from(value, 'base64url').toString('utf8');
+    if (Buffer.from(text, 'utf8').toString('base64url') !== value) {
+      throw new Error('non-canonical base64url');
+    }
+    cursor = JSON.parse(text);
+  } catch (_) {
+    throw invalidArgument('Kursor riwayat tugas tidak valid.');
+  }
+  if (!cursor || typeof cursor !== 'object' || Array.isArray(cursor) ||
+      Object.keys(cursor).length !== 4 || cursor.v !== 1 ||
+      !Number.isInteger(cursor.seconds) || cursor.seconds < -62135596800 ||
+      cursor.seconds > 253402300799 || !Number.isInteger(cursor.nanoseconds) ||
+      cursor.nanoseconds < 0 || cursor.nanoseconds > 999999999 ||
+      typeof cursor.campaignId !== 'string' || !TASK_ID_PATTERN.test(cursor.campaignId)) {
+    throw invalidArgument('Kursor riwayat tugas tidak valid.');
+  }
+  return {
+    seconds: cursor.seconds,
+    nanoseconds: cursor.nanoseconds,
+    campaignId: cursor.campaignId,
+  };
+}
+
+function encodeTaskHistoryCursor(cursor) {
+  const token = Buffer.from(JSON.stringify({
+    v: 1,
+    seconds: cursor.seconds,
+    nanoseconds: cursor.nanoseconds,
+    campaignId: cursor.campaignId,
+  }), 'utf8').toString('base64url');
+  if (token.length > MAX_HISTORY_CURSOR_LENGTH) {
+    throw failedPrecondition('Riwayat tugas tidak dapat dipaginasi.');
+  }
+  return token;
 }
 
 function approvedTemplateFromRecord(record, expectedId, expectedVersion) {
@@ -253,6 +301,35 @@ class TaskCampaignService {
         deadline: asDate(campaign.deadline)?.toISOString() ?? null,
         locationReference: campaign.locationReference ?? null,
       })),
+    };
+  }
+
+  async listRtTaskHistory(auth, data) {
+    validateOperatorAuth(auth);
+    assertOnlyKeys(data, ['pageSize', 'cursor']);
+    const pageSize = data.pageSize === undefined ? DEFAULT_HISTORY_PAGE_SIZE : data.pageSize;
+    if (!Number.isInteger(pageSize) || pageSize < 1 || pageSize > MAX_HISTORY_PAGE_SIZE) {
+      throw invalidArgument('Ukuran halaman riwayat tugas tidak valid.');
+    }
+    const cursor = data.cursor === undefined ? null : parseTaskHistoryCursor(data.cursor);
+    const page = await this.repository.listRtTaskHistory(auth.operatorUid, {
+      pageSize,
+      cursor,
+    });
+    if (!page || !Array.isArray(page.tasks)) {
+      throw failedPrecondition('Data riwayat tugas tidak konsisten.');
+    }
+    return {
+      tasks: page.tasks.map((task) => ({
+        taskId: task.campaignId,
+        templateSnapshot: task.templateSnapshot,
+        deadline: asDate(task.deadline)?.toISOString() ?? null,
+        locationReference: task.locationReference ?? null,
+        status: task.status,
+        activatedAt: asDate(task.activatedAt)?.toISOString() ?? null,
+        cancelledAt: asDate(task.cancelledAt)?.toISOString() ?? null,
+      })),
+      nextCursor: page.nextCursor == null ? null : encodeTaskHistoryCursor(page.nextCursor),
     };
   }
 

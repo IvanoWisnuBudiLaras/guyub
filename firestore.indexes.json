@@ -19,6 +19,28 @@
       ]
     },
     {
+      "collectionGroup": "task_campaigns",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "rtId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "activatedAt",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "campaignId",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
       "collectionGroup": "task_responses",
       "queryScope": "COLLECTION",
       "fields": [
