@@ -21,6 +21,8 @@ import '../features/auth/presentation/screens/role_selection_screen.dart';
 import '../features/emergency/application/emergency_directory_controller.dart';
 import '../features/emergency/presentation/emergency_directory_screen.dart';
 import '../features/weather/application/weather_snapshot_store.dart';
+import '../features/assistance/application/proxy_resident_boundary.dart';
+import '../features/assistance/presentation/proxy_resident_screen.dart';
 
 /// Role-aware routes for the Android MVP.
 final class AppRouter {
@@ -36,6 +38,7 @@ final class AppRouter {
   static const String residentTaskList = '/resident/tasks';
   static const String residentProposals = '/resident/proposals';
   static const String operatorProposals = '/operator/proposals';
+  static const String operatorAssistance = '/operator/assistance';
   static const String emergencyDirectory = '/emergency';
 
   static Route<dynamic> onGenerateRoute(
@@ -48,6 +51,7 @@ final class AppRouter {
     ResidentProposalReviewController? proposalReviewController,
     EmergencyDirectoryController? emergencyDirectoryController,
     WeatherSnapshotStore? weatherSnapshotStore,
+    ProxyResidentController? proxyResidentController,
   }) {
     switch (settings.name) {
       case initial:
@@ -75,6 +79,7 @@ final class AppRouter {
             taskCampaignBoundary: taskCampaignBoundary,
             taskResponseController: taskResponseController,
             proposalReviewController: proposalReviewController,
+            proxyResidentController: proxyResidentController,
           ),
           settings: settings,
         );
@@ -144,6 +149,21 @@ final class AppRouter {
             profile: profile,
             controller: proposalReviewController,
             campaignController: taskCampaignBoundary == null
+                ? null
+                : TaskCampaignController(taskCampaignBoundary),
+          ),
+          settings: settings,
+        );
+      case operatorAssistance:
+        final profile = settings.arguments;
+        if (profile is! OperatorProfile || proxyResidentController == null) {
+          return _roleSelection(settings);
+        }
+        return MaterialPageRoute<void>(
+          builder: (_) => ProxyResidentScreen(
+            profile: profile,
+            controller: proxyResidentController,
+            taskCampaignController: taskCampaignBoundary == null
                 ? null
                 : TaskCampaignController(taskCampaignBoundary),
           ),

@@ -21,6 +21,8 @@ import '../features/emergency/application/emergency_directory_controller.dart';
 import '../features/emergency/data/emergency_directory_cache.dart';
 import '../features/emergency/data/firebase_emergency_directory_boundary.dart';
 import '../features/tasks/application/task_campaign_boundary.dart';
+import '../features/assistance/application/proxy_resident_boundary.dart';
+import '../features/assistance/data/firebase_proxy_resident_boundary.dart';
 import '../features/tasks/application/task_response_boundary.dart';
 import '../features/tasks/data/firebase_task_campaign_boundary.dart';
 import '../features/tasks/data/firebase_task_response_boundary.dart';
@@ -43,6 +45,7 @@ Future<Widget> createBootstrapApp(
   ResidentProposalReviewController? proposalReviewController,
   EmergencyDirectoryController? emergencyDirectoryController,
   WeatherSnapshotStore? weatherSnapshotStore,
+  ProxyResidentController? proxyResidentController,
 }) async {
   WidgetsFlutterBinding.ensureInitialized();
   AppConfig.initialize(config);
@@ -55,6 +58,7 @@ Future<Widget> createBootstrapApp(
     proposalReviewController: proposalReviewController,
     emergencyDirectoryController: emergencyDirectoryController,
     weatherSnapshotStore: weatherSnapshotStore,
+    proxyResidentController: proxyResidentController,
   );
 }
 
@@ -79,6 +83,7 @@ Future<void> bootstrap(AppConfig config) async {
   EmergencyDirectoryBoundary? emergencyDirectoryBoundary;
   EmergencyDirectoryController? emergencyDirectoryController;
   WeatherSnapshotStore? weatherSnapshotStore;
+  ProxyResidentController? proxyResidentController;
   OperatorAuthBoundary? operatorAuthBoundary;
   ResidentSessionController? residentSessionController;
   TaskCampaignBoundary? taskCampaignBoundary;
@@ -148,6 +153,9 @@ Future<void> bootstrap(AppConfig config) async {
           vault: residentVault,
         );
         taskCampaignBoundary = FirebaseTaskCampaignBoundary(functions);
+        proxyResidentController = ProxyResidentController(
+          FirebaseProxyResidentBoundary(functions),
+        );
         final responseBoundary = FirebaseTaskResponseBoundary(functions);
         taskResponseController = TaskResponseController(
           boundary: responseBoundary,
@@ -192,6 +200,7 @@ Future<void> bootstrap(AppConfig config) async {
       proposalReviewController: proposalReviewController,
       emergencyDirectoryController: emergencyDirectoryController,
       weatherSnapshotStore: weatherSnapshotStore,
+      proxyResidentController: proxyResidentController,
     ),
   );
 }
