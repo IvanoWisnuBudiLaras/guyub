@@ -118,6 +118,7 @@ test('callable creates, validates, and revokes an opaque RT-scoped resident sess
   const residentFields = residentResponse.body.fields;
   assert.deepEqual(Object.keys(residentFields).sort(), [
     'createdAt', 'createdBy', 'needsAssistance', 'nickname', 'rtId', 'updatedAt',
+    'willingToHelp',
   ]);
   for (const forbidden of ['nik', 'fullAddress', 'address', 'latitude', 'longitude', 'gps']) {
     assert.equal(Object.hasOwn(residentFields, forbidden), false);
