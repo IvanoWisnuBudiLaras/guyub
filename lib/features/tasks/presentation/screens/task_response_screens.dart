@@ -1,4 +1,9 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+
+import '../../../evidence/application/evidence_image_sanitizer.dart';
 
 import '../../../auth/application/operator_profile.dart';
 import '../../../auth/application/resident_session.dart';
@@ -6,6 +11,8 @@ import '../../application/task_response.dart';
 import '../../application/task_response_boundary.dart';
 import '../../application/task_location_reference.dart';
 import '../widgets/locked_instructions_card.dart';
+
+typedef PickEvidenceImage = Future<Uint8List?> Function();
 
 /// Pull-based resident task list. No notification delivery is implied.
 final class ResidentTaskListScreen extends StatefulWidget {
@@ -275,6 +282,7 @@ final class ResidentTaskDetailScreen extends StatefulWidget {
     required this.task,
     this.isCached = false,
     this.lastSyncedAt,
+    this.pickEvidenceImage,
     super.key,
   });
 
@@ -283,6 +291,7 @@ final class ResidentTaskDetailScreen extends StatefulWidget {
   final ResidentTaskRecord task;
   final bool isCached;
   final DateTime? lastSyncedAt;
+  final PickEvidenceImage? pickEvidenceImage;
 
   @override
   State<ResidentTaskDetailScreen> createState() =>
@@ -293,6 +302,8 @@ final class _ResidentTaskDetailScreenState
     extends State<ResidentTaskDetailScreen> {
   late ResidentTaskRecord _task;
   final TextEditingController _noteController = TextEditingController();
+  Uint8List? _selectedEvidenceBytes;
+  String? _uploadedEvidenceId;
   bool _busy = false;
 
   @override
@@ -320,14 +331,120 @@ final class _ResidentTaskDetailScreenState
   }
 
   Future<void> _submitCompletion() async {
+    var evidenceUploadFailed = false;
     await _runAction(() async {
+      var evidenceId = _uploadedEvidenceId;
+      final selectedBytes = _selectedEvidenceBytes;
+      if (selectedBytes != null && evidenceId == null) {
+        try {
+          evidenceId = await widget.controller.uploadEvidence(
+            taskId: _task.taskId,
+            sanitizedJpegBytes: selectedBytes,
+          );
+          _uploadedEvidenceId = evidenceId;
+        } catch (_) {
+          evidenceUploadFailed = true;
+        }
+      }
       final result = await widget.controller.submitCompletion(
         taskId: _task.taskId,
         note: _noteController.text,
+        evidenceId: evidenceId,
         session: widget.session,
       );
       _applyResponse(result);
+      if (result.completion != CompletionState.notSubmitted ||
+          result.isPendingCompletionSync) {
+        setState(() {
+          _selectedEvidenceBytes = null;
+          _uploadedEvidenceId = result.evidenceId;
+        });
+      }
+      if (evidenceUploadFailed) {
+        _showMessage(
+          'Foto tidak terkirim. Penyelesaian tetap dikirim tanpa foto.',
+        );
+      }
     });
+  }
+
+  Future<void> _chooseEvidence() async {
+    if (_busy) return;
+    if (_uploadedEvidenceId != null) {
+      _showMessage('Hapus foto yang sudah diunggah sebelum memilih foto lain.');
+      return;
+    }
+    try {
+      final sourceBytes =
+          await (widget.pickEvidenceImage ?? _pickEvidenceImage)();
+      if (sourceBytes == null || !mounted) return;
+      final sanitized = EvidenceImageSanitizer.sanitize(sourceBytes);
+      setState(() => _selectedEvidenceBytes = sanitized.bytes);
+    } on EvidenceImageSanitizationException {
+      _showMessage('Pilih foto JPEG yang valid dan berukuran lebih kecil.');
+    } catch (_) {
+      _showMessage(
+        'Foto belum dapat dipilih. Tugas tetap bisa dikirim tanpa foto.',
+      );
+    }
+  }
+
+  Future<void> _removeSelectedEvidence() async {
+    if (_busy) return;
+    final evidenceId = _uploadedEvidenceId;
+    if (evidenceId == null) {
+      setState(() => _selectedEvidenceBytes = null);
+      return;
+    }
+    await _runAction(() async {
+      await widget.controller.deleteEvidence(evidenceId: evidenceId);
+      setState(() {
+        _selectedEvidenceBytes = null;
+        _uploadedEvidenceId = null;
+      });
+      _showMessage('Foto bukti dihapus.');
+    });
+  }
+
+  Future<void> _deleteAttachedEvidence() async {
+    final evidenceId = _task.evidenceId;
+    if (evidenceId == null) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Hapus foto bukti?'),
+        content: const Text(
+          'Foto akan dihapus dari penyimpanan bukti. Status tugas tetap sama.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Kembali'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Hapus foto'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    await _runAction(() async {
+      await widget.controller.deleteEvidence(evidenceId: evidenceId);
+      setState(() => _task = _task.withoutEvidence());
+      _showMessage('Foto bukti dihapus. Status tugas tidak berubah.');
+    });
+  }
+
+  Future<Uint8List?> _pickEvidenceImage() async {
+    final file = await ImagePicker().pickImage(
+      source: ImageSource.gallery,
+      maxWidth: EvidenceImageSanitizer.maxDimension.toDouble(),
+      maxHeight: EvidenceImageSanitizer.maxDimension.toDouble(),
+      imageQuality: 85,
+      requestFullMetadata: false,
+    );
+    return file?.readAsBytes();
   }
 
   Future<void> _runAction(Future<void> Function() action) async {
@@ -402,6 +519,53 @@ final class _ResidentTaskDetailScreenState
         _responseActions(),
       ],
     ),
+  );
+
+  Widget _evidencePicker() => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      const Text(
+        'Foto bukti JPEG bersifat opsional dan dijadwalkan untuk dihapus setelah '
+        '30 hari. Lokasi metadata dihapus. Foto hanya '
+        'diunggah saat Anda mengirim penyelesaian. Jangan sertakan wajah, '
+        'alamat, atau data pribadi yang tidak diperlukan. Jika unggahan gagal, '
+        'Anda tetap dapat mengirim tanpa foto.',
+      ),
+      const SizedBox(height: 8),
+      OutlinedButton.icon(
+        key: const Key('resident-choose-evidence'),
+        onPressed: _busy ? null : _chooseEvidence,
+        icon: const Icon(Icons.add_a_photo_outlined),
+        label: Text(
+          _selectedEvidenceBytes == null
+              ? 'Pilih Foto (Opsional)'
+              : 'Foto Dipilih',
+        ),
+      ),
+      if (_selectedEvidenceBytes case final bytes?) ...[
+        const SizedBox(height: 8),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: Image.memory(
+            bytes,
+            key: const Key('resident-evidence-preview'),
+            height: 160,
+            fit: BoxFit.contain,
+          ),
+        ),
+        Text(
+          _uploadedEvidenceId == null
+              ? 'Foto telah diproses tanpa metadata lokasi.'
+              : 'Foto terunggah secara privat; belum dilampirkan sampai penyelesaian terkirim.',
+        ),
+        TextButton.icon(
+          key: const Key('resident-remove-evidence'),
+          onPressed: _busy ? null : _removeSelectedEvidence,
+          icon: const Icon(Icons.delete_outline),
+          label: const Text('Hapus foto'),
+        ),
+      ],
+    ],
   );
 
   Widget _responseActions() {
@@ -485,16 +649,41 @@ final class _ResidentTaskDetailScreenState
                 const SizedBox(height: 8),
                 Text('Catatan: $note'),
               ],
+              if (_task.evidenceId != null) ...[
+                const SizedBox(height: 8),
+                const Text('Foto bukti tersedia untuk ditinjau RT.'),
+                TextButton.icon(
+                  key: const Key('resident-delete-attached-evidence'),
+                  onPressed: _busy ? null : _deleteAttachedEvidence,
+                  icon: const Icon(Icons.delete_outline),
+                  label: const Text('Hapus foto bukti'),
+                ),
+              ],
             ],
           ),
         ),
       );
     }
     if (_task.completion == CompletionState.verifiedComplete) {
-      return const Card(
+      return Card(
         child: Padding(
-          padding: EdgeInsets.all(16),
-          child: Text('Penyelesaian telah diverifikasi oleh RT.'),
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Penyelesaian telah diverifikasi oleh RT.'),
+              if (_task.evidenceId != null) ...[
+                const SizedBox(height: 8),
+                const Text('Foto bukti tersimpan sementara.'),
+                TextButton.icon(
+                  key: const Key('resident-delete-attached-evidence'),
+                  onPressed: _busy ? null : _deleteAttachedEvidence,
+                  icon: const Icon(Icons.delete_outline),
+                  label: const Text('Hapus foto bukti'),
+                ),
+              ],
+            ],
+          ),
         ),
       );
     }
@@ -502,6 +691,8 @@ final class _ResidentTaskDetailScreenState
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const Text('Anda memilih ikut. Penyelesaian perlu diverifikasi RT.'),
+        const SizedBox(height: 12),
+        _evidencePicker(),
         const SizedBox(height: 12),
         TextField(
           key: const Key('resident-completion-note'),
@@ -545,6 +736,7 @@ final class _TaskVerificationQueueScreenState
     extends State<TaskVerificationQueueScreen> {
   late Future<TaskVerificationQueue> _pending;
   final Set<String> _busyResponses = {};
+  final Set<String> _busyEvidence = {};
 
   @override
   void initState() {
@@ -554,6 +746,46 @@ final class _TaskVerificationQueueScreenState
 
   void _reload() {
     setState(() => _pending = widget.controller.listPendingVerifications());
+  }
+
+  Future<void> _reviewEvidence(TaskVerificationRecord record) async {
+    final evidenceId = record.evidenceId;
+    if (evidenceId == null || _busyEvidence.contains(evidenceId)) return;
+    setState(() => _busyEvidence.add(evidenceId));
+    try {
+      final bytes = await widget.controller.getEvidenceForVerification(
+        evidenceId: evidenceId,
+      );
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Foto bukti pribadi'),
+          content: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 480, maxHeight: 480),
+            child: Image.memory(
+              bytes,
+              key: Key('task-evidence-review-${record.responseId}'),
+              fit: BoxFit.contain,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Tutup'),
+            ),
+          ],
+        ),
+      );
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Foto bukti belum dapat dibuka.')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _busyEvidence.remove(evidenceId));
+    }
   }
 
   Future<void> _verify(TaskVerificationRecord record) async {
@@ -670,6 +902,21 @@ final class _TaskVerificationQueueScreenState
                         ],
                         const SizedBox(height: 8),
                         const Text('Status: Menunggu Verifikasi RT'),
+                        if (record.evidenceId case final evidenceId?) ...[
+                          const SizedBox(height: 8),
+                          OutlinedButton.icon(
+                            key: Key('review-evidence-${record.responseId}'),
+                            onPressed: _busyEvidence.contains(evidenceId)
+                                ? null
+                                : () => _reviewEvidence(record),
+                            icon: const Icon(Icons.image_outlined),
+                            label: Text(
+                              _busyEvidence.contains(evidenceId)
+                                  ? 'Memuat foto…'
+                                  : 'Lihat foto bukti',
+                            ),
+                          ),
+                        ],
                         Wrap(
                           spacing: 8,
                           children: [

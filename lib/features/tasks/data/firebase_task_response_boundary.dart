@@ -1,10 +1,16 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:cloud_functions/cloud_functions.dart';
+
+import '../../evidence/application/task_evidence_boundary.dart';
 
 import '../application/task_response.dart';
 import '../application/task_response_boundary.dart';
 
 /// Firebase callable adapter. Task responses never use direct Firestore writes.
-final class FirebaseTaskResponseBoundary implements TaskResponseBoundary {
+final class FirebaseTaskResponseBoundary
+    implements TaskResponseBoundary, TaskEvidenceBoundary {
   const FirebaseTaskResponseBoundary(this.functions);
 
   final FirebaseFunctions functions;
@@ -54,6 +60,7 @@ final class FirebaseTaskResponseBoundary implements TaskResponseBoundary {
     required String taskId,
     required String? note,
     required String commandId,
+    String? evidenceId,
   }) async {
     final result = await _mapCallable(
       () => functions.httpsCallable('submitTaskCompletion').call(
@@ -62,10 +69,90 @@ final class FirebaseTaskResponseBoundary implements TaskResponseBoundary {
           'taskId': taskId,
           'note': note,
           'commandId': commandId,
+          'evidenceId': evidenceId,
         },
       ),
     );
     return TaskResponseRecord.fromWire(_wireMap(result.data, 'task response'));
+  }
+
+  @override
+  Future<String> uploadResidentTaskEvidence({
+    required String sessionToken,
+    required String taskId,
+    required String requestId,
+    required Uint8List sanitizedJpegBytes,
+  }) async {
+    if (sanitizedJpegBytes.isEmpty ||
+        sanitizedJpegBytes.length > 2 * 1024 * 1024) {
+      throw ArgumentError.value(
+        sanitizedJpegBytes.length,
+        'sanitizedJpegBytes',
+      );
+    }
+    final result = await _mapCallable(
+      () => functions.httpsCallable('uploadResidentTaskEvidence').call(
+        <String, Object?>{
+          'sessionToken': sessionToken,
+          'taskId': taskId,
+          'requestId': requestId,
+          'imageBase64': base64Encode(sanitizedJpegBytes),
+        },
+      ),
+    );
+    final wire = _wireMap(result.data, 'evidence upload');
+    final evidenceId = wire['evidenceId'];
+    if (evidenceId is! String ||
+        !RegExp(r'^[a-f0-9]{40}$').hasMatch(evidenceId)) {
+      throw const FormatException('Invalid evidence upload response.');
+    }
+    return evidenceId;
+  }
+
+  @override
+  Future<void> deleteResidentTaskEvidence({
+    required String sessionToken,
+    required String evidenceId,
+    required String commandId,
+  }) async {
+    final result = await _mapCallable(
+      () => functions.httpsCallable('deleteResidentTaskEvidence').call(
+        <String, Object?>{
+          'sessionToken': sessionToken,
+          'evidenceId': evidenceId,
+          'commandId': commandId,
+        },
+      ),
+    );
+    final wire = _wireMap(result.data, 'evidence deletion');
+    if (wire['deleted'] != true) {
+      throw const FormatException('Invalid deletion response.');
+    }
+  }
+
+  @override
+  Future<Uint8List> getTaskEvidenceForVerification({
+    required String evidenceId,
+  }) async {
+    final result = await _mapCallable(
+      () => functions.httpsCallable('getTaskEvidenceForVerification').call(
+        <String, Object?>{'evidenceId': evidenceId},
+      ),
+    );
+    final wire = _wireMap(result.data, 'evidence review');
+    if (wire['evidenceId'] != evidenceId ||
+        wire['contentType'] != 'image/jpeg') {
+      throw const FormatException('Invalid evidence review response.');
+    }
+    final encoded = wire['imageBase64'];
+    if (encoded is! String || encoded.length > 3 * 1024 * 1024) {
+      throw const FormatException('Invalid evidence image.');
+    }
+    final bytes = base64Decode(encoded);
+    if (bytes.isEmpty || bytes.length > 2 * 1024 * 1024) {
+      throw const FormatException('Invalid evidence image.');
+    }
+    return bytes;
   }
 
   @override

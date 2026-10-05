@@ -2,8 +2,10 @@
 
 import 'dart:convert';
 import 'dart:math';
+import 'dart:typed_data';
 
 import '../../auth/application/resident_session.dart';
+import '../../evidence/application/task_evidence_boundary.dart';
 import '../../auth/application/resident_session_vault.dart';
 import 'task_response.dart';
 import 'task_template.dart';
@@ -28,6 +30,7 @@ abstract interface class TaskResponseBoundary {
     required String taskId,
     required String? note,
     required String commandId,
+    String? evidenceId,
   });
 
   Future<TaskVerificationQueue> listPendingVerifications();
@@ -54,6 +57,7 @@ final class ResidentTaskRecord {
     this.completionNote,
     this.completionSubmittedAt,
     this.verifiedAt,
+    this.evidenceId,
     this.pendingChoice,
     this.hasSyncConflict = false,
     this.hasPendingCompletionSync = false,
@@ -70,6 +74,7 @@ final class ResidentTaskRecord {
   final String? completionNote;
   final DateTime? completionSubmittedAt;
   final DateTime? verifiedAt;
+  final String? evidenceId;
 
   /// Locally queued participation choice; never replaces server state.
   final ParticipationChoice? pendingChoice;
@@ -109,6 +114,7 @@ final class ResidentTaskRecord {
         'completionSubmittedAt',
       ),
       verifiedAt: _optionalDate(wire['verifiedAt'], 'verifiedAt'),
+      evidenceId: _optionalEvidenceId(wire['evidenceId']),
     );
   }
 
@@ -133,12 +139,30 @@ final class ResidentTaskRecord {
       completionNote: response.completionNote,
       completionSubmittedAt: response.completionSubmittedAt,
       verifiedAt: response.verifiedAt,
+      evidenceId: response.evidenceId,
       pendingChoice: clearPendingChoice ? null : response.pendingChoice,
       hasSyncConflict: hasSyncConflict ?? response.hasSyncConflict,
       hasPendingCompletionSync:
           hasPendingCompletionSync ?? response.isPendingCompletionSync,
     );
   }
+
+  ResidentTaskRecord withoutEvidence() => ResidentTaskRecord(
+    taskId: taskId,
+    rtId: rtId,
+    templateSnapshot: templateSnapshot,
+    deadline: deadline,
+    status: status,
+    participation: participation,
+    completion: completion,
+    locationReference: locationReference,
+    completionNote: completionNote,
+    completionSubmittedAt: completionSubmittedAt,
+    verifiedAt: verifiedAt,
+    pendingChoice: pendingChoice,
+    hasSyncConflict: hasSyncConflict,
+    hasPendingCompletionSync: hasPendingCompletionSync,
+  );
 }
 
 /// Bounded active-task page; [isPartial] warns that more tasks exist.
@@ -417,6 +441,7 @@ final class TaskResponseRecord {
     this.completionNote,
     this.completionSubmittedAt,
     this.verifiedAt,
+    this.evidenceId,
     this.pendingChoice,
     this.isPendingSync = false,
     this.hasSyncConflict = false,
@@ -429,6 +454,7 @@ final class TaskResponseRecord {
   final String? completionNote;
   final DateTime? completionSubmittedAt;
   final DateTime? verifiedAt;
+  final String? evidenceId;
   final ParticipationChoice? pendingChoice;
   final bool isPendingSync;
   final bool hasSyncConflict;
@@ -448,6 +474,7 @@ final class TaskResponseRecord {
           'completionSubmittedAt',
         ),
         verifiedAt: _optionalDate(wire['verifiedAt'], 'verifiedAt'),
+        evidenceId: _optionalEvidenceId(wire['evidenceId']),
       );
 }
 
@@ -460,6 +487,7 @@ final class TaskVerificationRecord {
     required this.nickname,
     required this.submittedAt,
     this.completionNote,
+    this.evidenceId,
   });
 
   final String responseId;
@@ -468,6 +496,7 @@ final class TaskVerificationRecord {
   final String nickname;
   final DateTime submittedAt;
   final String? completionNote;
+  final String? evidenceId;
 
   factory TaskVerificationRecord.fromWire(Map<String, Object?> wire) =>
       TaskVerificationRecord(
@@ -480,6 +509,7 @@ final class TaskVerificationRecord {
           wire['completionNote'],
           'completionNote',
         ),
+        evidenceId: _optionalEvidenceId(wire['evidenceId']),
       );
 }
 
@@ -542,17 +572,20 @@ final class TaskResponseRecap {
 final class TaskResponseController {
   TaskResponseController({
     required TaskResponseBoundary boundary,
+    TaskEvidenceBoundary? evidenceBoundary,
     required ResidentSessionVault vault,
     ResidentTaskOfflineStore? offlineStore,
     String Function()? commandIdFactory,
     DateTime Function()? clock,
   }) : _boundary = boundary,
+       _evidenceBoundary = evidenceBoundary,
        _vault = vault,
        _offlineStore = offlineStore,
        _commandIdFactory = commandIdFactory ?? _newCommandId,
        _clock = clock ?? DateTime.now;
 
   final TaskResponseBoundary _boundary;
+  final TaskEvidenceBoundary? _evidenceBoundary;
   final ResidentSessionVault _vault;
   final ResidentTaskOfflineStore? _offlineStore;
   final String Function() _commandIdFactory;
@@ -560,6 +593,8 @@ final class TaskResponseController {
   final Map<String, String> _choiceCommands = {};
   final Map<String, String> _completionCommands = {};
   final Map<String, String?> _completionNotes = {};
+  final Map<String, String?> _completionEvidenceIds = {};
+  final Map<String, String> _evidenceDeleteCommands = {};
   final Map<String, String> _verificationCommands = {};
 
   Future<ResidentTaskList> listResidentActiveTasks({
@@ -746,12 +781,19 @@ final class TaskResponseController {
   Future<TaskResponseRecord> submitCompletion({
     required String taskId,
     required String? note,
+    String? evidenceId,
     ResidentSession? session,
   }) async {
+    if (evidenceId != null && !_isEvidenceId(evidenceId)) {
+      throw ArgumentError.value(evidenceId, 'evidenceId');
+    }
     final normalizedNote = _normalizeOptionalText(note);
     final token = await _sessionToken();
     final store = _offlineStore;
-    if (normalizedNote == null && store != null && session != null) {
+    if (normalizedNote == null &&
+        evidenceId == null &&
+        store != null &&
+        session != null) {
       final cached = await _cachedTask(store, session, taskId);
       final queued = await store.pendingCompletions(session: session);
       PendingResidentTaskCompletion? existing;
@@ -856,34 +898,89 @@ final class TaskResponseController {
     // Notes are optional but private. Never add one to the outbox. If the call
     // is unavailable, tell the caller it was not saved locally.
     final previousNote = _completionNotes[taskId];
+    final previousEvidenceId = _completionEvidenceIds[taskId];
     if (_completionCommands.containsKey(taskId) &&
-        previousNote != normalizedNote) {
+        (previousNote != normalizedNote || previousEvidenceId != evidenceId)) {
       _completionCommands.remove(taskId);
       _completionNotes.remove(taskId);
+      _completionEvidenceIds.remove(taskId);
     }
     final commandId = _completionCommands.putIfAbsent(
       taskId,
       _commandIdFactory,
     );
     _completionNotes.putIfAbsent(taskId, () => normalizedNote);
+    _completionEvidenceIds.putIfAbsent(taskId, () => evidenceId);
     try {
       final result = await _boundary.submitTaskCompletion(
         sessionToken: token,
         taskId: taskId,
         note: normalizedNote,
         commandId: commandId,
+        evidenceId: evidenceId,
       );
       _completionCommands.remove(taskId);
       _completionNotes.remove(taskId);
+      _completionEvidenceIds.remove(taskId);
       return result;
     } on TransientTaskNetworkUnavailableException {
       _completionCommands.remove(taskId);
       _completionNotes.remove(taskId);
+      _completionEvidenceIds.remove(taskId);
       if (normalizedNote != null) {
         throw const OfflineCompletionNoteException();
       }
       rethrow;
     }
+  }
+
+  Future<String> uploadEvidence({
+    required String taskId,
+    required Uint8List sanitizedJpegBytes,
+  }) async {
+    final evidenceBoundary = _evidenceBoundary;
+    if (evidenceBoundary == null) {
+      throw StateError('Evidence upload is not configured.');
+    }
+    return evidenceBoundary.uploadResidentTaskEvidence(
+      sessionToken: await _sessionToken(),
+      taskId: taskId,
+      requestId: _commandIdFactory(),
+      sanitizedJpegBytes: sanitizedJpegBytes,
+    );
+  }
+
+  Future<void> deleteEvidence({required String evidenceId}) async {
+    if (!_isEvidenceId(evidenceId)) {
+      throw ArgumentError.value(evidenceId, 'evidenceId');
+    }
+    final evidenceBoundary = _evidenceBoundary;
+    if (evidenceBoundary == null) {
+      throw StateError('Evidence deletion is not configured.');
+    }
+    final commandId = _evidenceDeleteCommands.putIfAbsent(
+      evidenceId,
+      _commandIdFactory,
+    );
+    await evidenceBoundary.deleteResidentTaskEvidence(
+      sessionToken: await _sessionToken(),
+      evidenceId: evidenceId,
+      commandId: commandId,
+    );
+    _evidenceDeleteCommands.remove(evidenceId);
+  }
+
+  Future<Uint8List> getEvidenceForVerification({required String evidenceId}) {
+    if (!_isEvidenceId(evidenceId)) {
+      throw ArgumentError.value(evidenceId, 'evidenceId');
+    }
+    final evidenceBoundary = _evidenceBoundary;
+    if (evidenceBoundary == null) {
+      throw StateError('Evidence review is not configured.');
+    }
+    return evidenceBoundary.getTaskEvidenceForVerification(
+      evidenceId: evidenceId,
+    );
   }
 
   Future<TaskVerificationQueue> listPendingVerifications() =>
@@ -1269,6 +1366,7 @@ final class TaskResponseController {
     completionNote: response.completionNote,
     completionSubmittedAt: response.completionSubmittedAt,
     verifiedAt: response.verifiedAt,
+    evidenceId: response.evidenceId,
     pendingChoice: pendingChoice,
     isPendingSync: pending,
     hasSyncConflict: conflict,
@@ -1285,6 +1383,7 @@ final class TaskResponseController {
     completionNote: response.completionNote,
     completionSubmittedAt: response.completionSubmittedAt,
     verifiedAt: response.verifiedAt,
+    evidenceId: response.evidenceId,
     isPendingSync: pending,
     isPendingCompletionSync: pending,
     hasSyncConflict: conflict,
@@ -1327,6 +1426,7 @@ extension on ResidentTaskRecord {
     completionNote: completionNote,
     completionSubmittedAt: completionSubmittedAt,
     verifiedAt: verifiedAt,
+    evidenceId: evidenceId,
     pendingChoice: choice,
     hasSyncConflict: conflict,
     hasPendingCompletionSync: hasPendingCompletionSync,
@@ -1345,6 +1445,7 @@ extension on ResidentTaskRecord {
         completionNote: completionNote,
         completionSubmittedAt: completionSubmittedAt,
         verifiedAt: verifiedAt,
+        evidenceId: evidenceId,
         pendingChoice: pendingChoice,
         hasSyncConflict: conflict,
         hasPendingCompletionSync: true,
@@ -1402,6 +1503,16 @@ String _requiredString(Object? value, String name) {
     throw FormatException('Invalid $name.');
   }
   return value;
+}
+
+bool _isEvidenceId(String value) => RegExp(r'^[a-f0-9]{40}$').hasMatch(value);
+
+String? _optionalEvidenceId(Object? value) {
+  final id = _optionalString(value, 'evidenceId');
+  if (id != null && !_isEvidenceId(id)) {
+    throw const FormatException('Invalid evidenceId.');
+  }
+  return id;
 }
 
 String? _optionalString(Object? value, String name) {

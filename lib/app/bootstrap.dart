@@ -148,8 +148,10 @@ Future<void> bootstrap(AppConfig config) async {
           vault: residentVault,
         );
         taskCampaignBoundary = FirebaseTaskCampaignBoundary(functions);
+        final responseBoundary = FirebaseTaskResponseBoundary(functions);
         taskResponseController = TaskResponseController(
-          boundary: FirebaseTaskResponseBoundary(functions),
+          boundary: responseBoundary,
+          evidenceBoundary: responseBoundary,
           vault: residentVault,
           offlineStore: taskOfflineStore,
         );

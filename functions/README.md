@@ -63,7 +63,17 @@ Generate a random 12–32 character uppercase alphanumeric code with a cryptogra
 - Proposal input is limited to bounded title/description, one existing controlled category, an optional coarse location enum, and a stable request ID. Common NIK, mobile-number, coordinate, and address patterns are rejected; free-text location is not accepted.
 - New proposals are stored only as `SUBMITTED`, with deterministic IDs and request fingerprints. Even hazardous proposal wording remains review-only text: submission and review never call task creation or activation.
 - `listResidentProposals`, `reviewResidentProposal`, and `mapResidentProposalToDraft` require an active password-authenticated operator and derive RT scope from trusted membership. Mapping is a single transaction: it rechecks the SUBMITTED proposal and reviewed/enabled template version, requires explicit deadline/location selection, stores a locked template snapshot in a DRAFT, and writes one deterministic audit event. Stable command IDs are derived from canonical proposal/template/slot inputs so fresh-controller retries replay the same operation. Raw command IDs and proposal text are not written to audit/task instructions. Firestore client access remains denied.
-- Mapping never activates or notifies. Activation remains a separate authorized callable. Official-report routing, evidence storage, vulnerable-resident records, proxy assistance, and helper assignment remain incomplete. PII pattern checks reduce common mistakes but cannot identify every obfuscated string; avoid entering personal details.
+- Mapping never activates or notifies. Activation remains a separate authorized callable. Official-report routing and optional evidence storage are covered below. Vulnerable-resident records, proxy assistance, and helper assignment remain incomplete. PII pattern checks reduce common mistakes but cannot identify every obfuscated string; avoid entering personal details.
+
+## Optional photo evidence and retention
+
+- Residents may select an optional JPEG while submitting task completion. The Flutter client re-encodes it and removes metadata before upload; Cloud Functions applies a second JPEG decode/orientation/resize/re-encode and rejects invalid or oversized files. Stored output is at most 1280 px per edge and 2 MiB.
+- The app sends no image bytes through the offline outbox. If photo upload fails, completion continues without evidence. Upload requires the validated resident session, an active campaign, and that resident’s `JOINED` response. The caller cannot choose an RT or resident ID.
+- `uploadResidentTaskEvidence` returns only an opaque evidence ID and expiry time. Firestore stores scoped metadata in `task_evidence`; Storage object paths use hashes and contain no resident or RT IDs. No public or signed download URL is created.
+- `storage.rules` denies all direct client reads and writes. Firestore client access is also denied. An active, password-authenticated same-RT operator can use `getTaskEvidenceForVerification` only for evidence attached to a pending completion. The callable returns bounded JPEG bytes over the authenticated Firebase Functions channel.
+- Evidence expires 30 days after upload. `deleteExpiredTaskEvidence` runs daily, physically deletes Storage objects, clears the response reference, and leaves a minimal deletion record. Failed object deletes stay `DELETE_PENDING` for retry; logs include only an opaque evidence ID and a generic error code. Resident-session deletion follows the same server-verified scope check and is idempotent.
+- The RT-assisted deletion path is not implemented. Pilot owners must first define an offline identity-verification procedure; no one may infer or fabricate that procedure.
+- Emulator runs use `demo-guyub-functions.appspot.com` with the Storage emulator. Production requires a reviewed `GUYUB_EVIDENCE_BUCKET` value and an explicitly approved deployment. Scheduled Cloud Scheduler use may require billing. No production bucket, scheduled job, credential, or billing change is configured here.
 
 ## Emergency directory and offline client cache
 
@@ -82,6 +92,6 @@ npm test --prefix functions
 ./tool/test_functions.sh
 ```
 
-`./tool/test_functions.sh` runs unit tests and starts only Firebase emulators using a demo project. CI runs this after Flutter verification and the Firestore rules suite.
+`./tool/test_functions.sh` runs unit tests and starts Auth, Firestore, Functions, and Storage emulators using a demo project. CI runs this after Flutter verification and the Firestore rules suite. Firebase CLI 15 requires Java 21; a Java 17 host can run Functions unit tests but cannot start the emulator suite.
 
-No Firebase Functions deployment, scheduled job, production credential, or billing change is part of this package.
+The scheduled cleanup function and production Storage path are code only. No Firebase Functions deployment, scheduled job, production credential, or billing change is part of this package.

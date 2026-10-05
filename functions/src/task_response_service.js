@@ -4,6 +4,7 @@ const { TaskCampaignError, asDate } = require('./task_campaign_service');
 
 const REQUEST_ID_PATTERN = /^[A-Za-z0-9_-]{32,128}$/;
 const TASK_ID_PATTERN = /^[a-f0-9]{40}$/;
+const EVIDENCE_ID_PATTERN = /^[a-f0-9]{40}$/;
 const RESPONSE_ID_PATTERN = /^[a-f0-9]{40}$/;
 const RESIDENT_NOTE_LIMIT = 500;
 
@@ -94,6 +95,7 @@ function residentTask(campaign, response) {
     completionNote: response?.completionNote ?? null,
     completionSubmittedAt: iso(response?.completionSubmittedAt),
     verifiedAt: iso(response?.verifiedAt),
+    evidenceId: response?.evidenceId ?? null,
   };
 }
 
@@ -105,6 +107,7 @@ function residentResponse(response) {
     completionNote: response.completionNote ?? null,
     completionSubmittedAt: iso(response.completionSubmittedAt),
     verifiedAt: iso(response.verifiedAt),
+    evidenceId: response.evidenceId ?? null,
   };
 }
 
@@ -116,6 +119,7 @@ function pendingVerification(row) {
     nickname: row.nickname,
     completionNote: row.completionNote ?? null,
     submittedAt: iso(row.completionSubmittedAt),
+    evidenceId: row.evidenceId ?? null,
   };
 }
 
@@ -162,10 +166,14 @@ class TaskResponseService {
   }
 
   async submitTaskCompletion(data) {
-    assertOnlyKeys(data, ['sessionToken', 'taskId', 'note', 'commandId']);
+    assertOnlyKeys(data, ['sessionToken', 'taskId', 'note', 'commandId', 'evidenceId']);
     const taskId = requireTaskId(data.taskId);
     const commandId = requireRequestId(data.commandId);
     const completionNote = normalizeCompletionNote(data.note);
+    const evidenceId = data.evidenceId ?? null;
+    if (evidenceId !== null && (typeof evidenceId !== 'string' || !EVIDENCE_ID_PATTERN.test(evidenceId))) {
+      throw invalidArgument('Bukti tugas tidak valid.');
+    }
     const session = await this._residentSession(data.sessionToken);
     const response = await this.repository.submitCompletion({
       sessionIdHash: hashSessionToken(data.sessionToken),
@@ -173,6 +181,7 @@ class TaskResponseService {
       rtId: session.communityId,
       taskId,
       completionNote,
+      evidenceId,
       commandHash: sha256(commandId),
       now: this.clock(),
     });

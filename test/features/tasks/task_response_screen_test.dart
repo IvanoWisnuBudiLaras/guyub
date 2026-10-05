@@ -1,8 +1,12 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
+import 'package:image/image.dart' as image;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:guyub/features/auth/application/operator_profile.dart';
 import 'package:guyub/features/auth/application/resident_session.dart';
 import 'package:guyub/features/auth/application/resident_session_vault.dart';
+import 'package:guyub/features/evidence/application/task_evidence_boundary.dart';
 import 'package:guyub/features/tasks/application/task_response.dart';
 import 'package:guyub/features/tasks/application/task_response_boundary.dart';
 import 'package:guyub/features/tasks/application/task_template.dart';
@@ -75,6 +79,7 @@ void main() {
       await tester.ensureVisible(
         find.byKey(const Key('resident-submit-completion')),
       );
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('resident-submit-completion')));
       await tester.pumpAndSettle();
 
@@ -86,6 +91,159 @@ void main() {
       expect(boundary.lastNote, 'Perlengkapan sudah disiapkan.');
     },
   );
+
+  testWidgets('photo upload failure never blocks resident completion', (
+    tester,
+  ) async {
+    final boundary = _FakeBoundary()
+      ..tasks = [_task(participation: ParticipationState.joined)];
+    final evidenceBoundary = _FakeEvidenceBoundary(failUpload: true);
+    final controller = _controller(
+      boundary,
+      evidenceBoundary: evidenceBoundary,
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ResidentTaskDetailScreen(
+          session: _session(),
+          controller: controller,
+          task: _task(participation: ParticipationState.joined),
+          pickEvidenceImage: () async => _testJpeg(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('resident-choose-evidence')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('resident-evidence-preview')), findsOneWidget);
+    await tester.ensureVisible(
+      find.byKey(const Key('resident-submit-completion')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('resident-submit-completion')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Menunggu Verifikasi RT'), findsOneWidget);
+    expect(boundary.lastEvidenceId, isNull);
+    expect(
+      find.textContaining('Penyelesaian tetap dikirim tanpa foto'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('resident attaches sanitized optional photo to completion', (
+    tester,
+  ) async {
+    final boundary = _FakeBoundary()
+      ..tasks = [_task(participation: ParticipationState.joined)];
+    final evidenceBoundary = _FakeEvidenceBoundary();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ResidentTaskDetailScreen(
+          session: _session(),
+          controller: _controller(boundary, evidenceBoundary: evidenceBoundary),
+          task: _task(participation: ParticipationState.joined),
+          pickEvidenceImage: () async => _testJpeg(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('resident-choose-evidence')));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(
+      find.byKey(const Key('resident-submit-completion')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('resident-submit-completion')));
+    await tester.pumpAndSettle();
+
+    expect(boundary.lastEvidenceId, 'a' * 40);
+    expect(evidenceBoundary.uploadedBytes, isNotNull);
+    expect(find.text('Foto bukti tersedia untuk ditinjau RT.'), findsOneWidget);
+    expect(
+      find.byKey(const Key('resident-delete-attached-evidence')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets(
+    'resident can explicitly delete attached evidence without changing task state',
+    (tester) async {
+      final boundary = _FakeBoundary();
+      final evidenceBoundary = _FakeEvidenceBoundary();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ResidentTaskDetailScreen(
+            session: _session(),
+            controller: _controller(
+              boundary,
+              evidenceBoundary: evidenceBoundary,
+            ),
+            task: _task(
+              participation: ParticipationState.joined,
+              completion: CompletionState.pendingRtVerification,
+              evidenceId: 'b' * 40,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const Key('resident-delete-attached-evidence')),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Hapus foto bukti?'), findsOneWidget);
+      await tester.tap(find.text('Hapus foto'));
+      await tester.pumpAndSettle();
+
+      expect(evidenceBoundary.deletedEvidenceIds, ['b' * 40]);
+      expect(
+        find.byKey(const Key('resident-delete-attached-evidence')),
+        findsNothing,
+      );
+      expect(find.text('Menunggu Verifikasi RT'), findsOneWidget);
+    },
+  );
+
+  testWidgets('operator opens evidence only after an explicit review tap', (
+    tester,
+  ) async {
+    final bytes = _testJpeg();
+    final boundary = _FakeBoundary()
+      ..pending = [
+        TaskVerificationRecord(
+          responseId: 'response-photo',
+          taskId: 'task-a',
+          taskTitle: 'Tugas foto',
+          nickname: 'Warga A',
+          submittedAt: DateTime.utc(2026, 10, 4),
+          evidenceId: 'a' * 40,
+        ),
+      ];
+    final evidenceBoundary = _FakeEvidenceBoundary(imageBytes: bytes);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: TaskVerificationQueueScreen(
+          profile: _operator(),
+          controller: _controller(boundary, evidenceBoundary: evidenceBoundary),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('review-evidence-response-photo')),
+      findsOneWidget,
+    );
+    expect(evidenceBoundary.requestedEvidenceId, isNull);
+    await tester.tap(find.byKey(const Key('review-evidence-response-photo')));
+    await tester.pumpAndSettle();
+    expect(evidenceBoundary.requestedEvidenceId, 'a' * 40);
+    expect(find.text('Foto bukti pribadi'), findsOneWidget);
+    await tester.tap(find.text('Tutup'));
+    await tester.pumpAndSettle();
+  });
 
   testWidgets(
     'operator verifies a resident submission only after confirmation',
@@ -304,8 +462,14 @@ void main() {
   );
 }
 
-TaskResponseController _controller(_FakeBoundary boundary) =>
-    TaskResponseController(boundary: boundary, vault: _FakeVault());
+TaskResponseController _controller(
+  _FakeBoundary boundary, {
+  TaskEvidenceBoundary? evidenceBoundary,
+}) => TaskResponseController(
+  boundary: boundary,
+  evidenceBoundary: evidenceBoundary,
+  vault: _FakeVault(),
+);
 
 ResidentSession _session() => ResidentSession(
   residentId: 'resident-a',
@@ -327,6 +491,7 @@ ResidentTaskRecord _task({
   ParticipationState participation = ParticipationState.unresponded,
   CompletionState completion = CompletionState.notSubmitted,
   String? completionNote,
+  String? evidenceId,
   ParticipationChoice? pendingChoice,
   bool hasSyncConflict = false,
   bool hasPendingCompletionSync = false,
@@ -347,6 +512,7 @@ ResidentTaskRecord _task({
   participation: participation,
   completion: completion,
   completionNote: completionNote,
+  evidenceId: evidenceId,
   pendingChoice: pendingChoice,
   hasSyncConflict: hasSyncConflict,
   hasPendingCompletionSync: hasPendingCompletionSync,
@@ -383,6 +549,7 @@ final class _FakeBoundary implements TaskResponseBoundary {
   bool pendingPartial = false;
   ParticipationChoice? lastChoice;
   String? lastNote;
+  String? lastEvidenceId;
   final List<String> verifiedResponses = [];
 
   @override
@@ -424,14 +591,17 @@ final class _FakeBoundary implements TaskResponseBoundary {
     required String taskId,
     required String? note,
     required String commandId,
+    String? evidenceId,
   }) async {
     lastNote = note;
+    lastEvidenceId = evidenceId;
     final response = TaskResponseRecord(
       taskId: taskId,
       participation: ParticipationState.joined,
       completion: CompletionState.pendingRtVerification,
       completionNote: note,
       completionSubmittedAt: DateTime.utc(2026, 10, 4),
+      evidenceId: evidenceId,
     );
     tasks = tasks.map((task) => task.withResponse(response)).toList();
     return response;
@@ -470,3 +640,46 @@ final class _FakeBoundary implements TaskResponseBoundary {
         taskTitle: 'Siapkan perlengkapan keluarga',
       );
 }
+
+final class _FakeEvidenceBoundary implements TaskEvidenceBoundary {
+  _FakeEvidenceBoundary({this.failUpload = false, this.imageBytes});
+
+  final bool failUpload;
+  final Uint8List? imageBytes;
+  final List<String> deletedEvidenceIds = [];
+  Uint8List? uploadedBytes;
+  String? requestedEvidenceId;
+
+  @override
+  Future<String> uploadResidentTaskEvidence({
+    required String sessionToken,
+    required String taskId,
+    required String requestId,
+    required Uint8List sanitizedJpegBytes,
+  }) async {
+    if (failUpload) throw StateError('optional upload failed');
+    uploadedBytes = sanitizedJpegBytes;
+    return 'a' * 40;
+  }
+
+  @override
+  Future<void> deleteResidentTaskEvidence({
+    required String sessionToken,
+    required String evidenceId,
+    required String commandId,
+  }) async {
+    deletedEvidenceIds.add(evidenceId);
+  }
+
+  @override
+  Future<Uint8List> getTaskEvidenceForVerification({
+    required String evidenceId,
+  }) async {
+    requestedEvidenceId = evidenceId;
+    return imageBytes ?? _testJpeg();
+  }
+}
+
+Uint8List _testJpeg() => Uint8List.fromList(
+  image.encodeJpg(image.Image(width: 8, height: 8, numChannels: 3)),
+);
