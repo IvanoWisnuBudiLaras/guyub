@@ -89,6 +89,15 @@
           "order": "ASCENDING"
         }
       ]
+    },
+    {
+      "collectionGroup": "task_suggestions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "rtId", "order": "ASCENDING" },
+        { "fieldPath": "state", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []
