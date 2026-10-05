@@ -10,6 +10,7 @@ const {
   templateDocumentId,
   templateFingerprint,
 } = require('./task_campaign_service');
+const { validateTaskNotificationPolicy } = require('./task_notification_policy');
 
 function denyOperator() {
   return new TaskCampaignError('permission-denied', 'Akses operator tidak valid.');
@@ -355,18 +356,43 @@ class FirestoreTaskCampaignRepository {
         );
       }
 
+      let notificationPolicy = null;
+      const communityRef = this.firestore.collection('rt_communities').doc(operator.rtId);
+      const communitySnapshot = await transaction.get(communityRef);
+      const policyDocumentId = communitySnapshot.data()?.reminderPolicyId;
+      if (typeof policyDocumentId === 'string' &&
+          /^[A-Za-z0-9_-]{1,120}$/u.test(policyDocumentId)) {
+        const policyRef = this.firestore.collection('task_reminder_policies').doc(policyDocumentId);
+        const policySnapshot = await transaction.get(policyRef);
+        if (policySnapshot.exists) {
+          try {
+            notificationPolicy = validateTaskNotificationPolicy(
+              policySnapshot.data(), policySnapshot.id, operator.rtId,
+            );
+          } catch (_) {
+            // Missing or malformed policy disables notifications, never campaign activation.
+          }
+        }
+      }
+
       const activated = {
         ...campaign,
         status: 'ACTIVE',
         activatedAt: input.now,
         activatedByOperatorUid: input.operatorUid,
         activationCommandHash: input.commandHash,
+        notificationPolicyDocumentId: notificationPolicy?.policyDocumentId ?? null,
+        notificationPolicyVersion: notificationPolicy?.version ?? null,
+        notificationPolicyFingerprint: notificationPolicy?.fingerprint ?? null,
       };
       transaction.update(campaignRef, {
         status: activated.status,
         activatedAt: activated.activatedAt,
         activatedByOperatorUid: activated.activatedByOperatorUid,
         activationCommandHash: activated.activationCommandHash,
+        notificationPolicyDocumentId: activated.notificationPolicyDocumentId,
+        notificationPolicyVersion: activated.notificationPolicyVersion,
+        notificationPolicyFingerprint: activated.notificationPolicyFingerprint,
       });
       transaction.create(auditRef, {
         campaignId: input.campaignId,

@@ -78,6 +78,21 @@ test('callable creates, validates, and revokes an opaque RT-scoped resident sess
   assert.equal(sessionFields.active.booleanValue, true);
   assert.equal(JSON.stringify(sessionFields).includes(firstCreated.sessionToken), false);
 
+  const firstPushToken = `fcm-test-token-${crypto.randomUUID()}-abcdefghijklmnop`;
+  const tokenRegistration = await callFunction('registerResidentPushToken', {
+    sessionToken: firstCreated.sessionToken,
+    token: firstPushToken,
+    platform: 'ANDROID',
+  });
+  assert.equal(tokenRegistration.status, 200, JSON.stringify(tokenRegistration.body));
+  const pushTokenDocumentId = crypto.createHash('sha256')
+    .update(`fcm-token\0${firstPushToken}`)
+    .digest('hex');
+  const registeredPushToken = await firestoreRequest(
+    'GET', `resident_push_tokens/${pushTokenDocumentId}`, undefined, { owner: true },
+  );
+  assert.equal(registeredPushToken.status, 200, JSON.stringify(registeredPushToken.body));
+
   const retryResponse = await callFunction('createResidentSession', {
     joinCode: CODE_A,
     nickname: 'Sari',
@@ -94,6 +109,10 @@ test('callable creates, validates, and revokes an opaque RT-scoped resident sess
     'GET', `resident_sessions/${firstTokenHash}`, undefined, { owner: true },
   );
   assert.equal(revokedRetry.body.fields.active.booleanValue, false);
+  const cleanedPushToken = await firestoreRequest(
+    'GET', `resident_push_tokens/${pushTokenDocumentId}`, undefined, { owner: true },
+  );
+  assert.equal(cleanedPushToken.status, 404);
   const activeRetry = await firestoreRequest(
     'GET', `resident_sessions/${retryTokenHash}`, undefined, { owner: true },
   );
