@@ -2,6 +2,7 @@ const crypto = require('node:crypto');
 const RT_ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/u;
 const RULE_ID_PATTERN = /^[a-z][a-z0-9_-]{0,63}$/u;
 const TEMPLATE_ID_PATTERN = /^[a-z][a-z0-9_-]{0,63}$/u;
+const SUGGESTION_ID_PATTERN = /^[a-f0-9]{40}$/u;
 const MAX_WEATHER_AGE_SECONDS = 7 * 24 * 60 * 60;
 const MAX_RECOMMENDED_TEMPLATES = 10;
 const MAX_SUGGESTION_PAGE_SIZE = 50;
@@ -345,7 +346,8 @@ function publicSuggestion(record, now) {
     explanation: record.explanation,
     state: 'SUGGESTED',
     createdAt: createdAt.toISOString(),
-    isStale: !snapshotIsFresh({ sourceUpdatedAt, fetchedAt }, now, record.maximumAgeSeconds),
+    isStale: record.isSuperseded === true ||
+      !snapshotIsFresh({ sourceUpdatedAt, fetchedAt }, now, record.maximumAgeSeconds),
   };
 }
 
@@ -436,6 +438,21 @@ class WeatherSuggestionService {
     });
     const now = this.clock();
     return { suggestions: rows.map((row) => publicSuggestion(row, now)) };
+  }
+
+  async ignoreWeatherSuggestion(auth, data = {}) {
+    validateOperatorAuth(auth);
+    assertOnlyKeys(data, ['suggestionId']);
+    if (typeof data.suggestionId !== 'string' ||
+        !SUGGESTION_ID_PATTERN.test(data.suggestionId)) {
+      throw invalidArgument('Identitas saran cuaca tidak valid.');
+    }
+    await this.repository.ignoreSuggestionForOperator(
+      auth.operatorUid,
+      data.suggestionId,
+      this.clock(),
+    );
+    return { ignored: true };
   }
 }
 

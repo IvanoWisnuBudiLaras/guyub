@@ -203,6 +203,28 @@ test('BMKG snapshot is stored once, only reviewed rules/templates suggest, and R
   );
   assert.equal(forgedScope.status, 400);
 
+  const ignored = await callFunction('ignoreWeatherSuggestion', {
+    suggestionId: suggestion.suggestionId,
+  }, account.idToken);
+  assert.equal(ignored.status, 200, JSON.stringify(ignored.body));
+  assert.deepEqual(ignored.body.result, { ignored: true });
+  const ignoredReplay = await callFunction('ignoreWeatherSuggestion', {
+    suggestionId: suggestion.suggestionId,
+  }, account.idToken);
+  assert.equal(ignoredReplay.status, 200, JSON.stringify(ignoredReplay.body));
+  assert.deepEqual(ignoredReplay.body.result, { ignored: true });
+  const ignoredRecord = await firestore.collection('task_suggestions')
+    .doc(suggestion.suggestionId).get();
+  assert.equal(ignoredRecord.data().state, 'IGNORED');
+  assert.equal(ignoredRecord.data().ignoredByOperatorUid, account.localId);
+  assert.equal((await callFunction('listWeatherSuggestions', {}, account.idToken))
+    .body.result.suggestions.length, 0);
+  const replayAfterIgnore = await service.syncConfiguredSources();
+  assert.equal(replayAfterIgnore.failed, 0);
+  assert.equal(replayAfterIgnore.suggestionsCreated, 0);
+  assert.equal((await firestore.collection('task_suggestions')
+    .doc(suggestion.suggestionId).get()).data().state, 'IGNORED');
+
   const pointerRef = firestore.collection('weather_last_valid_snapshots').doc(rtId);
   const pointerBeforeFailure = (await pointerRef.get()).data();
   const malformedService = new WeatherSuggestionService(repository, {
@@ -292,6 +314,57 @@ test('BMKG snapshot is stored once, only reviewed rules/templates suggest, and R
   const otherRead = await callFunction('listWeatherSuggestions', {}, other.idToken);
   assert.equal(otherRead.status, 200, JSON.stringify(otherRead.body));
   assert.deepEqual(otherRead.body.result.suggestions, []);
+  const crossRtIgnore = await callFunction('ignoreWeatherSuggestion', {
+    suggestionId: afterSourceChange.body.result.suggestions[0].suggestionId,
+  }, other.idToken);
+  assert.notEqual(crossRtIgnore.status, 200,
+    'operators cannot ignore suggestions outside their RT');
+});
+
+test('a newer valid below-threshold snapshot makes the prior suggestion stale', async () => {
+  const suffix = crypto.randomUUID().replaceAll('-', '');
+  const rtId = `rt-weather-superseded-${suffix}`;
+  const account = await createAccount();
+  await seedOperator(account.localId, rtId);
+  await firestore.collection('task_templates').doc('home-check_v2').set(templateRecord());
+  await firestore.collection('weather_sources').doc(rtId).set(sourceRecord(rtId));
+  await firestore.collection('weather_rules').doc(`${rtId}_heavy-rain-preparation_v1`).set(
+    ruleRecord(rtId),
+  );
+
+  let rainfallMm = 42;
+  let sourceUpdatedAt = new Date(Date.now() - 60 * 60 * 1000);
+  const repository = new FirestoreWeatherSuggestionRepository(firestore);
+  const scopedRepository = Object.create(repository);
+  scopedRepository.listEnabledWeatherSources = async () =>
+    (await repository.listEnabledWeatherSources()).filter((source) => source.rtId === rtId);
+  const service = new WeatherSuggestionService(scopedRepository, {
+    fetchPayload: async () => ({ data: [{ forecast: {
+      rainfall_mm: rainfallMm,
+      source_updated_at: sourceUpdatedAt.toISOString(),
+    } }] }),
+  });
+
+  const firstSync = await service.syncConfiguredSources();
+  assert.equal(firstSync.suggestionsCreated, 1);
+  const pointerRef = firestore.collection('weather_last_valid_snapshots').doc(rtId);
+  const priorSnapshotId = (await pointerRef.get()).data().snapshotId;
+
+  rainfallMm = 10;
+  sourceUpdatedAt = new Date(Date.now() - 30 * 1000);
+  const nextSync = await service.syncConfiguredSources();
+  assert.equal(nextSync.snapshotsUpdated, 1);
+  assert.equal(nextSync.suggestionsCreated, 0);
+  assert.notEqual((await pointerRef.get()).data().snapshotId, priorSnapshotId);
+
+  const read = await callFunction('listWeatherSuggestions', {}, account.idToken);
+  assert.equal(read.status, 200, JSON.stringify(read.body));
+  assert.equal(read.body.result.suggestions.length, 1);
+  assert.equal(read.body.result.suggestions[0].snapshotId, priorSnapshotId);
+  assert.equal(read.body.result.suggestions[0].state, 'SUGGESTED');
+  assert.equal(read.body.result.suggestions[0].isStale, true);
+  assert.deepEqual((await firestore.collection('task_campaigns')
+    .where('rtId', '==', rtId).get()).docs, []);
 });
 
 test('resident weather snapshot derives its RT from the live session, not client scope', async () => {
