@@ -94,7 +94,7 @@ function suggestionFingerprint(record) {
     record.ruleFingerprint,
     record.recommendedTemplateVersions,
     record.explanation,
-    record.state,
+    'SUGGESTED',
   ]);
 }
 
@@ -108,7 +108,12 @@ function validateSuggestion(record, expectedId, expectedRtId) {
       !/^[a-z][a-z0-9_-]{0,63}$/u.test(record.ruleId || '') ||
       !Number.isInteger(record.ruleVersion) || record.ruleVersion < 1 ||
       !/^[a-f0-9]{64}$/u.test(record.ruleFingerprint || '') ||
-      record.state !== 'SUGGESTED' || !sourceUpdatedAt || !fetchedAt || !createdAt ||
+      !['SUGGESTED', 'IGNORED'].includes(record.state) ||
+      (record.state === 'IGNORED' && (!asDate(record.ignoredAt) ||
+        typeof record.ignoredByOperatorUid !== 'string' ||
+        record.ignoredByOperatorUid.trim().length === 0 ||
+        record.ignoredByOperatorUid.length > 128)) ||
+      !sourceUpdatedAt || !fetchedAt || !createdAt ||
       !Number.isFinite(record.rainfallMm) || record.rainfallMm < 0 ||
       !Number.isInteger(record.maximumAgeSeconds) || record.maximumAgeSeconds < 1 ||
       !Array.isArray(record.recommendedTemplateVersions) ||
@@ -341,6 +346,33 @@ class FirestoreWeatherSuggestionRepository {
     return created;
   }
 
+  async ignoreSuggestionForOperator(operatorUid, suggestionId, now) {
+    if (!HASH_ID_PATTERN.test(suggestionId || '') || !asDate(now)) throw invalidData();
+    const operatorRef = this.firestore.collection('operators').doc(operatorUid);
+    const suggestionRef = this.firestore.collection(SUGGESTION_COLLECTION).doc(suggestionId);
+    let ignored = false;
+    await this.firestore.runTransaction(async (transaction) => {
+      const [operatorSnapshot, suggestionSnapshot] = await Promise.all([
+        transaction.get(operatorRef),
+        transaction.get(suggestionRef),
+      ]);
+      const rtId = requireOperator(operatorSnapshot);
+      if (!suggestionSnapshot.exists) throw invalidData();
+      const suggestion = validateSuggestion(suggestionSnapshot.data(), suggestionId, rtId);
+      if (suggestion.state === 'IGNORED') {
+        ignored = true;
+        return;
+      }
+      transaction.update(suggestionRef, {
+        state: 'IGNORED',
+        ignoredAt: now,
+        ignoredByOperatorUid: operatorUid,
+      });
+      ignored = true;
+    });
+    return { ignored };
+  }
+
   async listSuggestionsForOperator(operatorUid, { limit = 50 } = {}) {
     if (!Number.isInteger(limit) || limit < 1 || limit > 50) throw invalidData();
     const operatorRef = this.firestore.collection('operators').doc(operatorUid);
@@ -382,6 +414,9 @@ class FirestoreWeatherSuggestionRepository {
           // A malformed, unreviewed, or disabled newest version hides older suggestions.
         }
       }
+      const currentSnapshot = sourceConfig
+        ? await lastValidSnapshotInTransaction(transaction, this.firestore, rtId)
+        : null;
       const templateIds = [...new Set([...latestRules.values()].flatMap(({ rule }) =>
         rule.suggestedTemplateVersions.map(({ templateId, version }) =>
           templateDocumentId(templateId, version))))];
@@ -405,8 +440,11 @@ class FirestoreWeatherSuggestionRepository {
         }
         if (valid) currentRules.set(ruleId, rule);
       }
-      result = sourceConfig ? suggestions.docs.map((snapshot) =>
-        validateSuggestion(snapshot.data(), snapshot.id, rtId)).filter((suggestion) => {
+      result = sourceConfig ? suggestions.docs.map((snapshot) => ({
+        ...validateSuggestion(snapshot.data(), snapshot.id, rtId),
+        isSuperseded: currentSnapshot === null ||
+          snapshot.data().snapshotId !== currentSnapshot.id,
+      })).filter((suggestion) => {
         const current = currentRules.get(suggestion.ruleId);
         return suggestion.sourceFingerprint === sourceConfig.sourceFingerprint &&
           current?.version === suggestion.ruleVersion &&

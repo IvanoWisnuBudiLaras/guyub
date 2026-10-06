@@ -62,7 +62,9 @@ void main() {
       MaterialApp(
         home: WeatherSuggestionReviewScreen(
           profile: profile,
-          suggestionBoundary: _FakeSuggestionBoundary([suggestion()]),
+          suggestionBoundary: _FakeSuggestionBoundary([
+            [suggestion()],
+          ]),
           taskCampaignController: TaskCampaignController(campaigns),
         ),
       ),
@@ -94,7 +96,7 @@ void main() {
         home: WeatherSuggestionReviewScreen(
           profile: profile,
           suggestionBoundary: _FakeSuggestionBoundary([
-            suggestion(stale: true),
+            [suggestion(stale: true)],
           ]),
           taskCampaignController: TaskCampaignController(
             _FakeCampaignBoundary(templates),
@@ -108,14 +110,191 @@ void main() {
     final route = find.byKey(Key('weather-suggestion-review-${'a' * 40}'));
     expect(tester.widget<OutlinedButton>(route).onPressed, isNull);
   });
+
+  testWidgets('suggestion becoming stale cannot open the catalog after load', (
+    tester,
+  ) async {
+    final boundary = _FakeSuggestionBoundary([
+      [suggestion()],
+      [suggestion(stale: true)],
+    ]);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: WeatherSuggestionReviewScreen(
+          profile: profile,
+          suggestionBoundary: boundary,
+          taskCampaignController: TaskCampaignController(
+            _FakeCampaignBoundary(templates),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final review = find.byKey(Key('weather-suggestion-review-${'a' * 40}'));
+    expect(tester.widget<OutlinedButton>(review).onPressed, isNotNull);
+    await tester.tap(review);
+    await tester.pumpAndSettle();
+
+    expect(boundary.listCalls, 3);
+    expect(find.byKey(const Key('weather-suggestion-stale')), findsOneWidget);
+    expect(
+      find.byKey(const Key('task-catalog-weather-suggestion-notice')),
+      findsNothing,
+    );
+    expect(tester.widget<OutlinedButton>(review).onPressed, isNull);
+  });
+
+  testWidgets(
+    'ignore requires confirmation and removes the suggestion from the list',
+    (tester) async {
+      final boundary = _FakeSuggestionBoundary([
+        [suggestion()],
+      ]);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: WeatherSuggestionReviewScreen(
+            profile: profile,
+            suggestionBoundary: boundary,
+            taskCampaignController: TaskCampaignController(
+              _FakeCampaignBoundary(templates),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(
+        find.byKey(Key('weather-suggestion-ignore-${'a' * 40}')),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Abaikan saran cuaca?'), findsOneWidget);
+      expect(boundary.ignoredSuggestionIds, isEmpty);
+
+      await tester.tap(
+        find.byKey(const Key('weather-suggestion-ignore-confirm')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(boundary.ignoredSuggestionIds, ['a' * 40]);
+      expect(
+        find.byKey(const Key('weather-suggestions-empty')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('task-catalog-weather-suggestion-notice')),
+        findsNothing,
+      );
+    },
+  );
+
+  testWidgets('postpone returns without changing the RT suggestion', (
+    tester,
+  ) async {
+    final boundary = _FakeSuggestionBoundary([
+      [suggestion()],
+    ]);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: ElevatedButton(
+              key: const Key('weather-home'),
+              onPressed: () => Navigator.of(context).push<void>(
+                MaterialPageRoute<void>(
+                  builder: (_) => WeatherSuggestionReviewScreen(
+                    profile: profile,
+                    suggestionBoundary: boundary,
+                    taskCampaignController: TaskCampaignController(
+                      _FakeCampaignBoundary(templates),
+                    ),
+                  ),
+                ),
+              ),
+              child: const Text('Beranda'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.byKey(const Key('weather-home')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+      find.byKey(Key('weather-suggestion-postpone-${'a' * 40}')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Beranda'), findsOneWidget);
+    expect(boundary.ignoredSuggestionIds, isEmpty);
+
+    await tester.tap(find.byKey(const Key('weather-home')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(Key('weather-suggestion-${'a' * 40}')), findsOneWidget);
+  });
+
+  testWidgets('catalog review fails closed when freshness cannot be checked', (
+    tester,
+  ) async {
+    final boundary = _FakeSuggestionBoundary([
+      [suggestion()],
+    ], failOnListCall: 1);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: WeatherSuggestionReviewScreen(
+          profile: profile,
+          suggestionBoundary: boundary,
+          taskCampaignController: TaskCampaignController(
+            _FakeCampaignBoundary(templates),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final review = find.byKey(Key('weather-suggestion-review-${'a' * 40}'));
+    await tester.tap(review);
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text(
+        'Kebaruan saran belum dapat diperiksa. Coba lagi saat tersambung.',
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('task-catalog-weather-suggestion-notice')),
+      findsNothing,
+    );
+  });
 }
 
 final class _FakeSuggestionBoundary implements WeatherSuggestionBoundary {
-  _FakeSuggestionBoundary(this.suggestions);
-  final List<WeatherSuggestion> suggestions;
+  _FakeSuggestionBoundary(this.responses, {this.failOnListCall});
+
+  final List<List<WeatherSuggestion>> responses;
+  final int? failOnListCall;
+  final ignoredSuggestionIds = <String>[];
+  int listCalls = 0;
 
   @override
-  Future<List<WeatherSuggestion>> listWeatherSuggestions() async => suggestions;
+  Future<List<WeatherSuggestion>> listWeatherSuggestions() async {
+    final call = listCalls++;
+    if (call == failOnListCall) {
+      throw StateError('Suggestion freshness could not be checked.');
+    }
+    final index = call < responses.length ? call : responses.length - 1;
+    return responses[index];
+  }
+
+  @override
+  Future<void> ignoreWeatherSuggestion({required String suggestionId}) async {
+    ignoredSuggestionIds.add(suggestionId);
+    for (var index = 0; index < responses.length; index++) {
+      responses[index] = responses[index]
+          .where((suggestion) => suggestion.id != suggestionId)
+          .toList();
+    }
+  }
 }
 
 final class _FakeCampaignBoundary implements TaskCampaignBoundary {

@@ -27,6 +27,17 @@ final class FirebaseWeatherSuggestionBoundary
       items.map((item) => WeatherSuggestion.fromJson(_asMap(item))),
     );
   }
+
+  @override
+  Future<void> ignoreWeatherSuggestion({required String suggestionId}) async {
+    final response = await _functions
+        .httpsCallable('ignoreWeatherSuggestion')
+        .call<Object?>(<String, Object?>{'suggestionId': suggestionId});
+    final envelope = _asMap(response.data);
+    if (envelope.length != 1 || envelope['ignored'] != true) {
+      throw const FormatException('Invalid weather suggestion response.');
+    }
+  }
 }
 
 Map<String, Object?> _asMap(Object? value) {
