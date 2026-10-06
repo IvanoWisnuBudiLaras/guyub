@@ -1,5 +1,6 @@
 const crypto = require('node:crypto');
 const { hashSessionToken } = require('./resident_session_service');
+const { containsDmsCoordinates } = require('./precise_coordinate_detector');
 const { TaskCampaignError, asDate } = require('./task_campaign_service');
 
 const REQUEST_ID_PATTERN = /^[A-Za-z0-9_-]{32,128}$/;
@@ -60,6 +61,7 @@ function normalizeCompletionNote(value) {
   if ([...note].length > RESIDENT_NOTE_LIMIT ||
       /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/u.test(note) ||
       /-?\d{1,3}\.\d+\s*[,;/ ]\s*-?\d{1,3}\.\d+/u.test(note) ||
+      containsDmsCoordinates(note) ||
       /\b(?:alamat|rumah|jalan|jl\.?|gang|gg\.?|blok|perumahan)\b/iu.test(note) ||
       /\b(?:no\.?|nomor)\s*\d/iu.test(note) ||
       /(?<!\d)(?:\d[\s.\/-]?){15}\d(?!\d)/u.test(numberCheckText) ||

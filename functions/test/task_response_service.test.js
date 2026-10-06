@@ -182,6 +182,26 @@ test('completion note is optional, bounded, normalized, and excludes common addr
   assert.throws(() => normalizeCompletionNote('-6.2, 106.8'), {
     code: 'invalid-argument',
   });
+  for (const coordinate of [
+    String.raw`7°45'22"S, 110°22'05"E`,
+    String.raw`7° 45′ 22″ S; 110° 22′ 05″ E`,
+    String.raw`S 7° 45′ 22″; E 110° 22′ 05″`,
+    String.raw`LS 7° 45′ 22″, BT 110° 22′ 05″`,
+    String.raw`7 45 22 S, 110 22 05 E`,
+    String.raw`S 7 45 22, E 110 22 05`,
+    String.raw`S 7° 45.5', E 110° 22.5'`,
+    String.raw`N 0° 45′ 22″, W 100° 22′ 05″`,
+    String.raw`7°45.366′S 110°22.083′E`,
+    String.raw`Koordinat: 7°45′22″, 110°22′05″`,
+  ]) {
+    assert.throws(() => normalizeCompletionNote(coordinate), {
+      code: 'invalid-argument',
+    }, coordinate);
+  }
+  assert.equal(
+    normalizeCompletionNote('Curah hujan 7,5 mm; dokumen sudah disiapkan.'),
+    'Curah hujan 7,5 mm; dokumen sudah disiapkan.',
+  );
   assert.throws(() => normalizeCompletionNote('NIK 1234567890123456'), {
     code: 'invalid-argument',
   });
