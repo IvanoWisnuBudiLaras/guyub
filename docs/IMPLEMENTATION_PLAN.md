@@ -167,7 +167,7 @@ Provide the CF-07 reminder and CF-08 escalation backend with validated per-RT po
 ## Current status
 **Backend and Android client slices are implemented; rollout remains disabled and unconfigured.** `rt_communities.reminderPolicyId` points to a server-provisioned document in `task_reminder_policies`. A policy must be enabled, reviewed, versioned, RT-scoped, and valid. It defines reminder windows/cohorts, escalation window/cohort/minimum cohort size, and retry delays. Campaign activation snapshots the policy document ID, version, and fingerprint. Missing or invalid policy never blocks activation; it disables configured reminders/escalation.
 
-`sendTaskReminders` and `escalateUnrespondedTasks` scan configured policies every five minutes. Idempotent outbox events and privacy-safe audit markers cover those windows. Campaign activation, cancellation, and closure create lifecycle notices transactionally. Resident completion submission creates a separate idempotent verification-needed notice in the same transaction as the pending report. Delivery rechecks live resident session/task state or active same-RT `PENDAMPING_RT` membership. Declined residents are excluded from reminders. Protected policy, event, audit, and token collections remain unavailable to direct clients.
+`sendTaskReminders` and `escalateUnrespondedTasks` scan configured policies every minute so the scheduler cadence matches the shortest supported one-minute policy offset. Lifecycle notification events remain on a five-minute scan. Idempotent outbox events and privacy-safe audit markers cover those windows. Campaign activation, cancellation, and closure create lifecycle notices transactionally. Resident completion submission creates a separate idempotent verification-needed notice in the same transaction as the pending report. Delivery rechecks live resident session/task state or active same-RT `PENDAMPING_RT` membership. Declined residents are excluded from reminders. Protected policy, event, audit, and token collections remain unavailable to direct clients.
 
 Android push permission is requested only after an explicit resident or Pendamping RT opt-in. The client registers and refreshes scoped tokens through callable Functions, revokes tokens on opt-out/session revocation and attempts operator-token removal before sign-out, handles foreground/opened/cold-start messages, and resolves resident task IDs through the authorized active-task list. Pendamping verification notices open the server-backed verification queue; escalation notices open the active-task list. Push stays an optional hint; task access and WhatsApp copy-text remain separate. Generic FCM copy contains no resident details and never claims an official warning.
 
@@ -180,7 +180,7 @@ The outbox retries configured failures with stable logical event IDs. FCM accept
 - Production FCM, Scheduler, and notification policy configuration remain disabled until explicit approval.
 
 ## Required tests
-- scheduler replay creates one event per policy window; a later configured window is distinct;
+- the minimum one-minute policy window is scanned at a matching cadence; replay creates one event per policy window and a later configured window is distinct;
 - retry after delivery failure creates no second logical reminder;
 - escalation replay is idempotent and does not alter participation/completion state;
 - declined residents receive no reminder;

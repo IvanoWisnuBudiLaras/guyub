@@ -18,6 +18,10 @@ const { FirestoreTaskNotificationRepository, TaskNotificationError } =
   require('./firestore_task_notification_repository');
 const { TaskNotificationService } = require('./task_notification_service');
 const { FirebaseMessagingDeliveryAdapter } = require('./task_notification_delivery');
+const {
+  taskWindowNotificationScheduleOptions,
+  lifecycleNotificationScheduleOptions,
+} = require('./task_notification_schedule');
 const { fetchBmkgPayload } = require('./bmkg_forecast_client');
 const { ResidentSessionService, SessionServiceError } = require('./resident_session_service');
 const { TaskCampaignService, TaskCampaignError } = require('./task_campaign_service');
@@ -308,27 +312,20 @@ exports.syncBmkgWeather = onSchedule({
   timeoutSeconds: 120,
 }, runScheduledWeatherSync);
 
-const notificationScheduleOptions = {
-  region: 'asia-southeast2',
-  schedule: 'every 5 minutes',
-  timeZone: 'Etc/UTC',
-  maxInstances: 1,
-  timeoutSeconds: 120,
-};
 const notificationsEnabled = () => process.env.GUYUB_NOTIFICATIONS_ENABLED === 'true';
 
-exports.sendTaskReminders = onSchedule(notificationScheduleOptions, async () => {
+exports.sendTaskReminders = onSchedule(taskWindowNotificationScheduleOptions, async () => {
   if (!notificationsEnabled()) return { enabled: false, scheduled: 0, delivered: 0 };
   return taskNotifications.sendTaskReminders();
 });
 
-exports.escalateUnrespondedTasks = onSchedule(notificationScheduleOptions, async () => {
+exports.escalateUnrespondedTasks = onSchedule(taskWindowNotificationScheduleOptions, async () => {
   if (!notificationsEnabled()) return { enabled: false, scheduled: 0, delivered: 0 };
   return taskNotifications.escalateUnrespondedTasks();
 });
 
 exports.deliverCampaignTransitionNotifications = onSchedule(
-  notificationScheduleOptions,
+  lifecycleNotificationScheduleOptions,
   async () => {
     if (!notificationsEnabled()) return { enabled: false, delivered: 0 };
     return taskNotifications.sendCampaignTransitionNotifications();
