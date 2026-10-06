@@ -154,19 +154,34 @@ final class TaskPushNotificationsController {
   late final StreamSubscription<String> _refreshSubscription;
   late final Future<TaskPushNotification?> _initialNotification;
   _PushTarget? _activeTarget;
+  TaskPushNotification? _cachedInitialNotification;
+  bool _initialNotificationRead = false;
   bool _initialConsumed = false;
 
   Stream<TaskPushNotification> get openedNotifications => _opened.stream;
   Stream<TaskPushNotification> get foregroundNotifications =>
       _foreground.stream;
 
-  Future<TaskPushNotification?> consumeInitialNotification() async {
+  Future<TaskPushNotification?> readPendingInitialNotification() async {
     if (_initialConsumed) return null;
-    _initialConsumed = true;
+    if (_initialNotificationRead) return _cachedInitialNotification;
     try {
-      return await _initialNotification;
+      _cachedInitialNotification = await _initialNotification;
     } catch (_) {
-      return null;
+      _cachedInitialNotification = null;
+    }
+    _initialNotificationRead = true;
+    return _cachedInitialNotification;
+  }
+
+  void acknowledgeInitialNotification(TaskPushNotification notification) {
+    final initial = _cachedInitialNotification;
+    if (_initialConsumed || !_initialNotificationRead || initial == null) {
+      return;
+    }
+    if (initial.eventType == notification.eventType &&
+        initial.taskId == notification.taskId) {
+      _initialConsumed = true;
     }
   }
 

@@ -203,6 +203,64 @@ void main() {
     );
   });
 
+  test('cold-start notification remains pending until the matching role acknowledges it', () async {
+    final boundary = _FakeBoundary()
+      ..initial = TaskPushNotification(
+        eventType: 'TASK_VERIFICATION_NEEDED',
+        taskId: _taskId,
+      );
+    final controller = TaskPushNotificationsController(
+      boundary: boundary,
+      preferences: _FakePreferences(),
+      deviceTokens: _FakeDeviceTokens(),
+      readResidentSessionToken: () async => null,
+    );
+    final notification = boundary.initial!;
+    final taskController = TaskResponseController(
+      boundary: _FakeTaskResponseBoundary(_activeTaskList(_taskId)),
+      vault: _FakeVault(),
+    );
+
+    expect(
+      await controller.readPendingInitialNotification(),
+      same(notification),
+    );
+    expect(
+      taskNotificationDestination(
+        notification: notification,
+        session: _session,
+        taskResponseController: taskController,
+      ),
+      isNull,
+    );
+    expect(
+      await controller.readPendingInitialNotification(),
+      same(notification),
+    );
+
+    final pendamping = OperatorProfile(
+      uid: 'operator-cold-start',
+      communityId: 'rt-1',
+      role: OperatorRole.pendampingRt,
+      displayName: 'Pendamping',
+    );
+    expect(
+      taskNotificationDestination(
+        notification: notification,
+        profile: pendamping,
+        taskResponseController: taskController,
+      ),
+      isA<TaskVerificationQueueScreen>(),
+    );
+    controller.acknowledgeInitialNotification(notification);
+    expect(await controller.readPendingInitialNotification(), isNull);
+
+    await controller.dispose();
+    await boundary.refreshes.close();
+    await boundary.opened.close();
+    await boundary.foreground.close();
+  });
+
   test('local push preferences are scoped to each identity', () async {
     final store = InMemoryLocalStore();
     final preferences = LocalTaskPushPreferenceStore(store);

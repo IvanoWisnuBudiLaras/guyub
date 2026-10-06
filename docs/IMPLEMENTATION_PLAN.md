@@ -170,7 +170,7 @@ Provide the CF-07 reminder and CF-08 escalation backend with validated per-RT po
 
 `sendTaskReminders` and `escalateUnrespondedTasks` scan configured policies every minute so the scheduler cadence matches the shortest supported one-minute policy offset. Lifecycle notification events remain on a five-minute scan. Idempotent outbox events and privacy-safe audit markers cover those windows. Campaign activation, cancellation, and closure create lifecycle notices transactionally. Resident completion submission creates a separate idempotent verification-needed notice in the same transaction as the pending report. Delivery rechecks live resident session/task state or active same-RT `PENDAMPING_RT` membership. Declined residents are excluded from reminders. Protected policy, event, audit, and token collections remain unavailable to direct clients.
 
-Android push permission is requested only after an explicit resident or Pendamping RT opt-in. The client registers and refreshes scoped tokens through callable Functions, revokes tokens on opt-out/session revocation and attempts operator-token removal before sign-out, handles foreground/opened/cold-start messages, and resolves resident task IDs through the authorized active-task list. Pendamping verification notices open the server-backed verification queue; escalation notices open the active-task list. Push stays an optional hint; task access and WhatsApp copy-text remain separate. Generic FCM copy contains no resident details and never claims an official warning.
+Android push permission is requested only after an explicit resident or Pendamping RT opt-in. The client registers and refreshes scoped tokens through callable Functions, revokes tokens on opt-out/session revocation and attempts operator-token removal before sign-out, and handles foreground/opened/cold-start messages. An initial intent remains pending when the current role cannot resolve it; the client acknowledges it only after a role-specific destination exists. Resident task IDs resolve through the authorized active-task list. Pendamping verification notices open the server-backed verification queue; escalation notices open the active-task list. Push stays an optional hint; task access and WhatsApp copy-text remain separate. Generic FCM copy contains no resident details and never claims an official warning.
 
 The outbox retries configured failures with stable logical event IDs. FCM acceptance followed by worker failure can still cause a transport duplicate; event creation is idempotent, not provider-level exactly-once. `GUYUB_NOTIFICATIONS_ENABLED` defaults off. No pilot policy values, production token setup, scheduler deployment, or real FCM delivery has been configured or verified.
 
@@ -188,7 +188,8 @@ The outbox retries configured failures with stable logical event IDs. FCM accept
 - cross-RT operator cannot read campaign notification audit or receive its escalation;
 - FCM failure leaves the active task available in the app;
 - payload/copy and audit contain no sensitive resident details and never claim an official flood warning;
-- clients cannot directly read/write policy, outbox, audit, or push-token collections.
+- clients cannot directly read/write policy, outbox, audit, or push-token collections;
+- an initial notification remains pending after a role mismatch and is acknowledged only when a matching role can resolve its authorized destination.
 
 ## Acceptance linkage
 AT-016 (copy-only summary), AT-017 (authorized, audited cancellation), AT-023 (configured reminders/escalation), AT-024 (opt-in push delivery and click routing), and AT-025 (same-device resident-data deletion).
