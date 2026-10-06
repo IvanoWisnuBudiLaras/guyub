@@ -1435,6 +1435,7 @@ AT-024 — Task push is opt-in and routes only to authorized task screens
 **When** a task notification is opened or selected from the foreground hint
 **Then** resident task IDs resolve through the authorized active-task list and Pendamping RT verification notices open the same-RT verification queue
 **And** token registration/refresh/revocation remains scoped to the resident session or active operator membership
+**And** a cold-start notification remains pending when the first selected role cannot resolve it, until a matching role/session can resolve its authorized destination
 **And** generic copy contains no resident details and never claims an official warning; push failure does not block task access.
 
 AT-025 — Same-device resident-data deletion is scoped and replay-safe
