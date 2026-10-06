@@ -189,7 +189,8 @@ The outbox retries configured failures with stable logical event IDs. FCM accept
 - FCM failure leaves the active task available in the app;
 - payload/copy and audit contain no sensitive resident details and never claim an official flood warning;
 - clients cannot directly read/write policy, outbox, audit, or push-token collections;
-- an initial notification remains pending after a role mismatch and is acknowledged only when a matching role can resolve its authorized destination.
+- an initial notification remains pending after a role mismatch and is acknowledged only when a matching role can resolve its authorized destination;
+- `TASK_CANCELLED`/`TASK_CLOSED` notifications remain read-only and bypass a stale cached ACTIVE task detail/actions while offline.
 
 ## Acceptance linkage
 AT-016 (copy-only summary), AT-017 (authorized, audited cancellation), AT-023 (configured reminders/escalation), AT-024 (opt-in push delivery and click routing), and AT-025 (same-device resident-data deletion).
