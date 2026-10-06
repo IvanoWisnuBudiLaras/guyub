@@ -60,20 +60,32 @@ abstract interface class TaskPushNotificationsBoundary {
 }
 
 abstract interface class TaskPushPreferenceStore {
-  Future<bool> isEnabled(TaskPushAudience audience);
-  Future<void> setEnabled(TaskPushAudience audience, bool enabled);
+  Future<bool> isEnabled(
+    TaskPushAudience audience, {
+    required String identityId,
+  });
+  Future<void> setEnabled(
+    TaskPushAudience audience, {
+    required String identityId,
+    required bool enabled,
+  });
 }
 
 /// Stores the last FCM token in secure storage so token refresh can unregister the old token.
 abstract interface class TaskPushDeviceTokenStore {
-  Future<String?> read(TaskPushAudience audience);
-  Future<void> write(TaskPushAudience audience, String token);
-  Future<void> clear(TaskPushAudience audience);
+  Future<String?> read(TaskPushAudience audience, {required String identityId});
+  Future<void> write(
+    TaskPushAudience audience, {
+    required String identityId,
+    required String token,
+  });
+  Future<void> clear(TaskPushAudience audience, {required String identityId});
 }
 
 sealed class _PushTarget {
   const _PushTarget();
   TaskPushAudience get audience;
+  String get identityId;
 }
 
 final class _ResidentPushTarget extends _PushTarget {
@@ -81,6 +93,8 @@ final class _ResidentPushTarget extends _PushTarget {
   final ResidentSession session;
   @override
   TaskPushAudience get audience => TaskPushAudience.resident;
+  @override
+  String get identityId => session.residentId;
 }
 
 final class _PendampingPushTarget extends _PushTarget {
@@ -88,6 +102,8 @@ final class _PendampingPushTarget extends _PushTarget {
   final OperatorProfile profile;
   @override
   TaskPushAudience get audience => TaskPushAudience.pendamping;
+  @override
+  String get identityId => profile.uid;
 }
 
 /// Handles explicit opt-in, scoped token registration, token refresh and click routing.
@@ -154,8 +170,10 @@ final class TaskPushNotificationsController {
     }
   }
 
-  Future<bool> isEnabled(TaskPushAudience audience) =>
-      _preferences.isEnabled(audience);
+  Future<bool> isEnabled(
+    TaskPushAudience audience, {
+    required String identityId,
+  }) => _preferences.isEnabled(audience, identityId: identityId);
 
   Future<void> syncResidentSession(ResidentSession session) async {
     if (session.isOfflineSnapshot) return;
@@ -175,10 +193,18 @@ final class TaskPushNotificationsController {
     _activeTarget = target;
     final granted = await _boundary.requestNotificationPermission();
     if (!granted) {
-      await _preferences.setEnabled(TaskPushAudience.resident, false);
+      await _preferences.setEnabled(
+        TaskPushAudience.resident,
+        identityId: session.residentId,
+        enabled: false,
+      );
       return TaskPushOptInResult.permissionDenied;
     }
-    await _preferences.setEnabled(TaskPushAudience.resident, true);
+    await _preferences.setEnabled(
+      TaskPushAudience.resident,
+      identityId: session.residentId,
+      enabled: true,
+    );
     try {
       final token = await _boundary.currentToken();
       if (token == null || token.isEmpty) {
@@ -199,10 +225,18 @@ final class TaskPushNotificationsController {
     _activeTarget = target;
     final granted = await _boundary.requestNotificationPermission();
     if (!granted) {
-      await _preferences.setEnabled(TaskPushAudience.pendamping, false);
+      await _preferences.setEnabled(
+        TaskPushAudience.pendamping,
+        identityId: profile.uid,
+        enabled: false,
+      );
       return TaskPushOptInResult.permissionDenied;
     }
-    await _preferences.setEnabled(TaskPushAudience.pendamping, true);
+    await _preferences.setEnabled(
+      TaskPushAudience.pendamping,
+      identityId: profile.uid,
+      enabled: true,
+    );
     try {
       final token = await _boundary.currentToken();
       if (token == null || token.isEmpty) {
@@ -216,9 +250,16 @@ final class TaskPushNotificationsController {
   }
 
   Future<void> disableResident(ResidentSession session) async {
-    await _preferences.setEnabled(TaskPushAudience.resident, false);
+    await _preferences.setEnabled(
+      TaskPushAudience.resident,
+      identityId: session.residentId,
+      enabled: false,
+    );
     try {
-      final token = await _deviceTokens.read(TaskPushAudience.resident);
+      final token = await _deviceTokens.read(
+        TaskPushAudience.resident,
+        identityId: session.residentId,
+      );
       if (token != null && token.isNotEmpty) {
         final sessionToken = await _readResidentSessionToken();
         if (sessionToken == null || sessionToken.isEmpty) {
@@ -230,10 +271,17 @@ final class TaskPushNotificationsController {
           sessionToken: sessionToken,
           token: token,
         );
-        await _deviceTokens.clear(TaskPushAudience.resident);
+        await _deviceTokens.clear(
+          TaskPushAudience.resident,
+          identityId: session.residentId,
+        );
       }
     } catch (_) {
-      await _preferences.setEnabled(TaskPushAudience.resident, true);
+      await _preferences.setEnabled(
+        TaskPushAudience.resident,
+        identityId: session.residentId,
+        enabled: true,
+      );
       rethrow;
     }
     final activeTarget = _activeTarget;
@@ -244,54 +292,114 @@ final class TaskPushNotificationsController {
   }
 
   Future<void> disablePendamping(OperatorProfile profile) async {
-    await _preferences.setEnabled(TaskPushAudience.pendamping, false);
+    await _preferences.setEnabled(
+      TaskPushAudience.pendamping,
+      identityId: profile.uid,
+      enabled: false,
+    );
     try {
-      final token = await _deviceTokens.read(TaskPushAudience.pendamping);
+      final token = await _deviceTokens.read(
+        TaskPushAudience.pendamping,
+        identityId: profile.uid,
+      );
       if (token != null && token.isNotEmpty) {
         await _boundary.unregisterPendampingToken(token: token);
-        await _deviceTokens.clear(TaskPushAudience.pendamping);
+        await _deviceTokens.clear(
+          TaskPushAudience.pendamping,
+          identityId: profile.uid,
+        );
       }
     } catch (_) {
-      await _preferences.setEnabled(TaskPushAudience.pendamping, true);
+      await _preferences.setEnabled(
+        TaskPushAudience.pendamping,
+        identityId: profile.uid,
+        enabled: true,
+      );
       rethrow;
     } finally {
       final activeTarget = _activeTarget;
       if (activeTarget is _PendampingPushTarget &&
           activeTarget.profile.uid == profile.uid &&
-          await _preferences.isEnabled(TaskPushAudience.pendamping) == false) {
+          await _preferences.isEnabled(
+                TaskPushAudience.pendamping,
+                identityId: profile.uid,
+              ) ==
+              false) {
         _activeTarget = null;
       }
     }
   }
 
   /// Clears only device-local resident push state after server-side deletion.
-  Future<void> clearResidentStateAfterDeletion() async {
+  Future<void> clearResidentStateAfterDeletion(ResidentSession session) async {
     final activeTarget = _activeTarget;
-    if (activeTarget is _ResidentPushTarget) _activeTarget = null;
-    await _preferences.setEnabled(TaskPushAudience.resident, false);
-    await _deviceTokens.clear(TaskPushAudience.resident);
+    if (activeTarget is _ResidentPushTarget &&
+        activeTarget.session.residentId == session.residentId) {
+      _activeTarget = null;
+    }
+    await _preferences.setEnabled(
+      TaskPushAudience.resident,
+      identityId: session.residentId,
+      enabled: false,
+    );
+    await _deviceTokens.clear(
+      TaskPushAudience.resident,
+      identityId: session.residentId,
+    );
   }
 
   /// Called before local sign-out so a token refresh cannot re-register a signed-out account.
   void clearActiveTarget() => _activeTarget = null;
 
+  Future<void> unregisterResidentBeforeSignOut(ResidentSession session) async {
+    final activeTarget = _activeTarget;
+    if (activeTarget is _ResidentPushTarget &&
+        activeTarget.session.residentId == session.residentId) {
+      _activeTarget = null;
+    }
+    try {
+      final token = await _deviceTokens.read(
+        TaskPushAudience.resident,
+        identityId: session.residentId,
+      );
+      if (token == null || token.isEmpty) return;
+      final sessionToken = await _readResidentSessionToken();
+      if (sessionToken == null || sessionToken.isEmpty) return;
+      await _boundary.unregisterResidentToken(
+        sessionToken: sessionToken,
+        token: token,
+      );
+      await _deviceTokens.clear(
+        TaskPushAudience.resident,
+        identityId: session.residentId,
+      );
+    } catch (_) {
+      // Sign-out remains available if best-effort token cleanup is unavailable.
+    }
+  }
+
   Future<void> unregisterPendampingBeforeSignOut(
     OperatorProfile profile,
   ) async {
     if (profile.role != OperatorRole.pendampingRt) return;
-    final token = await _deviceTokens.read(TaskPushAudience.pendamping);
-    if (token != null && token.isNotEmpty) {
-      try {
-        await _boundary.unregisterPendampingToken(token: token);
-        await _deviceTokens.clear(TaskPushAudience.pendamping);
-      } catch (_) {
-        // Live operator membership is still rechecked before any delivery.
-      }
-    }
     final activeTarget = _activeTarget;
     if (activeTarget is _PendampingPushTarget &&
         activeTarget.profile.uid == profile.uid) {
       _activeTarget = null;
+    }
+    try {
+      final token = await _deviceTokens.read(
+        TaskPushAudience.pendamping,
+        identityId: profile.uid,
+      );
+      if (token == null || token.isEmpty) return;
+      await _boundary.unregisterPendampingToken(token: token);
+      await _deviceTokens.clear(
+        TaskPushAudience.pendamping,
+        identityId: profile.uid,
+      );
+    } catch (_) {
+      // Live operator membership is still rechecked before any delivery.
     }
   }
 
@@ -304,7 +412,11 @@ final class TaskPushNotificationsController {
 
   Future<void> _syncIfOptedIn() async {
     final target = _activeTarget;
-    if (target == null || !await _preferences.isEnabled(target.audience)) {
+    if (target == null ||
+        !await _preferences.isEnabled(
+          target.audience,
+          identityId: target.identityId,
+        )) {
       return;
     }
     try {
@@ -325,7 +437,10 @@ final class TaskPushNotificationsController {
     final target = _activeTarget;
     if (target == null || token.isEmpty) return;
     try {
-      if (await _preferences.isEnabled(target.audience) &&
+      if (await _preferences.isEnabled(
+            target.audience,
+            identityId: target.identityId,
+          ) &&
           await _boundary.hasNotificationPermission()) {
         await _registerForTarget(target, token);
       }
@@ -335,7 +450,10 @@ final class TaskPushNotificationsController {
   }
 
   Future<void> _registerForTarget(_PushTarget target, String token) async {
-    final oldToken = await _deviceTokens.read(target.audience);
+    final oldToken = await _deviceTokens.read(
+      target.audience,
+      identityId: target.identityId,
+    );
     if (oldToken != null && oldToken.isNotEmpty && oldToken != token) {
       try {
         await _unregisterToken(target, oldToken);
@@ -353,14 +471,21 @@ final class TaskPushNotificationsController {
     } else if (target is _PendampingPushTarget) {
       await _boundary.registerPendampingToken(token: token);
     }
-    await _deviceTokens.write(target.audience, token);
+    await _deviceTokens.write(
+      target.audience,
+      identityId: target.identityId,
+      token: token,
+    );
   }
 
   Future<void> _unregisterStoredToken(_PushTarget target) async {
-    final token = await _deviceTokens.read(target.audience);
+    final token = await _deviceTokens.read(
+      target.audience,
+      identityId: target.identityId,
+    );
     if (token == null || token.isEmpty) return;
     await _unregisterToken(target, token);
-    await _deviceTokens.clear(target.audience);
+    await _deviceTokens.clear(target.audience, identityId: target.identityId);
   }
 
   Future<void> _unregisterToken(_PushTarget target, String token) async {
