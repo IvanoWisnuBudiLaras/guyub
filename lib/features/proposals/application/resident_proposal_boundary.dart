@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 
@@ -252,20 +253,77 @@ final class ResidentProposalDraftMapping {
   }
 }
 
+abstract interface class ResidentProposalRequestStore {
+  Future<PendingResidentProposalRequest?> read({required String scopeHash});
+
+  Future<void> write({
+    required String scopeHash,
+    required PendingResidentProposalRequest request,
+  });
+
+  Future<void> clearIfMatches({
+    required String scopeHash,
+    required String requestId,
+  });
+}
+
+/// Contains only an opaque retry ID and its salted payload fingerprint, never text.
+final class PendingResidentProposalRequest {
+  const PendingResidentProposalRequest({
+    required this.requestId,
+    required this.payloadFingerprint,
+  });
+
+  final String requestId;
+  final String payloadFingerprint;
+}
+
+/// In-memory implementation for tests; production injects secure storage.
+final class InMemoryResidentProposalRequestStore
+    implements ResidentProposalRequestStore {
+  final Map<String, PendingResidentProposalRequest> _requests = {};
+
+  @override
+  Future<PendingResidentProposalRequest?> read({
+    required String scopeHash,
+  }) async => _requests[scopeHash];
+
+  @override
+  Future<void> write({
+    required String scopeHash,
+    required PendingResidentProposalRequest request,
+  }) async {
+    _requests[scopeHash] = request;
+  }
+
+  @override
+  Future<void> clearIfMatches({
+    required String scopeHash,
+    required String requestId,
+  }) async {
+    if (_requests[scopeHash]?.requestId == requestId) {
+      _requests.remove(scopeHash);
+    }
+  }
+}
+
 final class ResidentProposalController {
   ResidentProposalController({
     required this.boundary,
     required this.vault,
+    required this.requestStore,
     String Function()? requestIdFactory,
   }) : _requestIdFactory = requestIdFactory ?? _newOpaqueId;
 
   final ResidentProposalBoundary boundary;
   final ResidentSessionVault vault;
   final String Function() _requestIdFactory;
-  String? _requestId;
-  String? _requestFingerprint;
+  final ResidentProposalRequestStore requestStore;
+  Future<void> _requestSelectionTail = Future<void>.value();
 
   Future<ResidentProposalRecord> submit({
+    required String residentId,
+    required String communityId,
     required String title,
     required String description,
     required ResidentProposalCategory category,
@@ -275,27 +333,98 @@ final class ResidentProposalController {
     if (sessionToken == null || sessionToken.isEmpty) {
       throw StateError('Resident session is unavailable.');
     }
-    final fingerprint = jsonEncode([
-      title.trim(),
-      description.trim(),
+    if (residentId.trim().isEmpty || communityId.trim().isEmpty) {
+      throw StateError('Resident scope is unavailable for proposal retry.');
+    }
+    final normalizedTitle = title.trim();
+    final normalizedDescription = description.trim();
+    final canonicalPayload = jsonEncode([
+      'resident-proposal-v1',
+      normalizedTitle,
+      normalizedDescription,
       category.wireValue,
       locationReference,
     ]);
-    if (_requestFingerprint != fingerprint) {
-      _requestId = _requestIdFactory();
-      _requestFingerprint = fingerprint;
-    }
+    final scopeHash = _residentProposalScopeHash(
+      residentId: residentId.trim(),
+      communityId: communityId.trim(),
+    );
+    final request = await _selectRequest(
+      scopeHash: scopeHash,
+      canonicalPayload: canonicalPayload,
+    );
     final proposal = await boundary.submitResidentProposal(
       sessionToken: sessionToken,
-      title: title.trim(),
-      description: description.trim(),
+      title: normalizedTitle,
+      description: normalizedDescription,
       category: category,
       locationReference: locationReference,
-      requestId: _requestId!,
+      requestId: request.requestId,
     );
-    _requestId = null;
-    _requestFingerprint = null;
+    try {
+      await requestStore.clearIfMatches(
+        scopeHash: scopeHash,
+        requestId: request.requestId,
+      );
+    } catch (_) {
+      // The server already confirmed this idempotent request; a stale local
+      // fingerprint is harmless and can be cleared by a later retry.
+    }
     return proposal;
+  }
+
+  /// Called only after the server confirms same-device deletion of this resident.
+  Future<void> clearPendingForResident({
+    required String residentId,
+    required String communityId,
+  }) async {
+    final scopeHash = _residentProposalScopeHash(
+      residentId: residentId,
+      communityId: communityId,
+    );
+    final pending = await requestStore.read(scopeHash: scopeHash);
+    if (pending == null) return;
+    await requestStore.clearIfMatches(
+      scopeHash: scopeHash,
+      requestId: pending.requestId,
+    );
+  }
+
+  Future<PendingResidentProposalRequest> _selectRequest({
+    required String scopeHash,
+    required String canonicalPayload,
+  }) => _withRequestSelectionLock(() async {
+    final pending = await requestStore.read(scopeHash: scopeHash);
+    if (pending != null &&
+        pending.payloadFingerprint ==
+            _proposalPayloadFingerprint(pending.requestId, canonicalPayload)) {
+      return pending;
+    }
+    final requestId = _requestIdFactory();
+    if (!_proposalRequestIdPattern.hasMatch(requestId)) {
+      throw StateError('The proposal request ID is invalid.');
+    }
+    final request = PendingResidentProposalRequest(
+      requestId: requestId,
+      payloadFingerprint: _proposalPayloadFingerprint(
+        requestId,
+        canonicalPayload,
+      ),
+    );
+    await requestStore.write(scopeHash: scopeHash, request: request);
+    return request;
+  });
+
+  Future<T> _withRequestSelectionLock<T>(Future<T> Function() action) async {
+    final previous = _requestSelectionTail;
+    final release = Completer<void>();
+    _requestSelectionTail = release.future;
+    await previous;
+    try {
+      return await action();
+    } finally {
+      release.complete();
+    }
   }
 }
 
@@ -402,6 +531,30 @@ final class ResidentProposalReviewController {
 final _proposalIdPattern = RegExp(r'^[a-f0-9]{40}$');
 final _templateIdPattern = RegExp(r'^[a-z][a-z0-9_-]{0,63}$');
 final _commandIdPattern = RegExp(r'^[A-Za-z0-9_-]{32,128}$');
+final _proposalRequestIdPattern = RegExp(r'^[A-Za-z0-9_-]{32,128}$');
+
+String _residentProposalScopeHash({
+  required String residentId,
+  required String communityId,
+}) => sha256
+    .convert(
+      utf8.encode(
+        'resident-proposal-scope-v1\u0000$communityId\u0000$residentId',
+      ),
+    )
+    .toString();
+
+String _proposalPayloadFingerprint(
+  String requestId,
+  String canonicalPayload,
+) => sha256
+    .convert(
+      utf8.encode(
+        'resident-proposal-fingerprint-v1\u0000$requestId\u0000$canonicalPayload',
+      ),
+    )
+    .toString();
+
 const _taskCategories = {
   'HOUSEHOLD_PREPARATION',
   'LOGISTICS',

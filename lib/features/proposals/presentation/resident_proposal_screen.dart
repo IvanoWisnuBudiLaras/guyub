@@ -49,6 +49,8 @@ final class _ResidentProposalScreenState extends State<ResidentProposalScreen> {
     });
     try {
       final record = await widget.controller.submit(
+        residentId: widget.session.residentId,
+        communityId: widget.session.communityId,
         title: title,
         description: description,
         category: _category,

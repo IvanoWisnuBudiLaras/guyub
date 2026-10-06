@@ -41,6 +41,7 @@ import '../features/notifications/application/task_push_notifications.dart';
 import '../features/notifications/data/firebase_task_push_notifications_boundary.dart';
 import '../features/proposals/application/resident_proposal_boundary.dart';
 import '../features/proposals/data/firebase_resident_proposal_boundary.dart';
+import '../features/proposals/data/flutter_secure_resident_proposal_request_store.dart';
 import '../firebase_options.dart';
 import 'app.dart';
 
@@ -203,6 +204,7 @@ Future<void> bootstrap(AppConfig config) async {
         residentProposalController = ResidentProposalController(
           boundary: proposalBoundary,
           vault: residentVault,
+          requestStore: FlutterSecureResidentProposalRequestStore(),
         );
         proposalReviewController = ResidentProposalReviewController(
           boundary: proposalBoundary,

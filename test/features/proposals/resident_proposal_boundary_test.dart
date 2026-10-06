@@ -11,6 +11,7 @@ void main() {
       final controller = ResidentProposalController(
         boundary: boundary,
         vault: _FakeVault(),
+        requestStore: InMemoryResidentProposalRequestStore(),
         requestIdFactory: () => 'r' * 40,
       );
       final input = {
@@ -22,6 +23,8 @@ void main() {
 
       await expectLater(
         controller.submit(
+          residentId: 'resident-1',
+          communityId: 'rt-1',
           title: input['title']! as String,
           description: input['description']! as String,
           category: input['category']! as ResidentProposalCategory,
@@ -30,6 +33,8 @@ void main() {
         throwsStateError,
       );
       await controller.submit(
+        residentId: 'resident-1',
+        communityId: 'rt-1',
         title: input['title']! as String,
         description: input['description']! as String,
         category: input['category']! as ResidentProposalCategory,
@@ -39,6 +44,144 @@ void main() {
       expect(boundary.requestIds, ['r' * 40, 'r' * 40]);
       expect(boundary.sessionTokens, ['opaque-token', 'opaque-token']);
       expect(boundary.states, ['SUBMITTED']);
+    },
+  );
+
+  test('changed proposal content gets a new request ID', () async {
+    final boundary = _FakeProposalBoundary()..failNextSubmit = true;
+    final store = _FakeProposalRequestStore();
+    var nextId = 0;
+    final controller = ResidentProposalController(
+      boundary: boundary,
+      vault: _FakeVault(),
+      requestStore: store,
+      requestIdFactory: () => (++nextId == 1 ? 'r' : 's') * 40,
+    );
+
+    await expectLater(
+      controller.submit(
+        residentId: 'resident-1',
+        communityId: 'rt-1',
+        title: 'Persiapan rumah',
+        description: 'Simpan barang penting di tempat aman.',
+        category: ResidentProposalCategory.householdPreparation,
+        locationReference: 'HOUSEHOLD',
+      ),
+      throwsStateError,
+    );
+    await controller.submit(
+      residentId: 'resident-1',
+      communityId: 'rt-1',
+      title: 'Persiapan rumah',
+      description: 'Siapkan kebutuhan keluarga.',
+      category: ResidentProposalCategory.householdPreparation,
+      locationReference: 'HOUSEHOLD',
+    );
+
+    expect(boundary.requestIds, ['r' * 40, 's' * 40]);
+    expect(store.requests, isEmpty);
+  });
+
+  test('proposal retry metadata survives a new controller without saving proposal text', () async {
+    final boundary = _FakeProposalBoundary()..failNextSubmit = true;
+    final store = _FakeProposalRequestStore();
+    final input = {
+      'title': 'Persiapan rumah',
+      'description': 'Simpan barang penting di tempat aman.',
+      'category': ResidentProposalCategory.householdPreparation,
+      'locationReference': 'HOUSEHOLD',
+    };
+
+    final firstController = ResidentProposalController(
+      boundary: boundary,
+      vault: _FakeVault(),
+      requestStore: store,
+      requestIdFactory: () => 'r' * 40,
+    );
+    await expectLater(
+      firstController.submit(
+        residentId: 'resident-1',
+        communityId: 'rt-1',
+        title: input['title']! as String,
+        description: input['description']! as String,
+        category: input['category']! as ResidentProposalCategory,
+        locationReference: input['locationReference']! as String,
+      ),
+      throwsStateError,
+    );
+
+    expect(store.requests, hasLength(1));
+    final stored = store.requests.values.single;
+    expect(stored.requestId, 'r' * 40);
+    expect(stored.payloadFingerprint, matches(RegExp(r'^[a-f0-9]{64}$')));
+    expect(store.requests.keys.single, matches(RegExp(r'^[a-f0-9]{64}$')));
+
+    final restartedController = ResidentProposalController(
+      boundary: boundary,
+      vault: _FakeVault(),
+      requestStore: store,
+      requestIdFactory: () => 'n' * 40,
+    );
+    await restartedController.submit(
+      residentId: 'resident-1',
+      communityId: 'rt-1',
+      title: input['title']! as String,
+      description: input['description']! as String,
+      category: input['category']! as ResidentProposalCategory,
+      locationReference: input['locationReference']! as String,
+    );
+
+    expect(boundary.requestIds, ['r' * 40, 'r' * 40]);
+    expect(store.requests, isEmpty);
+  });
+
+  test(
+    'confirmed resident deletion clears only that resident retry metadata',
+    () async {
+      final store = _FakeProposalRequestStore();
+      final input = {
+        'title': 'Persiapan rumah',
+        'description': 'Simpan barang penting di tempat aman.',
+        'category': ResidentProposalCategory.householdPreparation,
+        'locationReference': 'HOUSEHOLD',
+      };
+
+      for (final resident in ['resident-1', 'resident-2']) {
+        final controller = ResidentProposalController(
+          boundary: _FakeProposalBoundary()..failNextSubmit = true,
+          vault: _FakeVault(),
+          requestStore: store,
+          requestIdFactory: () =>
+              resident == 'resident-1' ? 'r' * 40 : 's' * 40,
+        );
+        await expectLater(
+          controller.submit(
+            residentId: resident,
+            communityId: 'rt-1',
+            title: input['title']! as String,
+            description: input['description']! as String,
+            category: input['category']! as ResidentProposalCategory,
+            locationReference: input['locationReference']! as String,
+          ),
+          throwsStateError,
+        );
+      }
+      expect(
+        store.requests.values.map((request) => request.requestId).toSet(),
+        {'r' * 40, 's' * 40},
+      );
+
+      final cleanupController = ResidentProposalController(
+        boundary: _FakeProposalBoundary(),
+        vault: _FakeVault(),
+        requestStore: store,
+      );
+      await cleanupController.clearPendingForResident(
+        residentId: 'resident-1',
+        communityId: 'rt-1',
+      );
+
+      expect(store.requests.values.single.requestId, 's' * 40);
     },
   );
 
@@ -182,6 +325,31 @@ final class _FakeVault implements ResidentSessionVault {
 
   @override
   Future<void> clearPendingEnrollmentId() async {}
+}
+
+final class _FakeProposalRequestStore implements ResidentProposalRequestStore {
+  final Map<String, PendingResidentProposalRequest> requests = {};
+
+  @override
+  Future<PendingResidentProposalRequest?> read({
+    required String scopeHash,
+  }) async => requests[scopeHash];
+
+  @override
+  Future<void> write({
+    required String scopeHash,
+    required PendingResidentProposalRequest request,
+  }) async {
+    requests[scopeHash] = request;
+  }
+
+  @override
+  Future<void> clearIfMatches({
+    required String scopeHash,
+    required String requestId,
+  }) async {
+    if (requests[scopeHash]?.requestId == requestId) requests.remove(scopeHash);
+  }
 }
 
 final class _FakeProposalBoundary implements ResidentProposalBoundary {
