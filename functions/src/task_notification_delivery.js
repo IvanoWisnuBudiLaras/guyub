@@ -7,6 +7,22 @@ const COPY = Object.freeze({
     title: 'Tindak lanjut tugas komunitas',
     body: 'Ada tugas persiapan yang memerlukan tinjauan administratif. Buka Guyub.id.',
   }),
+  TASK_VERIFICATION_NEEDED: Object.freeze({
+    title: 'Penyelesaian menunggu tinjauan RT',
+    body: 'Ada penyelesaian tugas yang menunggu tinjauan RT. Buka Guyub.id.',
+  }),
+  TASK_ACTIVATED: Object.freeze({
+    title: 'Tugas persiapan dari RT',
+    body: 'Tugas baru tersedia di Guyub.id. Keikutsertaan bersifat sukarela.',
+  }),
+  TASK_CANCELLED: Object.freeze({
+    title: 'Perubahan tugas dari RT',
+    body: 'Satu tugas persiapan tidak lagi aktif. Buka Guyub.id untuk melihat statusnya.',
+  }),
+  TASK_CLOSED: Object.freeze({
+    title: 'Perubahan tugas dari RT',
+    body: 'Satu tugas persiapan telah ditutup. Buka Guyub.id untuk melihat statusnya.',
+  }),
 });
 
 function notificationCopy(eventType) {

@@ -137,6 +137,31 @@ void main() {
   });
 
   test(
+    'same-device deletion uses the stored token and validated RT scope',
+    () async {
+      final boundary = FakeResidentBoundary(session);
+      final vault = MemoryResidentSessionVault()..token = 'saved-opaque-token';
+      final controller = ResidentSessionController(
+        boundary: boundary,
+        vault: vault,
+      );
+
+      await controller.deleteOwnResidentData(session);
+
+      expect(boundary.deletionRequest, (
+        'saved-opaque-token',
+        session.residentId,
+        session.communityId,
+      ));
+      expect(vault.token, 'saved-opaque-token');
+      await expectLater(
+        controller.deleteOwnResidentData(session.asOfflineSnapshot()),
+        throwsStateError,
+      );
+    },
+  );
+
+  test(
     'logout clears local access even if remote revocation is unavailable',
     () async {
       final boundary = FakeResidentBoundary(session)..failRevocation = true;
@@ -210,6 +235,7 @@ final class FakeResidentBoundary implements ResidentSessionBoundary {
   final List<String> requestIds = [];
   String? validatedToken;
   String? revokedToken;
+  (String, String, String)? deletionRequest;
 
   @override
   Future<ResidentSessionGrant> createSession({
@@ -241,5 +267,14 @@ final class FakeResidentBoundary implements ResidentSessionBoundary {
   Future<void> revokeSession(String sessionToken) async {
     revokedToken = sessionToken;
     if (failRevocation) throw StateError('offline');
+  }
+
+  @override
+  Future<void> deleteOwnResidentData({
+    required String sessionToken,
+    required String residentId,
+    required String communityId,
+  }) async {
+    deletionRequest = (sessionToken, residentId, communityId);
   }
 }

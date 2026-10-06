@@ -10,6 +10,7 @@ import '../features/tasks/application/task_response_boundary.dart';
 import '../features/proposals/application/resident_proposal_boundary.dart';
 import '../features/emergency/application/emergency_directory_controller.dart';
 import '../features/weather/application/weather_snapshot_store.dart';
+import '../features/notifications/application/task_push_notifications.dart';
 import 'router.dart';
 
 /// Root widget and dependency assembly point for Guyub.id.
@@ -25,6 +26,7 @@ final class GuyubApp extends StatelessWidget {
     this.weatherSnapshotStore,
     this.proxyResidentController,
     this.assistanceVolunteerController,
+    this.taskPushNotificationsController,
     super.key,
   });
 
@@ -38,6 +40,7 @@ final class GuyubApp extends StatelessWidget {
   final WeatherSnapshotStore? weatherSnapshotStore;
   final ProxyResidentController? proxyResidentController;
   final AssistanceVolunteerController? assistanceVolunteerController;
+  final TaskPushNotificationsController? taskPushNotificationsController;
 
   @override
   Widget build(BuildContext context) {
@@ -63,6 +66,7 @@ final class GuyubApp extends StatelessWidget {
         weatherSnapshotStore: weatherSnapshotStore,
         proxyResidentController: proxyResidentController,
         assistanceVolunteerController: assistanceVolunteerController,
+        taskPushNotificationsController: taskPushNotificationsController,
       ),
     );
   }

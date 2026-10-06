@@ -127,8 +127,9 @@ final class _TaskCampaignConfirmationScreenState
           child: const Padding(
             padding: EdgeInsets.all(16),
             child: Text(
-              'Pemberitahuan otomatis belum tersedia. Aktivasi ini tidak '
-              'mengirim pesan WhatsApp, SMS, atau notifikasi push.',
+              'Notifikasi push bergantung pada konfigurasi server dan izin '
+              'perangkat; pemberitahuan dapat terlambat atau gagal. Tugas tetap '
+              'tersedia di aplikasi. Salin teks untuk distribusi manual bila perlu.',
             ),
           ),
         ),

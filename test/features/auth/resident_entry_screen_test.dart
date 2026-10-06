@@ -6,6 +6,7 @@ import 'package:guyub/features/auth/application/resident_session.dart';
 import 'package:guyub/features/auth/application/resident_session_boundary.dart';
 import 'package:guyub/features/auth/application/resident_session_controller.dart';
 import 'package:guyub/features/auth/application/resident_session_vault.dart';
+import 'package:guyub/features/auth/presentation/screens/resident_session_home_screen.dart';
 
 void main() {
   setUp(() => AppConfig.resetForTesting());
@@ -82,6 +83,44 @@ void main() {
     },
   );
 
+  testWidgets('resident can request same-device deletion after confirmation', (
+    tester,
+  ) async {
+    AppConfig.initialize(AppConfig.test());
+    final vault = MemoryResidentSessionVault()..token = 'saved-opaque-token';
+    final boundary = FakeResidentBoundary();
+    final controller = ResidentSessionController(
+      boundary: boundary,
+      vault: vault,
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        initialRoute: '/resident',
+        routes: {
+          '/resident': (_) => ResidentSessionHomeScreen(
+            session: boundary.session,
+            controller: controller,
+          ),
+          '/': (_) => const Scaffold(body: Text('Data dihapus')),
+        },
+      ),
+    );
+
+    await tester.tap(find.byKey(const Key('resident-delete-data')));
+    await tester.pumpAndSettle();
+    expect(find.text('Hapus data warga?'), findsOneWidget);
+    expect(boundary.deletedResidentId, isNull);
+
+    await tester.tap(find.byKey(const Key('resident-delete-data-confirm')));
+    await tester.pumpAndSettle();
+
+    expect(boundary.deletedSessionToken, 'saved-opaque-token');
+    expect(boundary.deletedResidentId, boundary.session.residentId);
+    expect(boundary.deletedCommunityId, boundary.session.communityId);
+    expect(vault.token, isNull);
+    expect(find.text('Data dihapus'), findsOneWidget);
+  });
+
   testWidgets('invalid join code shows generic message and no RT identity', (
     tester,
   ) async {
@@ -135,6 +174,9 @@ final class MemoryResidentSessionVault implements ResidentSessionVault {
 final class FakeResidentBoundary implements ResidentSessionBoundary {
   bool failCreate = false;
   bool failValidationTemporarily = false;
+  String? deletedSessionToken;
+  String? deletedResidentId;
+  String? deletedCommunityId;
 
   ResidentSession get session => ResidentSession(
     residentId: 'resident-a',
@@ -166,4 +208,15 @@ final class FakeResidentBoundary implements ResidentSessionBoundary {
 
   @override
   Future<void> revokeSession(String sessionToken) async {}
+
+  @override
+  Future<void> deleteOwnResidentData({
+    required String sessionToken,
+    required String residentId,
+    required String communityId,
+  }) async {
+    deletedSessionToken = sessionToken;
+    deletedResidentId = residentId;
+    deletedCommunityId = communityId;
+  }
 }

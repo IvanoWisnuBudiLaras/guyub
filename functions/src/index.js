@@ -308,6 +308,14 @@ exports.escalateUnrespondedTasks = onSchedule(notificationScheduleOptions, async
   return taskNotifications.escalateUnrespondedTasks();
 });
 
+exports.deliverCampaignTransitionNotifications = onSchedule(
+  notificationScheduleOptions,
+  async () => {
+    if (!notificationsEnabled()) return { enabled: false, delivered: 0 };
+    return taskNotifications.sendCampaignTransitionNotifications();
+  },
+);
+
 exports.listPendingTaskVerifications = onCall(callableOptions, async (request) => {
   try {
     return await taskResponses.listPendingTaskVerifications(
@@ -387,6 +395,14 @@ exports.updateProxyTaskStatus = onCall(callableOptions, async (request) => {
 exports.deleteResidentData = onCall(callableOptions, async (request) => {
   try {
     return await residentDataDeletion.deleteResidentData(operatorAuth(request), request.data);
+  } catch (error) {
+    throw toHttpsError(error);
+  }
+});
+
+exports.deleteOwnResidentData = onCall(callableOptions, async (request) => {
+  try {
+    return await residentDataDeletion.deleteOwnResidentData(request.data);
   } catch (error) {
     throw toHttpsError(error);
   }
