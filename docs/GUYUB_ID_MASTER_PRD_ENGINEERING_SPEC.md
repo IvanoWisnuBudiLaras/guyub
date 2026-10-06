@@ -1410,6 +1410,28 @@ AT-022 — Uncertain proxy creation is RT-bound and safely reconcilable
 **And** a concurrent create/cancel race produces either one created profile or one cancellation tombstone, never both
 **And** when the server confirms the profile exists, the local retry payload is cleared without deleting server data.
 
+AT-023 — Configured reminders and escalation are replay-safe and non-coercive
+**Given** a campaign has an explicitly reviewed/versioned RT reminder policy snapshot
+**When** scheduled reminders or non-response escalation run or retry
+**Then** one logical reminder is created per configured window and declined/completed residents are excluded
+**And** escalation reaches only active same-RT Pendamping RT recipients without changing resident participation or task state
+**And** missing/invalid policy creates no reminder or escalation, while task access remains available after push failure.
+
+AT-024 — Task push is opt-in and routes only to authorized task screens
+**Given** a resident or Pendamping RT has explicitly opted in
+**When** a task notification is opened or selected from the foreground hint
+**Then** resident task IDs resolve through the authorized active-task list and Pendamping RT verification notices open the same-RT verification queue
+**And** token registration/refresh/revocation remains scoped to the resident session or active operator membership
+**And** generic copy contains no resident details and never claims an official warning; push failure does not block task access.
+
+AT-025 — Same-device resident-data deletion is scoped and replay-safe
+**Given** a resident has a live participant session on this device
+**When** the resident explicitly confirms deletion of their own data
+**Then** the server deletes the scoped profile, sessions, responses, proposals, assistance assignments, push tokens, and evidence
+**And** shared RT campaign history remains and the audit contains no raw resident ID or session token
+**And** retrying an uncertain or incomplete request with the same session safely resumes or confirms deletion
+**And** local resident task cache/outbox, profile/session, and push-token state are cleared only after server confirmation.
+
 ---
 
 # 23. Test strategy

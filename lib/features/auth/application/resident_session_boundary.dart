@@ -11,6 +11,12 @@ abstract interface class ResidentSessionBoundary {
   Future<ResidentSession> validateSession(String sessionToken);
 
   Future<void> revokeSession(String sessionToken);
+
+  Future<void> deleteOwnResidentData({
+    required String sessionToken,
+    required String residentId,
+    required String communityId,
+  });
 }
 
 /// The backend rejected a missing, revoked, or expired participant token.

@@ -25,6 +25,8 @@ import '../features/assistance/application/assistance_volunteer_boundary.dart';
 import '../features/assistance/application/proxy_resident_boundary.dart';
 import '../features/assistance/presentation/assistance_volunteer_screen.dart';
 import '../features/assistance/presentation/proxy_resident_screen.dart';
+import '../features/notifications/application/task_push_notifications.dart';
+import '../features/notifications/presentation/task_push_notification_listener.dart';
 
 /// Role-aware routes for the Android MVP.
 final class AppRouter {
@@ -56,6 +58,7 @@ final class AppRouter {
     WeatherSnapshotStore? weatherSnapshotStore,
     ProxyResidentController? proxyResidentController,
     AssistanceVolunteerController? assistanceVolunteerController,
+    TaskPushNotificationsController? taskPushNotificationsController,
   }) {
     switch (settings.name) {
       case initial:
@@ -77,14 +80,28 @@ final class AppRouter {
         final profile = settings.arguments;
         if (profile is! OperatorProfile) return _roleSelection(settings);
         return MaterialPageRoute<void>(
-          builder: (_) => OperatorHomeScreen(
-            profile: profile,
-            authBoundary: operatorAuthBoundary,
-            taskCampaignBoundary: taskCampaignBoundary,
-            taskResponseController: taskResponseController,
-            proposalReviewController: proposalReviewController,
-            proxyResidentController: proxyResidentController,
-          ),
+          builder: (_) {
+            final home = OperatorHomeScreen(
+              profile: profile,
+              authBoundary: operatorAuthBoundary,
+              taskCampaignBoundary: taskCampaignBoundary,
+              taskResponseController: taskResponseController,
+              proposalReviewController: proposalReviewController,
+              proxyResidentController: proxyResidentController,
+              taskPushNotificationsController: taskPushNotificationsController,
+            );
+            if (taskPushNotificationsController == null ||
+                profile.role != OperatorRole.pendampingRt) {
+              return home;
+            }
+            return TaskPushNotificationListener.forPendamping(
+              controller: taskPushNotificationsController,
+              profile: profile,
+              campaignBoundary: taskCampaignBoundary,
+              taskResponseController: taskResponseController,
+              child: home,
+            );
+          },
           settings: settings,
         );
       case operatorTaskCatalog:
@@ -189,14 +206,27 @@ final class AppRouter {
           return _roleSelection(settings);
         }
         return MaterialPageRoute<void>(
-          builder: (_) => ResidentSessionHomeScreen(
-            session: session,
-            controller: residentSessionController,
-            taskResponseController: taskResponseController,
-            residentProposalController: residentProposalController,
-            weatherSnapshotStore: weatherSnapshotStore,
-            assistanceVolunteerController: assistanceVolunteerController,
-          ),
+          builder: (_) {
+            final home = ResidentSessionHomeScreen(
+              session: session,
+              controller: residentSessionController,
+              taskResponseController: taskResponseController,
+              residentProposalController: residentProposalController,
+              weatherSnapshotStore: weatherSnapshotStore,
+              assistanceVolunteerController: assistanceVolunteerController,
+              taskPushNotificationsController: taskPushNotificationsController,
+            );
+            if (taskPushNotificationsController == null ||
+                taskResponseController == null) {
+              return home;
+            }
+            return TaskPushNotificationListener.forResident(
+              controller: taskPushNotificationsController,
+              session: session,
+              taskResponseController: taskResponseController,
+              child: home,
+            );
+          },
           settings: settings,
         );
       case residentAssistance:

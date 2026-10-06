@@ -3,6 +3,7 @@ import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
@@ -31,6 +32,8 @@ import '../features/tasks/data/firebase_task_response_boundary.dart';
 import '../features/tasks/data/resident_task_offline_store.dart';
 import '../features/weather/application/weather_snapshot_store.dart';
 import '../features/weather/data/weather_snapshot_cache.dart';
+import '../features/notifications/application/task_push_notifications.dart';
+import '../features/notifications/data/firebase_task_push_notifications_boundary.dart';
 import '../features/proposals/application/resident_proposal_boundary.dart';
 import '../features/proposals/data/firebase_resident_proposal_boundary.dart';
 import '../firebase_options.dart';
@@ -49,6 +52,7 @@ Future<Widget> createBootstrapApp(
   WeatherSnapshotStore? weatherSnapshotStore,
   ProxyResidentController? proxyResidentController,
   AssistanceVolunteerController? assistanceVolunteerController,
+  TaskPushNotificationsController? taskPushNotificationsController,
 }) async {
   WidgetsFlutterBinding.ensureInitialized();
   AppConfig.initialize(config);
@@ -63,6 +67,7 @@ Future<Widget> createBootstrapApp(
     weatherSnapshotStore: weatherSnapshotStore,
     proxyResidentController: proxyResidentController,
     assistanceVolunteerController: assistanceVolunteerController,
+    taskPushNotificationsController: taskPushNotificationsController,
   );
 }
 
@@ -89,6 +94,7 @@ Future<void> bootstrap(AppConfig config) async {
   WeatherSnapshotStore? weatherSnapshotStore;
   ProxyResidentController? proxyResidentController;
   AssistanceVolunteerController? assistanceVolunteerController;
+  TaskPushNotificationsController? taskPushNotificationsController;
   OperatorAuthBoundary? operatorAuthBoundary;
   ResidentSessionController? residentSessionController;
   TaskCampaignBoundary? taskCampaignBoundary;
@@ -182,6 +188,21 @@ Future<void> bootstrap(AppConfig config) async {
         proposalReviewController = ResidentProposalReviewController(
           boundary: proposalBoundary,
         );
+        if (localStore != null) {
+          try {
+            taskPushNotificationsController = TaskPushNotificationsController(
+              boundary: FirebaseTaskPushNotificationsBoundary(
+                messaging: FirebaseMessaging.instance,
+                functions: functions,
+              ),
+              preferences: LocalTaskPushPreferenceStore(localStore),
+              deviceTokens: FlutterSecureTaskPushDeviceTokenStore(),
+              readResidentSessionToken: residentVault.read,
+            );
+          } catch (_) {
+            // Task access remains available if platform push setup is unavailable.
+          }
+        }
       } catch (_) {
         // Operator sign-in remains available; callable features stay unavailable.
       }
@@ -213,6 +234,7 @@ Future<void> bootstrap(AppConfig config) async {
       weatherSnapshotStore: weatherSnapshotStore,
       proxyResidentController: proxyResidentController,
       assistanceVolunteerController: assistanceVolunteerController,
+      taskPushNotificationsController: taskPushNotificationsController,
     ),
   );
 }

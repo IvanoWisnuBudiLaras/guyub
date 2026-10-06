@@ -7,6 +7,8 @@ import '../../../tasks/application/task_response_boundary.dart';
 import '../../../proposals/application/resident_proposal_boundary.dart';
 import '../../../weather/application/weather_snapshot_store.dart';
 import '../../../weather/presentation/weather_snapshot_card.dart';
+import '../../../notifications/application/task_push_notifications.dart';
+import '../../../notifications/presentation/task_push_opt_in_card.dart';
 
 /// Initial resident destination after backend validation of the RT join code.
 final class ResidentSessionHomeScreen extends StatelessWidget {
@@ -17,6 +19,7 @@ final class ResidentSessionHomeScreen extends StatelessWidget {
     this.residentProposalController,
     this.weatherSnapshotStore,
     this.assistanceVolunteerController,
+    this.taskPushNotificationsController,
     super.key,
   });
 
@@ -26,6 +29,56 @@ final class ResidentSessionHomeScreen extends StatelessWidget {
   final ResidentProposalController? residentProposalController;
   final WeatherSnapshotStore? weatherSnapshotStore;
   final AssistanceVolunteerController? assistanceVolunteerController;
+  final TaskPushNotificationsController? taskPushNotificationsController;
+
+  Future<void> _confirmAndDeleteOwnData(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Hapus data warga?'),
+        content: const Text(
+          'Profil, respons tugas, usulan, bantuan, bukti foto, dan token '
+          'notifikasi Anda akan dihapus dari server. Cache tugas dan sesi pada '
+          'perangkat ini juga akan dihapus. Riwayat tugas bersama RT tetap ada. '
+          'Tindakan ini tidak dapat dibatalkan.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Batal'),
+          ),
+          FilledButton.tonal(
+            key: const Key('resident-delete-data-confirm'),
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Hapus Data Saya'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+    try {
+      await controller.deleteOwnResidentData(session);
+      await taskResponseController?.clearLocalResidentData(session: session);
+      await taskPushNotificationsController?.clearResidentStateAfterDeletion();
+      await controller.signOut();
+      if (context.mounted) {
+        Navigator.of(context).pushNamedAndRemoveUntil('/', (_) => false);
+      }
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Penghapusan belum dapat dikonfirmasi. Periksa koneksi dan '
+                'coba lagi dari perangkat ini.',
+              ),
+            ),
+          );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -36,6 +89,7 @@ final class ResidentSessionHomeScreen extends StatelessWidget {
           key: const Key('resident-sign-out'),
           tooltip: 'Keluar',
           onPressed: () async {
+            taskPushNotificationsController?.clearActiveTarget();
             await controller.signOut();
             if (context.mounted) {
               Navigator.of(context).pushNamedAndRemoveUntil('/', (_) => false);
@@ -87,12 +141,24 @@ final class ResidentSessionHomeScreen extends StatelessWidget {
                 const SizedBox(height: 12),
                 WeatherSnapshotCard(store: weatherSnapshotStore!),
               ],
+              if (taskPushNotificationsController != null &&
+                  taskResponseController != null &&
+                  !session.isOfflineSnapshot) ...[
+                const SizedBox(height: 12),
+                TaskPushOptInCard.forResident(
+                  controller: taskPushNotificationsController!,
+                  session: session,
+                ),
+              ],
               const SizedBox(height: 24),
               Text(
                 taskResponseController == null
                     ? 'Sesi warga Anda terverifikasi. Layanan tugas belum terhubung.'
+                    : taskPushNotificationsController == null
+                    ? 'Lihat tugas aktif yang telah disetujui operator RT. '
+                          'Notifikasi push belum tersedia pada perangkat ini.'
                     : 'Lihat tugas aktif yang telah disetujui operator RT. '
-                          'Notifikasi tugas belum tersedia.',
+                          'Notifikasi push hanya pemberitahuan tambahan.',
                 textAlign: TextAlign.center,
               ),
               if (taskResponseController != null) ...[
@@ -127,6 +193,15 @@ final class ResidentSessionHomeScreen extends StatelessWidget {
                           .pushNamed('/resident/proposals', arguments: session),
                   icon: const Icon(Icons.lightbulb_outline),
                   label: const Text('Usulkan Persiapan Warga'),
+                ),
+              ],
+              if (!session.isOfflineSnapshot) ...[
+                const SizedBox(height: 32),
+                TextButton.icon(
+                  key: const Key('resident-delete-data'),
+                  onPressed: () => _confirmAndDeleteOwnData(context),
+                  icon: const Icon(Icons.delete_outline),
+                  label: const Text('Hapus Data Saya'),
                 ),
               ],
             ],

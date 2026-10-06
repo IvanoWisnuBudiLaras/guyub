@@ -165,7 +165,7 @@ void main() {
       expect(find.byKey(const Key('task-campaign-draft')), findsOneWidget);
       expect(find.byKey(const Key('task-copy-whatsapp')), findsNothing);
       expect(
-        find.textContaining('Pemberitahuan otomatis belum tersedia'),
+        find.textContaining('konfigurasi server dan izin'),
         findsOneWidget,
       );
       expect(find.byKey(const Key('task-additional-note')), findsNothing);

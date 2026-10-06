@@ -564,6 +564,104 @@ test('pending proxy create cancellation is scoped and serialized with create', a
   }
 });
 
+test('same-device resident deletion removes scoped data and replays without exposing identity', async () => {
+  const suffix = crypto.randomUUID().replaceAll('-', '');
+  const rtId = `rt-self-delete-${suffix}`;
+  const joinCode = `SD${suffix.slice(0, 14).toUpperCase()}`;
+  await seedDocument('rt_communities', rtId, {
+    displayName: 'RT Hapus Mandiri', rtLabel: 'RT Mandiri',
+    joinCodeHash: hashJoinCode(joinCode), joinCodeActive: true,
+  });
+  const enrollmentRequestId = requestId();
+  const enrollment = await callFunction('createResidentSession', {
+    joinCode, nickname: 'Warga Mandiri', requestId: enrollmentRequestId,
+  });
+  assert.equal(enrollment.status, 200, JSON.stringify(enrollment.body));
+  const { residentId, sessionToken } = enrollment.body.result;
+  const sessionId = hashSessionToken(sessionToken);
+  const taskId = crypto.createHash('sha256').update(`self-delete-task-${suffix}`)
+    .digest('hex').slice(0, 40);
+  const responseId = responseDocumentId(rtId, taskId, residentId);
+  const proposalId = crypto.createHash('sha256').update(`self-delete-proposal-${suffix}`)
+    .digest('hex').slice(0, 40);
+  const evidenceId = crypto.createHash('sha256').update(`self-delete-evidence-${suffix}`)
+    .digest('hex').slice(0, 40);
+  await seedDocument('task_campaigns', taskId, {
+    campaignId: taskId, rtId, status: 'ACTIVE', title: 'Riwayat bersama RT',
+  });
+  await seedDocument('task_responses', responseId, {
+    responseId, taskId, rtId, residentId,
+    participationState: 'JOINED', completionState: 'NOT_SUBMITTED',
+  });
+  await seedDocument('resident_proposals', proposalId, {
+    proposalId, residentId, rtId, title: 'Usulan privat', description: 'Teks privat',
+  });
+  await seedDocument('resident_push_tokens', `self-delete-token-${suffix}`, {
+    residentId, rtId, token: `private-token-${suffix}`,
+  });
+  const evidencePath = buildStoragePath(rtId, taskId, residentId, evidenceId);
+  await seedDocument('task_evidence', evidenceId, {
+    evidenceId, rtId, taskId, responseId,
+    residentScopeHash: residentScopeHash(rtId, residentId),
+    storagePath: evidencePath,
+    status: 'UPLOADING',
+    uploadLeaseUntil: new Date(Date.now() + 60_000),
+    createdAt: new Date(),
+  });
+
+  assertError(await callFunction('deleteOwnResidentData', {
+    sessionToken: 'invalid-session-token', residentId, communityId: rtId,
+  }), 'PERMISSION_DENIED');
+  assertError(await callFunction('deleteOwnResidentData', {
+    sessionToken, residentId, communityId: 'another-rt',
+  }), 'PERMISSION_DENIED');
+  assertError(await callFunction('deleteOwnResidentData', {
+    sessionToken, residentId: 'f'.repeat(40), communityId: rtId,
+  }), 'PERMISSION_DENIED');
+
+  const payload = { sessionToken, residentId, communityId: rtId };
+  assertError(await callFunction('deleteOwnResidentData', payload), 'FAILED_PRECONDITION');
+  const pendingProfile = await readDocument('resident_profiles', residentId);
+  assert.equal(pendingProfile.body.fields.deletionPending.booleanValue, true);
+  const leaseExpired = await request(
+    'PATCH',
+    `${documentUrl('task_evidence', evidenceId)}?updateMask.fieldPaths=uploadLeaseUntil`,
+    { token: 'owner', body: { fields: {
+      uploadLeaseUntil: firestoreValue(new Date(Date.now() - 1_000)),
+    } } },
+  );
+  assert.equal(leaseExpired.status, 200, JSON.stringify(leaseExpired.body));
+  const deleted = await callFunction('deleteOwnResidentData', payload);
+  assert.equal(deleted.status, 200, JSON.stringify(deleted.body));
+  assert.deepEqual(deleted.body.result, { deleted: true });
+  const replay = await callFunction('deleteOwnResidentData', payload);
+  assert.deepEqual(replay.body.result, { deleted: true });
+
+  for (const [collection, id] of [
+    ['resident_profiles', residentId], ['resident_sessions', sessionId],
+    ['task_responses', responseId], ['resident_proposals', proposalId],
+    ['resident_push_tokens', `self-delete-token-${suffix}`], ['task_evidence', evidenceId],
+  ]) {
+    assert.equal((await readDocument(collection, id)).status, 404, `${collection}/${id} remains`);
+  }
+  assert.equal((await readDocument('task_campaigns', taskId)).status, 200);
+  const enrollmentId = hashEnrollmentRequestId(enrollmentRequestId);
+  const enrollmentTombstone = await readDocument('resident_enrollments', enrollmentId);
+  assert.equal(enrollmentTombstone.status, 200, JSON.stringify(enrollmentTombstone.body));
+  assert.equal(enrollmentTombstone.body.fields.status.stringValue, 'DELETED');
+  assert.equal(enrollmentTombstone.body.fields.residentId, undefined);
+  assert.equal(enrollmentTombstone.body.fields.sessionHash, undefined);
+  const targetHash = crypto.createHash('sha256')
+    .update(`resident-deletion\0${rtId}\0${residentId}`).digest('hex');
+  const audit = await readDocument('resident_data_deletion_audit_events', targetHash);
+  assert.equal(audit.status, 200, JSON.stringify(audit.body));
+  assert.equal(audit.body.fields.actorKind.stringValue, 'RESIDENT_SELF');
+  assert.equal(audit.body.fields.targetResidentHash.stringValue, targetHash);
+  assert.equal(audit.body.fields.residentId, undefined);
+  assert.equal(audit.body.fields.actorSessionHash, undefined);
+  assert.equal(JSON.stringify(audit.body).includes(sessionToken), false);
+});
+
 test('a proxy deletion tombstone prevents delayed create replay', async () => {
   const suffix = crypto.randomUUID().replaceAll('-', '');
   const rtId = `rt-tombstone-${suffix}`;

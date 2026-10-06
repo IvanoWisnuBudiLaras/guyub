@@ -159,18 +159,19 @@ AT-001, AT-008.
 Provide the CF-07 reminder and CF-08 escalation backend with validated per-RT policy, transactional outbox/audit, replay-safe delivery attempts, and same-RT Pendamping RT targeting. Keep task access independent of push delivery.
 
 ## Current status
-**Backend slice implemented; rollout remains disabled and unconfigured.** `rt_communities.reminderPolicyId` points to a server-provisioned document in `task_reminder_policies`. A policy must be enabled, reviewed, versioned, RT-scoped, and valid. It defines reminder windows/cohorts, escalation window/cohort/minimum cohort size, and retry delays. Campaign activation snapshots the policy document ID, version, and fingerprint. Missing or invalid policy never blocks activation; it produces no automated notification.
+**Backend and Android client slices are implemented; rollout remains disabled and unconfigured.** `rt_communities.reminderPolicyId` points to a server-provisioned document in `task_reminder_policies`. A policy must be enabled, reviewed, versioned, RT-scoped, and valid. It defines reminder windows/cohorts, escalation window/cohort/minimum cohort size, and retry delays. Campaign activation snapshots the policy document ID, version, and fingerprint. Missing or invalid policy never blocks activation; it disables configured reminders/escalation.
 
-`sendTaskReminders` and `escalateUnrespondedTasks` scan configured policies every five minutes. An idempotent event and privacy-safe audit marker are created transactionally for each RT/campaign/window/recipient hash. Declined residents are excluded. Escalation recipients are derived server-side from active `PENDAMPING_RT` operator membership and token records in the campaign RT. Resident token registration validates a live session; revoking that session deletes its push-token record. Protected policy, event, audit, and token collections remain unavailable to direct clients.
+`sendTaskReminders` and `escalateUnrespondedTasks` scan configured policies every five minutes. Idempotent outbox events and privacy-safe audit markers cover those windows. Campaign activation, cancellation, and closure create lifecycle notices transactionally. Resident completion submission creates a separate idempotent verification-needed notice in the same transaction as the pending report. Delivery rechecks live resident session/task state or active same-RT `PENDAMPING_RT` membership. Declined residents are excluded from reminders. Protected policy, event, audit, and token collections remain unavailable to direct clients.
 
-FCM is a delivery hint, not task storage or an official alert. The outbox retries failures using policy delays and stable event IDs. FCM acceptance followed by worker failure can still cause a transport duplicate; logical event creation is idempotent, not provider-level exactly-once. `GUYUB_NOTIFICATIONS_ENABLED` defaults off. No pilot policy values, production token setup, scheduled deployment, or real FCM delivery has been configured or verified.
+Android push permission is requested only after an explicit resident or Pendamping RT opt-in. The client registers and refreshes scoped tokens through callable Functions, revokes tokens on opt-out/session revocation and attempts operator-token removal before sign-out, handles foreground/opened/cold-start messages, and resolves resident task IDs through the authorized active-task list. Pendamping verification notices open the server-backed verification queue; escalation notices open the active-task list. Push stays an optional hint; task access and WhatsApp copy-text remain separate. Generic FCM copy contains no resident details and never claims an official warning.
+
+The outbox retries configured failures with stable logical event IDs. FCM acceptance followed by worker failure can still cause a transport duplicate; event creation is idempotent, not provider-level exactly-once. `GUYUB_NOTIFICATIONS_ENABLED` defaults off. No pilot policy values, production token setup, scheduler deployment, or real FCM delivery has been configured or verified.
 
 ## Remaining work / decisions
 - Provision reviewed per-RT policy values only after product-owner approval; do not add pilot timing, thresholds, or recipients as defaults.
-- Connect Android opt-in/token refresh and notification click handling to the callable boundary; no token is requested merely by loading the app.
-- Design and review a resident-facing activation notification separately; this slice implements scheduled reminders and escalation only.
-- Keep campaign cancellation/update notifications deferred until reviewed.
-- Complete WhatsApp copy-text usability and device-level fallback checks.
+- Complete Android device validation for consent, token refresh/revocation, background/cold-start click routing, and failed/offline delivery.
+- Confirm WhatsApp copy-text fallback on a device. Keep it copy-only; do not add automatic sending.
+- Production FCM, Scheduler, and notification policy configuration remain disabled until explicit approval.
 
 ## Required tests
 - scheduler replay creates one event per policy window; a later configured window is distinct;
@@ -183,7 +184,7 @@ FCM is a delivery hint, not task storage or an official alert. The outbox retrie
 - clients cannot directly read/write policy, outbox, audit, or push-token collections.
 
 ## Acceptance linkage
-AT-016 (copy-only summary), AT-017 (authorized, audited cancellation), and AT-023 (configured reminders/escalation).
+AT-016 (copy-only summary), AT-017 (authorized, audited cancellation), AT-023 (configured reminders/escalation), AT-024 (opt-in push delivery and click routing), and AT-025 (same-device resident-data deletion).
 
 ---
 
@@ -244,7 +245,7 @@ AT-006, AT-007, AT-008, AT-018, AT-019 and offline/reconciliation scenarios O-01
 ## Deliverable
 Optional evidence works without expanding permanent resident data.
 
-**Current status: PARTIAL.** Client and server JPEG sanitization, private RT-scoped storage/review, same-device evidence deletion, RT-assisted full server-data deletion, retryable evidence cleanup, and 30-day physical cleanup have unit and emulator coverage. A bounded upload lease makes resident-request deletion reject during an active write and keeps RT-assisted deletion pending until it is safe to retry cleanup after the upload callable timeout; failed object deletion retains metadata and remains retryable. Completed deletion retains only minimal enrollment/profile replay tombstones, with no nickname, resident ID, or session token; a retryable job temporarily keeps the scoped resident ID only while cleanup is incomplete. The RT deletion callable requires an explicit resident request and an operator attestation that the pilot's offline identity check is complete; the app does not verify or recover identity. Same-device full profile deletion is not yet implemented. Production bucket, scheduled jobs, and billing are not configured.
+**Current status: PARTIAL.** Client and server JPEG sanitization, private RT-scoped storage/review, same-device evidence deletion, RT-assisted and same-device full server-data deletion, retryable evidence cleanup, and 30-day physical cleanup have unit and emulator coverage. Same-device deletion uses the validated participant session, creates a replay-safe deletion job, removes resident-owned server data, and clears the local task cache/outbox, session, and push-token state only after server confirmation. A bounded upload lease makes deletion reject during an active write and keeps cleanup retryable after the upload callable timeout; failed object deletion retains metadata. Completed deletion retains only minimal enrollment/profile replay tombstones, with no nickname, resident ID, or session token; a retryable job temporarily keeps the scoped resident ID and a hashed session binding only while cleanup is incomplete. The RT-assisted fallback requires explicit resident-request and pilot identity-check attestations; the pilot procedure remains external. Production bucket, scheduled jobs, and billing are not configured.
 
 ## Work items
 - [x] Strip EXIF/location metadata on the client and re-encode again on the server.
@@ -254,7 +255,8 @@ Optional evidence works without expanding permanent resident data.
 - [x] Set `expiresAt` to 30 days after upload and implement scheduled physical deletion.
 - [x] Retry failed deletion and log only the opaque evidence ID and generic failure code.
 - [x] Allow the resident session to delete its own evidence; remove the completion reference.
-- [x] Add same-RT RT-assisted server-data deletion with explicit resident-request/identity-check attestations, retryable cleanup, private audit, and evidence-object deletion. Pilot identity-check procedure still requires stakeholder definition; same-device full profile deletion remains open.
+- [x] Add same-RT RT-assisted server-data deletion with explicit resident-request/identity-check attestations, retryable cleanup, private audit, and evidence-object deletion. Pilot identity-check procedure still requires stakeholder definition.
+- [x] Add same-device resident self-deletion through the validated participant session; remove server-owned profile data and evidence, preserve shared RT history, support replay/retry, and clear local task cache/outbox/session/push state only after server confirmation.
 - [ ] Configure a production bucket and deploy/observe cleanup only after explicit billing and deployment approval.
 
 ## Required tests

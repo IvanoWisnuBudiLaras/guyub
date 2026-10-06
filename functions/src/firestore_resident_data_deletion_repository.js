@@ -34,71 +34,137 @@ class FirestoreResidentDataDeletionRepository {
   }
 
   async deleteResidentData(input) {
-    const operatorRef = this.firestore.collection('operators').doc(input.operatorUid);
+    return this._deleteResidentData(input, 'RT_OPERATOR');
+  }
+
+  async deleteOwnResidentData(input) {
+    return this._deleteResidentData(input, 'RESIDENT_SELF');
+  }
+
+  async _deleteResidentData(input, actorKind) {
+    const isResidentSelf = actorKind === 'RESIDENT_SELF';
+    const operatorRef = isResidentSelf ? null :
+      this.firestore.collection('operators').doc(input.operatorUid);
+    const sessionRef = isResidentSelf ?
+      this.firestore.collection('resident_sessions').doc(input.actorSessionHash) : null;
     const residentRef = this.firestore.collection('resident_profiles').doc(input.residentId);
-    let rtId;
+    const rtId = isResidentSelf ? input.rtId : null;
+    let resolvedRtId = rtId;
     let completed = false;
 
     await this.firestore.runTransaction(async (transaction) => {
-      const [operatorSnapshot, residentSnapshot] = await Promise.all([
-        transaction.get(operatorRef), transaction.get(residentRef),
+      const actorPromise = operatorRef ? transaction.get(operatorRef) :
+        transaction.get(sessionRef);
+      const [actorSnapshot, residentSnapshot] = await Promise.all([
+        actorPromise,
+        transaction.get(residentRef),
       ]);
-      const operator = requireOperator(operatorSnapshot);
-      rtId = operator.rtId;
-      const scopedHash = targetHash(rtId, input.residentId);
+      if (!isResidentSelf) {
+        resolvedRtId = requireOperator(actorSnapshot).rtId;
+      }
+      if (typeof resolvedRtId !== 'string' || !resolvedRtId.trim()) deny();
+
+      const scopedHash = targetHash(resolvedRtId, input.residentId);
       const scopedJobRef = this.firestore.collection(JOB_COLLECTION).doc(scopedHash);
       const scopedAuditRef = this.firestore.collection(AUDIT_COLLECTION).doc(scopedHash);
       const [scopedJobSnapshot, scopedAuditSnapshot] = await Promise.all([
-        transaction.get(scopedJobRef), transaction.get(scopedAuditRef),
+        transaction.get(scopedJobRef),
+        transaction.get(scopedAuditRef),
       ]);
       if (scopedAuditSnapshot.exists) {
         const audit = scopedAuditSnapshot.data();
-        if (audit.rtId !== operator.rtId || audit.targetResidentHash !== scopedHash ||
+        if (audit.rtId !== resolvedRtId || audit.targetResidentHash !== scopedHash ||
             audit.action !== 'RESIDENT_DATA_DELETED') deny();
+        if (isResidentSelf &&
+            (audit.actorKind !== 'RESIDENT_SELF' ||
+             audit.commandHash !== input.commandHash)) deny();
         completed = true;
         return;
       }
       if (scopedJobSnapshot.exists) {
         const job = scopedJobSnapshot.data();
-        if (job.rtId !== operator.rtId || job.targetResidentHash !== scopedHash ||
-            job.residentId !== input.residentId) deny();
-        return;
+        const jobActorKind = job.actorKind ?? 'RT_OPERATOR';
+        if (job.rtId !== resolvedRtId || job.targetResidentHash !== scopedHash ||
+            job.residentId !== input.residentId ||
+            (isResidentSelf &&
+             (jobActorKind !== 'RESIDENT_SELF' ||
+              job.actorSessionHash !== input.actorSessionHash ||
+              job.commandHash !== input.commandHash))) {
+          deny();
+        }
+      } else {
+        if (isResidentSelf) {
+          const session = actorSnapshot.data();
+          const expiresAt = session?.expiresAt?.toDate?.() ?? session?.expiresAt;
+          const expiry = expiresAt instanceof Date ? expiresAt : new Date(expiresAt);
+          if (!actorSnapshot.exists || session?.active !== true ||
+              !Number.isFinite(expiry.getTime()) || expiry <= input.now ||
+              session.residentId !== input.residentId || session.rtId !== resolvedRtId) {
+            deny();
+          }
+        }
+        if (!residentSnapshot.exists || residentSnapshot.data()?.rtId !== resolvedRtId ||
+            residentSnapshot.data()?.deletionPending === true) {
+          deny();
+        }
+        const job = {
+          targetResidentHash: scopedHash,
+          residentId: input.residentId,
+          rtId: resolvedRtId,
+          actorKind,
+          commandHash: input.commandHash,
+          residentRequestConfirmed: input.residentRequestConfirmed === true,
+          identityVerificationConfirmed: input.identityVerificationConfirmed === true,
+          createdAt: input.now,
+        };
+        if (operatorRef) job.actorUid = input.operatorUid;
+        if (isResidentSelf) job.actorSessionHash = input.actorSessionHash;
+        transaction.create(scopedJobRef, job);
+        transaction.update(residentRef, {
+          deletionPending: true,
+          deletionRequestedAt: input.now,
+        });
       }
-      if (!residentSnapshot.exists || residentSnapshot.id !== input.residentId ||
-          residentSnapshot.data()?.rtId !== operator.rtId) deny();
-      if (residentSnapshot.data()?.deletionPending === true) {
-        throw fail('failed-precondition', 'Penghapusan data warga sedang diproses.');
-      }
-      transaction.create(scopedJobRef, {
-        targetResidentHash: scopedHash,
-        residentId: input.residentId,
-        rtId: operator.rtId,
-        actorUid: input.operatorUid,
-        commandHash: input.commandHash,
-        residentRequestConfirmed: input.residentRequestConfirmed,
-        identityVerificationConfirmed: input.identityVerificationConfirmed,
-        createdAt: input.now,
-      });
-      transaction.update(residentRef, {
-        deletionPending: true,
-        deletionRequestedAt: input.now,
-      });
     });
 
     if (completed) return { deleted: true };
-    if (!rtId) throw fail('permission-denied', 'Akses penghapusan data tidak valid.');
-    const scopedHash = targetHash(rtId, input.residentId);
+    if (!resolvedRtId) throw fail('permission-denied', 'Akses penghapusan data tidak valid.');
+    const scopedHash = targetHash(resolvedRtId, input.residentId);
     const scopedJobRef = this.firestore.collection(JOB_COLLECTION).doc(scopedHash);
     const scopedAuditRef = this.firestore.collection(AUDIT_COLLECTION).doc(scopedHash);
     const jobSnapshot = await scopedJobRef.get();
     if (!jobSnapshot.exists) {
       const auditSnapshot = await scopedAuditRef.get();
-      if (auditSnapshot.exists && auditSnapshot.data()?.rtId === rtId) return { deleted: true };
+      if (auditSnapshot.exists && auditSnapshot.data()?.rtId === resolvedRtId) {
+        return { deleted: true };
+      }
       throw fail('failed-precondition', 'Penghapusan data tidak dapat dilanjutkan.');
     }
 
+    await this._finishDeletion({
+      input,
+      rtId: resolvedRtId,
+      scopedHash,
+      scopedJobRef,
+      scopedAuditRef,
+      operatorRef,
+    });
+    return { deleted: true };
+  }
+
+  async _finishDeletion({
+    input,
+    rtId,
+    scopedHash,
+    scopedJobRef,
+    scopedAuditRef,
+    operatorRef,
+  }) {
+    const residentRef = this.firestore.collection('resident_profiles').doc(input.residentId);
     await this._deleteEvidence(input, rtId);
     await this._tombstoneEnrollments(input.residentId, rtId, input.now);
+    const assistanceHash = crypto.createHash('sha256')
+      .update(`resident-assistance\0${rtId}\0${input.residentId}`, 'utf8').digest('hex');
     const residentCollections = [
       ['resident_sessions', 'residentId', input.residentId],
       ['task_responses', 'residentId', input.residentId],
@@ -109,12 +175,9 @@ class FirestoreResidentDataDeletionRepository {
       ['assistance_assignments', 'helperResidentId', input.residentId],
       ['assistance_assignment_pair_guards', 'residentNeedingHelpId', input.residentId],
       ['assistance_assignment_pair_guards', 'helperResidentId', input.residentId],
-      ['assistance_assignment_audit_events', 'targetResidentHash',
-        crypto.createHash('sha256').update(`resident-assistance\0${rtId}\0${input.residentId}`).digest('hex')],
-      ['assistance_assignment_audit_events', 'helperResidentHash',
-        crypto.createHash('sha256').update(`resident-assistance\0${rtId}\0${input.residentId}`).digest('hex')],
-      ['assistance_assignment_audit_events', 'actorResidentHash',
-        crypto.createHash('sha256').update(`resident-assistance\0${rtId}\0${input.residentId}`).digest('hex')],
+      ['assistance_assignment_audit_events', 'targetResidentHash', assistanceHash],
+      ['assistance_assignment_audit_events', 'helperResidentHash', assistanceHash],
+      ['assistance_assignment_audit_events', 'actorResidentHash', assistanceHash],
     ];
     for (const [collectionName, field, value] of residentCollections) {
       await this._deleteByField(collectionName, field, value);
@@ -123,14 +186,19 @@ class FirestoreResidentDataDeletionRepository {
     await this.firestore.runTransaction(async (transaction) => {
       const tombstoneId = residentProfileTombstoneId(rtId, input.residentId);
       const tombstoneRef = this.firestore.collection('resident_profile_tombstones').doc(tombstoneId);
-      const [operatorSnapshot, residentSnapshot, currentJob, currentAudit, currentTombstone] =
-        await Promise.all([
-          transaction.get(operatorRef), transaction.get(residentRef),
-          transaction.get(scopedJobRef), transaction.get(scopedAuditRef),
-          transaction.get(tombstoneRef),
-        ]);
-      const operator = requireOperator(operatorSnapshot);
-      if (operator.rtId !== rtId) deny();
+      const reads = [
+        transaction.get(residentRef),
+        transaction.get(scopedJobRef),
+        transaction.get(scopedAuditRef),
+        transaction.get(tombstoneRef),
+      ];
+      if (operatorRef) reads.push(transaction.get(operatorRef));
+      const [residentSnapshot, currentJob, currentAudit, currentTombstone, operatorSnapshot] =
+        await Promise.all(reads);
+      if (operatorRef) {
+        const operator = requireOperator(operatorSnapshot);
+        if (operator.rtId !== rtId) deny();
+      }
       if (currentAudit.exists) {
         const audit = currentAudit.data();
         if (audit.action !== 'RESIDENT_DATA_DELETED' || audit.rtId !== rtId ||
@@ -138,7 +206,8 @@ class FirestoreResidentDataDeletionRepository {
         return;
       }
       if (!currentJob.exists || currentJob.data()?.targetResidentHash !== scopedHash ||
-          currentJob.data()?.residentId !== input.residentId || currentJob.data()?.rtId !== rtId) {
+          currentJob.data()?.residentId !== input.residentId ||
+          currentJob.data()?.rtId !== rtId) {
         throw fail('failed-precondition', 'Riwayat penghapusan tidak konsisten.');
       }
       if (residentSnapshot.exists) {
@@ -157,20 +226,21 @@ class FirestoreResidentDataDeletionRepository {
         action: 'RESIDENT_DATA_DELETED',
         occurredAt: input.now,
       });
-      transaction.create(scopedAuditRef, {
+      const audit = {
         auditId: scopedHash,
         action: 'RESIDENT_DATA_DELETED',
+        actorKind: job.actorKind ?? 'RT_OPERATOR',
         rtId,
         targetResidentHash: scopedHash,
-        actorUid: job.actorUid,
         commandHash: job.commandHash,
         residentRequestConfirmed: job.residentRequestConfirmed === true,
         identityVerificationConfirmed: job.identityVerificationConfirmed === true,
         occurredAt: input.now,
-      });
+      };
+      if (typeof job.actorUid === 'string') audit.actorUid = job.actorUid;
+      transaction.create(scopedAuditRef, audit);
       transaction.delete(scopedJobRef);
     });
-    return { deleted: true };
   }
 
   async _deleteEvidence(input, rtId) {

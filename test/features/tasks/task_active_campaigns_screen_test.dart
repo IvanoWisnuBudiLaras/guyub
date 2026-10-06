@@ -152,7 +152,10 @@ void main() {
     expect(find.text('Lokasi umum'), findsOneWidget);
     expect(find.text('Area umum RT yang ditentukan operator'), findsOneWidget);
     expect(find.textContaining('riwayat audit'), findsOneWidget);
-    expect(find.textContaining('antre secara offline'), findsOneWidget);
+    expect(
+      find.textContaining('Pilihan warga yang masih antre'),
+      findsOneWidget,
+    );
     expect(find.byType(TextField), findsNothing);
     expect(find.text('Nama warga'), findsNothing);
     expect(find.text('Telepon'), findsNothing);
@@ -160,11 +163,11 @@ void main() {
     await _openCancellationDialog(tester);
     expect(boundary.cancellationCalls, 0);
     expect(find.text('Batalkan tugas aktif?'), findsOneWidget);
+    expect(find.textContaining('pemberitahuan status'), findsOneWidget);
     expect(
-      find.textContaining('Tidak ada notifikasi yang dikirim'),
-      findsOneWidget,
+      find.textContaining('diselaraskan dengan status server'),
+      findsWidgets,
     );
-    expect(find.textContaining('antre secara offline'), findsWidgets);
 
     await tester.tap(find.text('Kembali'));
     await tester.pumpAndSettle();

@@ -49,6 +49,14 @@ final class LocalResidentTaskOfflineStore implements ResidentTaskOfflineStore {
   }
 
   @override
+  Future<void> clearResidentData({required ResidentSession session}) async {
+    await _withOutboxLock(() async {
+      await _localStore.delete('$_cachePrefix${_scopeHash(session)}');
+      await _localStore.delete('$_outboxPrefix${_scopeHash(session)}');
+    });
+  }
+
+  @override
   Future<ResidentTaskCacheSnapshot?> readCachedActiveTasks({
     required ResidentSession session,
   }) async {
