@@ -204,7 +204,9 @@ Residents can propose tasks/conditions, and RT can manage vulnerable-resident as
 ## Work items
 - [x] implement resident proposal form and same-RT review queue,
 - [x] map a SUBMITTED proposal only to a DRAFT created from an approved, versioned safe template; proposal text is context only,
+- [x] persist proposal retry ID and payload fingerprint in platform secure storage across app/controller restart without storing proposal text; clear after server confirmation or confirmed same-device deletion,
 - [ ] optional supporting evidence reference and temporary image retention (requires approved storage policy/configuration),
+- [ ] implement FR-TWO-003 resident-to-RT assistance reports only after target-reference and retention policy are approved; keep reports unverified/private and never assign helpers automatically,
 - [x] implement RT-scoped resident profiles and minimal assistance markers,
 - [x] implement voluntary helper opt-in, private same-RT assignment, and helper accept/decline/withdrawal,
 - [x] implement consent-attested RT status updates for proxy and self-enrolled profiles; preserve conflicting resident choices and pending RT verification,
@@ -214,10 +216,12 @@ Residents can propose tasks/conditions, and RT can manage vulnerable-resident as
 - proposal cannot activate task directly;
 - proposal cannot overwrite template safety text;
 - helper assignment is voluntary;
-- proxy status requires authorized operator.
+- proxy status requires authorized operator;
+- uncertain proposal submission after a fresh controller/app reuses the same scoped request ID without persisting proposal text, and confirmed deletion clears its local retry metadata;
+- once FR-TWO-003 policy is approved, resident reports derive resident/RT server-side, enter a private same-RT review queue, expire/delete by approved retention, and never create a helper assignment.
 
 ## Acceptance linkage
-AT-012, AT-014, AT-020.
+AT-012, AT-014, AT-020, AT-026.
 
 ---
 

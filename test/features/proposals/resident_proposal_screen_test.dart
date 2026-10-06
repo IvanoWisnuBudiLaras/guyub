@@ -17,6 +17,7 @@ void main() {
     final controller = ResidentProposalController(
       boundary: boundary,
       vault: _FakeVault('opaque-resident-session-token'),
+      requestStore: InMemoryResidentProposalRequestStore(),
       requestIdFactory: () => 'r' * 40,
     );
     await tester.pumpWidget(
@@ -60,6 +61,7 @@ void main() {
       final controller = ResidentProposalController(
         boundary: boundary,
         vault: _FakeVault('opaque-resident-session-token'),
+        requestStore: InMemoryResidentProposalRequestStore(),
         requestIdFactory: () => 'r' * 40,
       );
       await tester.pumpWidget(

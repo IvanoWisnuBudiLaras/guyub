@@ -533,6 +533,8 @@ Proposal requires RT review before becoming an active safe task.
 ### FR-TWO-003
 Resident may flag a neighbor/household needing assistance.
 
+**OPEN GAP:** The resident reporting flow and private RT review queue are not implemented. A safe household target-reference method and report/tombstone retention rule require explicit approval. Do not expose an RT resident directory or persist third-party report data until those decisions are approved.
+
 ### FR-TWO-004
 System supports helper assignment without public exposure of sensitive household information.
 
@@ -1361,7 +1363,7 @@ Uploaded evidence has no retained location metadata.
 Evidence older than 30 days is physically deleted or marked failed with retry/alert until deletion succeeds.
 
 ## AT-012 — Resident proposal cannot activate
-Proposal submission cannot produce an ACTIVE task directly.
+Proposal submission cannot produce an ACTIVE task directly. Retrying unchanged content after a controller/app restart reuses the same resident/RT-scoped request ID; local secure storage contains only the opaque ID and payload fingerprint, not proposal text, and is cleared after server confirmation or confirmed same-device deletion.
 
 ## AT-013 — Official escalation
 A problem categorized outside community capacity displays/configures official reporting route.
@@ -1444,7 +1446,15 @@ AT-025 — Same-device resident-data deletion is scoped and replay-safe
 **Then** the server deletes the scoped profile, sessions, responses, proposals, assistance assignments, push tokens, and evidence
 **And** shared RT campaign history remains and the audit contains no raw resident ID or session token
 **And** retrying an uncertain or incomplete request with the same session safely resumes or confirms deletion
-**And** local resident task cache/outbox, profile/session, and push-token state are cleared only after server confirmation.
+**And** local resident task cache/outbox, profile/session, push-token state, and proposal retry metadata are cleared only after server confirmation.
+
+AT-026 — Resident may privately flag a household for RT assistance review
+**Given** the target-reference and retention policy have been approved
+**When** a resident submits a flag through a validated session
+**Then** the server derives reporter and RT scope and stores an unverified report using only the approved minimal target reference
+**And** only an authorized operator from the same RT can review it; no resident directory is exposed
+**And** a report never changes the assistance marker, assigns a helper, sends a task, or claims official emergency handling
+**And** replay, report/tombstone retention, and deletion follow the approved policy.
 
 ---
 
