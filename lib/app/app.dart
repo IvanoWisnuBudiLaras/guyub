@@ -31,6 +31,7 @@ final class GuyubApp extends StatelessWidget {
     this.proxyResidentController,
     this.assistanceVolunteerController,
     this.taskPushNotificationsController,
+    this.connectivityChanges,
     super.key,
   });
 
@@ -47,6 +48,7 @@ final class GuyubApp extends StatelessWidget {
   final ProxyResidentController? proxyResidentController;
   final AssistanceVolunteerController? assistanceVolunteerController;
   final TaskPushNotificationsController? taskPushNotificationsController;
+  final Stream<bool>? connectivityChanges;
 
   @override
   Widget build(BuildContext context) {
@@ -75,6 +77,7 @@ final class GuyubApp extends StatelessWidget {
         proxyResidentController: proxyResidentController,
         assistanceVolunteerController: assistanceVolunteerController,
         taskPushNotificationsController: taskPushNotificationsController,
+        connectivityChanges: connectivityChanges,
       ),
     );
   }

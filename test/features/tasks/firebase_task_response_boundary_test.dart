@@ -11,6 +11,20 @@ void main() {
     expect(mapped, isA<TransientTaskNetworkUnavailableException>());
   });
 
+  test('failed-precondition remains a conflict with its original code', () {
+    final mapped = FirebaseTaskResponseErrorMapper.map(
+      FirebaseFunctionsException(
+        code: 'failed-precondition',
+        message: 'response already recorded',
+      ),
+    );
+    expect(mapped, isA<TaskResponseConflictException>());
+    expect(
+      (mapped! as TaskResponseConflictException).code,
+      'failed-precondition',
+    );
+  });
+
   test('permission denial is not treated as an offline fallback', () {
     final mapped = FirebaseTaskResponseErrorMapper.map(
       FirebaseFunctionsException(code: 'permission-denied', message: 'denied'),

@@ -207,7 +207,7 @@ final class FirebaseTaskResponseErrorMapper {
         'deadline-exceeded' => const TransientTaskNetworkUnavailableException(),
         'failed-precondition' ||
         'not-found' ||
-        'already-exists' => const TaskResponseConflictException(),
+        'already-exists' => TaskResponseConflictException(code: error.code),
         'permission-denied' ||
         'unauthenticated' ||
         'invalid-argument' => TaskResponseRejectedException(code: error.code),

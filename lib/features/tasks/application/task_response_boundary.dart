@@ -598,6 +598,8 @@ final class TaskResponseController {
   final Map<String, String?> _completionEvidenceIds = {};
   final Map<String, String> _evidenceDeleteCommands = {};
   final Map<String, String> _verificationCommands = {};
+  final Map<(String, String), Future<ResidentTaskList>>
+  _residentTaskListRequests = {};
 
   Future<void> clearLocalResidentData({
     required ResidentSession session,
@@ -611,7 +613,22 @@ final class TaskResponseController {
     _verificationCommands.clear();
   }
 
-  Future<ResidentTaskList> listResidentActiveTasks({
+  Future<ResidentTaskList> listResidentActiveTasks({ResidentSession? session}) {
+    if (session == null) return _loadResidentActiveTasks();
+    final key = (session.communityId, session.residentId);
+    final existing = _residentTaskListRequests[key];
+    if (existing != null) return existing;
+
+    final request = _loadResidentActiveTasks(session: session);
+    _residentTaskListRequests[key] = request;
+    return request.whenComplete(() {
+      if (identical(_residentTaskListRequests[key], request)) {
+        _residentTaskListRequests.remove(key);
+      }
+    });
+  }
+
+  Future<ResidentTaskList> _loadResidentActiveTasks({
     ResidentSession? session,
   }) async {
     final token = await _sessionToken();
@@ -654,6 +671,92 @@ final class TaskResponseController {
       sessionToken: token,
       syncedAt: syncedAt,
     );
+  }
+
+  /// Clears only a locally queued choice after a fresh callable read succeeds.
+  /// This never replays or writes the conflicted choice to the backend.
+  Future<void> discardPendingChoiceConflict({
+    required String taskId,
+    required ResidentSession session,
+  }) => _discardPendingConflict(
+    taskId: taskId,
+    session: session,
+    completion: false,
+  );
+
+  /// Clears only a locally queued completion after a fresh callable read succeeds.
+  /// The server's completion state remains authoritative.
+  Future<void> discardPendingCompletionConflict({
+    required String taskId,
+    required ResidentSession session,
+  }) => _discardPendingConflict(
+    taskId: taskId,
+    session: session,
+    completion: true,
+  );
+
+  Future<void> _discardPendingConflict({
+    required String taskId,
+    required ResidentSession session,
+    required bool completion,
+  }) async {
+    final store = _offlineStore;
+    if (store == null) {
+      throw StateError('Resident task offline storage is unavailable.');
+    }
+    if (completion) {
+      final commands = await store.pendingCompletions(session: session);
+      if (!commands.any(
+        (entry) => entry.taskId == taskId && entry.hasConflict,
+      )) {
+        throw StateError('No conflicted completion is pending for this task.');
+      }
+    } else {
+      final commands = await store.pendingChoices(session: session);
+      if (!commands.any(
+        (entry) => entry.taskId == taskId && entry.hasConflict,
+      )) {
+        throw StateError('No conflicted choice is pending for this task.');
+      }
+    }
+
+    final token = await _sessionToken();
+    final serverList = await _boundary.listResidentActiveTasks(
+      sessionToken: token,
+    );
+    _validateListScope(serverList, session);
+
+    if (completion) {
+      final commands = await store.pendingCompletions(session: session);
+      for (final command in commands) {
+        if (command.taskId != taskId || !command.hasConflict) continue;
+        await store.removeCompletion(
+          session: session,
+          commandId: command.commandId,
+        );
+        break;
+      }
+    } else {
+      final commands = await store.pendingChoices(session: session);
+      for (final command in commands) {
+        if (command.taskId != taskId || !command.hasConflict) continue;
+        await store.removeChoice(
+          session: session,
+          commandId: command.commandId,
+        );
+        break;
+      }
+    }
+
+    try {
+      await store.cacheAuthorizedActiveTasks(
+        session: session,
+        taskList: serverList,
+        syncedAt: _clock().toUtc(),
+      );
+    } catch (_) {
+      // The verified list remains authoritative even if caching fails.
+    }
   }
 
   Future<TaskResponseRecord> recordParticipation({
@@ -753,8 +856,6 @@ final class TaskResponseController {
       await store.markChoiceConflict(
         session: session,
         commandId: command.commandId,
-        authoritativeParticipation: cached?.participation,
-        taskNoLongerActive: true,
       );
       return TaskResponseRecord(
         taskId: taskId,
@@ -768,7 +869,6 @@ final class TaskResponseController {
       await store.markChoiceConflict(
         session: session,
         commandId: command.commandId,
-        authoritativeParticipation: cached?.participation,
       );
       return TaskResponseRecord(
         taskId: taskId,
@@ -873,7 +973,6 @@ final class TaskResponseController {
         await store.markCompletionConflict(
           session: session,
           commandId: command.commandId,
-          taskNoLongerActive: true,
         );
         return TaskResponseRecord(
           taskId: taskId,
@@ -1112,24 +1211,16 @@ final class TaskResponseController {
         await store.markChoiceConflict(
           session: session,
           commandId: command.commandId,
-          authoritativeParticipation: task.participation,
-          taskNoLongerActive: true,
         );
-        final conflict = command.withConflict(
-          authoritativeParticipation: task.participation,
-          taskNoLongerActive: true,
-        );
-        if (index >= 0) items.removeAt(index);
+        final conflict = command.withConflict();
+        _applyPendingChoice(items, index, conflict);
         issues.add(_choiceIssue(conflict));
       } on TaskResponseRejectedException {
         await store.markChoiceConflict(
           session: session,
           commandId: command.commandId,
-          authoritativeParticipation: task.participation,
         );
-        final conflict = command.withConflict(
-          authoritativeParticipation: task.participation,
-        );
+        final conflict = command.withConflict();
         _applyPendingChoice(items, index, conflict);
         issues.add(_choiceIssue(conflict));
       }
@@ -1209,10 +1300,9 @@ final class TaskResponseController {
         await store.markCompletionConflict(
           session: session,
           commandId: command.commandId,
-          taskNoLongerActive: true,
         );
-        final conflict = command.withConflict(taskNoLongerActive: true);
-        if (index >= 0) items.removeAt(index);
+        final conflict = command.withConflict();
+        _applyPendingCompletion(items, index, conflict);
         issues.add(_completionIssue(conflict));
       } on TaskResponseRejectedException {
         await store.markCompletionConflict(

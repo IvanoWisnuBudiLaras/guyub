@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../application/resident_session.dart';
@@ -12,7 +14,7 @@ import '../../../notifications/application/task_push_notifications.dart';
 import '../../../notifications/presentation/task_push_opt_in_card.dart';
 
 /// Initial resident destination after backend validation of the RT join code.
-final class ResidentSessionHomeScreen extends StatelessWidget {
+final class ResidentSessionHomeScreen extends StatefulWidget {
   const ResidentSessionHomeScreen({
     required this.session,
     required this.controller,
@@ -22,6 +24,7 @@ final class ResidentSessionHomeScreen extends StatelessWidget {
     this.weatherSnapshotSyncController,
     this.assistanceVolunteerController,
     this.taskPushNotificationsController,
+    this.connectivityChanges,
     super.key,
   });
 
@@ -33,6 +36,124 @@ final class ResidentSessionHomeScreen extends StatelessWidget {
   final WeatherSnapshotSyncController? weatherSnapshotSyncController;
   final AssistanceVolunteerController? assistanceVolunteerController;
   final TaskPushNotificationsController? taskPushNotificationsController;
+  final Stream<bool>? connectivityChanges;
+
+  @override
+  State<ResidentSessionHomeScreen> createState() =>
+      _ResidentSessionHomeScreenState();
+}
+
+final class _ResidentSessionHomeScreenState
+    extends State<ResidentSessionHomeScreen> {
+  late ResidentSession _session;
+  StreamSubscription<bool>? _connectivitySubscription;
+  late final Future<void> Function() _weatherRefresh;
+  bool _syncing = false;
+  bool _syncForCurrentConnection = false;
+  bool _needsWeatherReload = false;
+  int _weatherRevision = 0;
+
+  ResidentSession get session => _session;
+  ResidentSessionController get controller => widget.controller;
+  TaskResponseController? get taskResponseController =>
+      widget.taskResponseController;
+  ResidentProposalController? get residentProposalController =>
+      widget.residentProposalController;
+  WeatherSnapshotStore? get weatherSnapshotStore => widget.weatherSnapshotStore;
+  WeatherSnapshotSyncController? get weatherSnapshotSyncController =>
+      widget.weatherSnapshotSyncController;
+  AssistanceVolunteerController? get assistanceVolunteerController =>
+      widget.assistanceVolunteerController;
+  TaskPushNotificationsController? get taskPushNotificationsController =>
+      widget.taskPushNotificationsController;
+
+  @override
+  void initState() {
+    super.initState();
+    _session = widget.session;
+    _weatherRefresh = _refreshWeatherSnapshot;
+    _connectivitySubscription = widget.connectivityChanges?.listen((online) {
+      if (!online) {
+        _syncForCurrentConnection = false;
+        _needsWeatherReload = true;
+      } else {
+        _startReconnectSync();
+      }
+    }, onError: (Object error, StackTrace stackTrace) {});
+  }
+
+  void _startReconnectSync() {
+    if (_syncForCurrentConnection) return;
+    _syncForCurrentConnection = true;
+    unawaited(_restoreAndSync());
+  }
+
+  @override
+  void dispose() {
+    _connectivitySubscription?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _restoreAndSync() async {
+    if (_syncing) return;
+    _syncing = true;
+    try {
+      final restored = await controller.restoreSession();
+      if (!mounted) return;
+      if (restored == null) {
+        if (!_session.isOfflineSnapshot) {
+          setState(() => _session = _session.asOfflineSnapshot());
+        }
+        return;
+      }
+      if (restored.isOfflineSnapshot) return;
+      final reloadWeatherCard =
+          _session.isOfflineSnapshot || _needsWeatherReload;
+      if (_session != restored || reloadWeatherCard) {
+        setState(() {
+          _session = restored;
+          if (reloadWeatherCard) _weatherRevision++;
+        });
+      }
+      _needsWeatherReload = false;
+
+      try {
+        await taskResponseController?.listResidentActiveTasks(
+          session: restored,
+        );
+      } catch (_) {
+        // The callable remains the authorization boundary; keep local data.
+      }
+      if (weatherSnapshotStore == null) {
+        try {
+          await weatherSnapshotSyncController?.refreshForResident(
+            communityId: restored.communityId,
+          );
+        } catch (_) {
+          // Preserve the last valid weather snapshot if refresh fails.
+        }
+      }
+      try {
+        await taskPushNotificationsController?.syncResidentSession(restored);
+      } catch (_) {
+        // Push remains optional and does not block task/weather sync.
+      }
+    } catch (_) {
+      // Reconnect is a trigger only; server calls decide whether data is current.
+    } finally {
+      _syncing = false;
+    }
+  }
+
+  Future<void> _refreshWeatherSnapshot() async {
+    if (session.isOfflineSnapshot) {
+      await _restoreAndSync();
+      return;
+    }
+    await weatherSnapshotSyncController?.refreshForResident(
+      communityId: session.communityId,
+    );
+  }
 
   Future<void> _confirmAndDeleteOwnData(BuildContext context) async {
     final confirmed = await showDialog<bool>(
@@ -125,12 +246,28 @@ final class ResidentSessionHomeScreen extends StatelessWidget {
               Text('Halo, ${session.nickname}'),
               if (session.isOfflineSnapshot) ...[
                 const SizedBox(height: 16),
-                const Card(
+                Card(
                   child: Padding(
-                    padding: EdgeInsets.all(12),
-                    child: Text(
-                      'Mode offline. Sesi dan informasi tugas tersimpan belum '
-                      'diverifikasi ulang. Status tugas mungkin sudah berubah.',
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      children: [
+                        const Text(
+                          'Mode offline. Sesi dan informasi tugas tersimpan '
+                          'belum diverifikasi ulang. Status tugas mungkin '
+                          'sudah berubah.',
+                        ),
+                        const SizedBox(height: 8),
+                        OutlinedButton.icon(
+                          key: const Key('resident-reconnect-sync'),
+                          onPressed: _syncing ? null : _restoreAndSync,
+                          icon: const Icon(Icons.sync),
+                          label: Text(
+                            _syncing
+                                ? 'Memeriksa status…'
+                                : 'Periksa koneksi dan sinkronkan',
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -147,15 +284,12 @@ final class ResidentSessionHomeScreen extends StatelessWidget {
               if (weatherSnapshotStore != null) ...[
                 const SizedBox(height: 12),
                 WeatherSnapshotCard(
+                  key: ValueKey<int>(_weatherRevision),
                   store: weatherSnapshotStore!,
                   communityId: session.communityId,
-                  onRefresh:
-                      session.isOfflineSnapshot ||
-                          weatherSnapshotSyncController == null
+                  onRefresh: weatherSnapshotSyncController == null
                       ? null
-                      : () => weatherSnapshotSyncController!.refreshForResident(
-                          communityId: session.communityId,
-                        ),
+                      : _weatherRefresh,
                 ),
               ],
               if (taskPushNotificationsController != null &&
