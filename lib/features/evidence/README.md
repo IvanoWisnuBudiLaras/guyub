@@ -13,7 +13,7 @@ Bukti foto bersifat opsional. Foto tidak boleh menggagalkan penyelesaian tugas.
 
 ## Remaining constraints / manual-external setup
 - Penghapusan data warga pada perangkat yang sama (profil, respons, proposal, dan bukti) tersedia melalui callable yang terotorisasi dan diuji emulator; cache/outbox lokal dibersihkan setelah konfirmasi server.
-- Callable penghapusan warga melalui RT untuk perangkat hilang tersedia, tetapi penggunaannya tetap diblokir sampai prosedur verifikasi identitas dan bukti yang dapat diverifikasi server disetujui.
+- Callable penghapusan warga melalui RT untuk perangkat hilang tersedia, tetapi menerima attestation operator sebagai boolean yang tidak diverifikasi secara independen. Jangan gunakan pada pilot sampai prosedur identitas yang disetujui atau artefak persetujuan yang dapat diverifikasi server tersedia dan ditegakkan.
 - Bucket Storage, scheduled cleanup, kredensial, dan deployment produksi belum dikonfigurasi. Tidak ada billing yang diaktifkan.
 
 ## Invariants
