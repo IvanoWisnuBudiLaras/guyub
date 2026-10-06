@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -19,11 +20,13 @@ final class ResidentTaskListScreen extends StatefulWidget {
   const ResidentTaskListScreen({
     required this.session,
     required this.controller,
+    this.connectivityChanges,
     super.key,
   });
 
   final ResidentSession session;
   final TaskResponseController controller;
+  final Stream<bool>? connectivityChanges;
 
   @override
   State<ResidentTaskListScreen> createState() => _ResidentTaskListScreenState();
@@ -31,18 +34,30 @@ final class ResidentTaskListScreen extends StatefulWidget {
 
 final class _ResidentTaskListScreenState extends State<ResidentTaskListScreen> {
   late Future<ResidentTaskList> _tasks;
+  StreamSubscription<bool>? _connectivitySubscription;
 
   @override
   void initState() {
     super.initState();
     _tasks = widget.controller.listResidentActiveTasks(session: widget.session);
+    _connectivitySubscription = widget.connectivityChanges?.listen((online) {
+      if (online) unawaited(_reload());
+    }, onError: (Object error, StackTrace stackTrace) {});
+  }
+
+  @override
+  void dispose() {
+    _connectivitySubscription?.cancel();
+    super.dispose();
   }
 
   Future<void> _reload() async {
     final request = widget.controller.listResidentActiveTasks(
       session: widget.session,
     );
-    setState(() => _tasks = request);
+    setState(() {
+      _tasks = request;
+    });
     try {
       await request;
     } catch (_) {
@@ -66,6 +81,44 @@ final class _ResidentTaskListScreenState extends State<ResidentTaskListScreen> {
       ),
     );
     if (mounted) await _reload();
+  }
+
+  Future<void> _resolveSyncIssue(ResidentTaskSyncIssue issue) async {
+    final confirmed = await _confirmSyncConflictResolution(context);
+    if (confirmed != true || !mounted) return;
+    try {
+      if (issue.pendingChoice != null) {
+        await widget.controller.discardPendingChoiceConflict(
+          taskId: issue.taskId,
+          session: widget.session,
+        );
+      } else {
+        await widget.controller.discardPendingCompletionConflict(
+          taskId: issue.taskId,
+          session: widget.session,
+        );
+      }
+      if (!mounted) return;
+      await _reload();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Status terbaru dari server dimuat. Tindakan lokal tidak dikirim.',
+            ),
+          ),
+        );
+      }
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Status server belum dapat diperiksa. Tindakan lokal tetap disimpan.',
+          ),
+        ),
+      );
+    }
   }
 
   @override
@@ -92,14 +145,19 @@ final class _ResidentTaskListScreenState extends State<ResidentTaskListScreen> {
               physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.all(24),
               children: [
-                if (taskList.isCached || widget.session.isOfflineSnapshot) ...[
+                if (taskList.isCached) ...[
                   _ResidentTaskOfflineBanner(
                     lastSyncedAt: taskList.lastSyncedAt,
                   ),
                   const SizedBox(height: 12),
                 ],
                 for (final issue in taskList.syncIssues) ...[
-                  _TaskSyncIssueCard(issue: issue),
+                  _TaskSyncIssueCard(
+                    issue: issue,
+                    onResolve: _isSyncConflict(issue.kind)
+                        ? () => _resolveSyncIssue(issue)
+                        : null,
+                  ),
                   const SizedBox(height: 8),
                 ],
                 const SizedBox(height: 64),
@@ -124,12 +182,17 @@ final class _ResidentTaskListScreenState extends State<ResidentTaskListScreen> {
           child: ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              if (taskList.isCached || widget.session.isOfflineSnapshot) ...[
+              if (taskList.isCached) ...[
                 _ResidentTaskOfflineBanner(lastSyncedAt: taskList.lastSyncedAt),
                 const SizedBox(height: 12),
               ],
               for (final issue in taskList.syncIssues) ...[
-                _TaskSyncIssueCard(issue: issue),
+                _TaskSyncIssueCard(
+                  issue: issue,
+                  onResolve: _isSyncConflict(issue.kind)
+                      ? () => _resolveSyncIssue(issue)
+                      : null,
+                ),
                 const SizedBox(height: 8),
               ],
               Text(
@@ -220,10 +283,43 @@ final class _ResidentTaskOfflineBanner extends StatelessWidget {
   );
 }
 
+bool _isSyncConflict(ResidentTaskSyncIssueKind kind) => switch (kind) {
+  ResidentTaskSyncIssueKind.choiceConflict ||
+  ResidentTaskSyncIssueKind.completionConflict ||
+  ResidentTaskSyncIssueKind.taskUnavailable => true,
+  _ => false,
+};
+
+Future<bool?> _confirmSyncConflictResolution(BuildContext context) =>
+    showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Periksa status server?'),
+        content: const Text(
+          'Aplikasi akan membaca status tugas terbaru melalui server. Jika '
+          'pembacaan berhasil, hanya tindakan offline yang bertentangan akan '
+          'dihapus dari perangkat. Tidak ada perubahan yang dikirim ke server. '
+          'Jika status tidak dapat dibaca, tindakan lokal tetap disimpan.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Batal'),
+          ),
+          FilledButton(
+            key: const Key('resident-resolve-task-sync-conflict-confirm'),
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Periksa dan hapus lokal'),
+          ),
+        ],
+      ),
+    );
+
 final class _TaskSyncIssueCard extends StatelessWidget {
-  const _TaskSyncIssueCard({required this.issue});
+  const _TaskSyncIssueCard({required this.issue, this.onResolve});
 
   final ResidentTaskSyncIssue issue;
+  final VoidCallback? onResolve;
 
   @override
   Widget build(BuildContext context) {
@@ -247,6 +343,18 @@ final class _TaskSyncIssueCard extends StatelessWidget {
               const SizedBox(height: 4),
             ],
             Text(_syncIssueMessage(issue)),
+            if (isConflict && onResolve != null) ...[
+              const SizedBox(height: 8),
+              Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: TextButton.icon(
+                  key: const Key('resident-resolve-task-sync-conflict'),
+                  onPressed: onResolve,
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Periksa status & hapus tindakan lokal'),
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -259,14 +367,19 @@ String _syncIssueMessage(ResidentTaskSyncIssue issue) => switch (issue.kind) {
     'Pilihan ${issue.pendingChoice == null ? '' : _choiceLabel(issue.pendingChoice!)} '
         'belum tersinkron. Server RT belum mengonfirmasinya.',
   ResidentTaskSyncIssueKind.choiceConflict =>
-    'Pilihan offline belum disimpan. Status server: '
-        '${issue.authoritativeParticipation == null ? 'perlu diperiksa' : _participationLabel(issue.authoritativeParticipation!)}.',
+    'Pilihan offline belum terkonfirmasi. Periksa status terbaru dari server '
+        'sebelum memilih lagi.',
   ResidentTaskSyncIssueKind.completionPending =>
     'Penyelesaian menunggu sinkronisasi. Ini belum menjadi penyelesaian resmi; '
         'RT tetap harus memverifikasinya.',
-  ResidentTaskSyncIssueKind.completionConflict => 'Penyelesaian offline belum disimpan karena tugas tidak lagi aktif di server.',
+  ResidentTaskSyncIssueKind.completionConflict =>
+    'Penyelesaian offline bertentangan dengan status terakhir. Ini bukan '
+        'penyelesaian resmi; periksa status terbaru dari server.',
   ResidentTaskSyncIssueKind.taskUnavailable =>
-    'Tugas tidak lagi aktif di server. Pilihan offline belum dikonfirmasi.',
+    issue.pendingChoice != null
+        ? 'Tugas tidak lagi aktif di server. Pilihan offline belum dikonfirmasi.'
+        : 'Tugas tidak lagi aktif di server. Penyelesaian offline belum '
+              'dikonfirmasi dan bukan penyelesaian resmi.',
 };
 
 String _choiceLabel(ParticipationChoice choice) => switch (choice) {
@@ -328,6 +441,32 @@ final class _ResidentTaskDetailScreenState
       );
       _applyResponse(result);
     });
+  }
+
+  Future<void> _resolveTaskConflict() async {
+    final confirmed = await _confirmSyncConflictResolution(context);
+    if (confirmed != true || !mounted || _busy) return;
+    setState(() => _busy = true);
+    try {
+      if (_task.hasPendingCompletionSync) {
+        await widget.controller.discardPendingCompletionConflict(
+          taskId: _task.taskId,
+          session: widget.session,
+        );
+      } else {
+        await widget.controller.discardPendingChoiceConflict(
+          taskId: _task.taskId,
+          session: widget.session,
+        );
+      }
+      if (mounted) Navigator.of(context).pop();
+    } catch (_) {
+      _showMessage(
+        'Status server belum dapat diperiksa. Tindakan lokal tetap disimpan.',
+      );
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   Future<void> _submitCompletion() async {
@@ -498,7 +637,7 @@ final class _ResidentTaskDetailScreenState
           'Warga • ${widget.session.rtLabel}',
           style: Theme.of(context).textTheme.titleSmall,
         ),
-        if (widget.isCached || widget.session.isOfflineSnapshot) ...[
+        if (widget.isCached) ...[
           const SizedBox(height: 12),
           _ResidentTaskOfflineBanner(lastSyncedAt: widget.lastSyncedAt),
         ],
@@ -581,6 +720,7 @@ final class _ResidentTaskDetailScreenState
           kind: kind,
           pendingChoice: _task.pendingChoice,
         ),
+        onResolve: _busy ? null : _resolveTaskConflict,
       );
     }
     if (_task.pendingChoice != null) {
