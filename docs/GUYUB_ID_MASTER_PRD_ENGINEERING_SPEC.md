@@ -1438,6 +1438,7 @@ AT-024 — Task push is opt-in and routes only to authorized task screens
 **Then** resident task IDs resolve through the authorized active-task list and Pendamping RT verification notices open the same-RT verification queue
 **And** token registration/refresh/revocation remains scoped to the resident session or active operator membership
 **And** a cold-start notification remains pending when the first selected role cannot resolve it, until a matching role/session can resolve its authorized destination
+**And** `TASK_CANCELLED`/`TASK_CLOSED` notifications show a read-only terminal status and never resolve the task ID to a cached detail screen or expose participation/completion actions, even when offline cache still says ACTIVE
 **And** generic copy contains no resident details and never claims an official warning; push failure does not block task access.
 
 AT-025 — Same-device resident-data deletion is scoped and replay-safe
