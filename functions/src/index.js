@@ -193,6 +193,25 @@ exports.listTaskLifecycleEvents = onCall(callableOptions, async (request) => {
   }
 });
 
+exports.getLastValidWeatherSnapshot = onCall(callableOptions, async (request) => {
+  try {
+    if (request.auth?.uid) {
+      return await weatherSuggestions.getLastValidWeatherSnapshotForOperator(
+        operatorAuth(request), request.data,
+      );
+    }
+    const data = request.data;
+    if (data == null || typeof data !== 'object' || Array.isArray(data) ||
+        Object.keys(data).some((key) => key !== 'sessionToken')) {
+      throw new WeatherPipelineError('invalid-argument', 'Permintaan cuaca tidak valid.');
+    }
+    const session = await sessions.validateSession(data.sessionToken);
+    return await weatherSuggestions.getLastValidWeatherSnapshotForRt(session.communityId);
+  } catch (error) {
+    throw toHttpsError(error);
+  }
+});
+
 exports.listWeatherSuggestions = onCall(callableOptions, async (request) => {
   try {
     return await weatherSuggestions.listWeatherSuggestions(operatorAuth(request), request.data);

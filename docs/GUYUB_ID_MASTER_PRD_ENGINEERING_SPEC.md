@@ -1302,10 +1302,11 @@ SEC-10. App must tolerate replay/retry of offline commands without duplicating t
 # 22. Acceptance test catalogue
 
 ## AT-001 — Threshold cannot auto-send
-**Given** BMKG data crosses a configured rule  
-**When** the evaluator runs  
-**Then** a suggestion may exist  
-**And** no ACTIVE task exists until operator confirmation.
+**Given** BMKG data crosses an explicitly reviewed rule
+**When** the evaluator runs
+**Then** a same-RT operator may review a `SUGGESTED` record through the callable-backed review screen
+**And** choosing a recommendation opens only the matching approved catalog template versions
+**And** no DRAFT is created by the evaluator and no ACTIVE task exists until separate operator confirmation.
 
 ## AT-002 — Unsafe free-form task blocked
 **Given** an operator attempts to bypass catalog  
@@ -1336,7 +1337,11 @@ SEC-10. App must tolerate replay/retry of offline commands without duplicating t
 Emergency contacts and assembly points remain readable without network.
 
 ## AT-008 — Weather stale marker
-Cached weather always includes last update timestamp/offline indicator.
+**Given** a resident session or authenticated operator requests the last valid snapshot
+**When** the callable reads weather data
+**Then** RT scope is derived from the validated resident session or active operator membership, never client-supplied
+**And** the client caches only normalized values under the matching RT key and never overwrites a newer snapshot
+**And** cached weather includes source/fetch timestamps and is labeled stale or non-live; a failed refresh preserves the last valid cache.
 
 ## AT-009 — No forbidden PII
 Data model and UI contain no NIK/full address/resident GPS input.

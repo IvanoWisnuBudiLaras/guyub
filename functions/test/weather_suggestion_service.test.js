@@ -87,6 +87,13 @@ class FakeRepository {
     this.operatorLookups.push({ operatorUid, options });
     return [...this.suggestions.values()];
   }
+  async getLastValidSnapshotForOperator(operatorUid) {
+    this.operatorLookups.push({ operatorUid, snapshot: true });
+    return this.lastSnapshots.get('rt-a') ?? null;
+  }
+  async getLastValidSnapshotForRt(rtId) {
+    return this.lastSnapshots.get(rtId) ?? null;
+  }
 }
 
 function setup(options = {}) {
@@ -233,6 +240,34 @@ test('the scheduled pipeline has no default source, location, or rainfall thresh
   });
   assert.deepEqual(requestedSources, []);
   assert.equal(repository.snapshots.length, 0);
+});
+
+test('last valid snapshot is returned with minimal fields through server-derived RT scope', async () => {
+  const { repository, service } = setup();
+  await service.syncConfiguredSources();
+  const operatorResult = await service.getLastValidWeatherSnapshotForOperator(AUTH, {});
+  assert.deepEqual(Object.keys(operatorResult.snapshot).sort(), [
+    'communityId', 'fetchedAt', 'id', 'maximumAgeSeconds', 'rainfallMm',
+    'source', 'sourceUpdatedAt',
+  ]);
+  assert.equal(operatorResult.snapshot.communityId, 'rt-a');
+  assert.equal(operatorResult.snapshot.source, 'BMKG');
+  assert.equal(operatorResult.snapshot.rainfallMm, 32.5);
+  assert.equal(operatorResult.snapshot.sourceUpdatedAt, SOURCE_UPDATED_AT.toISOString());
+  assert.equal(repository.operatorLookups.at(-1).operatorUid, AUTH.operatorUid);
+
+  const residentResult = await service.getLastValidWeatherSnapshotForRt('rt-a');
+  assert.equal(residentResult.snapshot.communityId, 'rt-a');
+  assert.equal(
+    (await service.getLastValidWeatherSnapshotForRt('rt-missing')).snapshot,
+    null,
+  );
+  await assert.rejects(service.getLastValidWeatherSnapshotForOperator({
+    operatorUid: 'resident', signInProvider: 'anonymous',
+  }, {}), { code: 'permission-denied' });
+  await assert.rejects(service.getLastValidWeatherSnapshotForOperator(AUTH, {
+    communityId: 'rt-other',
+  }), { code: 'invalid-argument' });
 });
 
 test('suggestion listing requires a password-authenticated operator and rejects client scope', async () => {

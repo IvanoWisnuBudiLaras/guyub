@@ -137,16 +137,22 @@ Official forecast is synchronized, cached, shown with timestamp, and may produce
 - Persist last valid snapshot.
 - Build weather card.
 - Add explicit stale/offline state.
+- Fetch last-valid snapshots through resident-session or operator-membership callables.
+- Cache snapshots under RT-scoped local keys; show cached content before background refresh and retain it on failure.
 - Define configurable `weather_rules`.
 - Implement scheduled evaluator.
 - Generate idempotent `task_suggestions`.
-- Build operator suggestion review UI.
+- Build same-RT operator suggestion review UI and link recommendations only to matching approved catalog versions; task draft/activation remains a separate operator flow.
 
 ## Required tests
 - fetch failure preserves last valid snapshot;
 - malformed payload does not replace valid data;
 - same weather/rule interval does not create duplicate suggestions;
-- threshold evaluator never creates ACTIVE task.
+- operator and resident snapshot reads derive scope from trusted membership/session; forged RT scope is rejected;
+- direct client reads of weather config/snapshots/suggestions are denied;
+- an RT-keyed offline cache never displays another RT's snapshot, keeps a newer snapshot after fetch failure, and marks unknown/expired freshness safely;
+- stale suggestions cannot open the recommended task catalog;
+- threshold evaluator never creates DRAFT or ACTIVE tasks.
 
 ## Acceptance linkage
 AT-001, AT-008.
@@ -222,7 +228,7 @@ Core preparedness information remains useful without internet.
 - cache active tasks and template safety text,
 - cache emergency directory,
 - cache assembly points,
-- cache last valid weather snapshot,
+- cache last valid weather snapshot per RT; refresh through callable after rendering the cached value,
 - build offline banner/state,
 - implement local command queue,
 - add idempotency keys,
