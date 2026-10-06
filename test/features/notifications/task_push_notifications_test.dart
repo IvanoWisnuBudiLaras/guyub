@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/material.dart';
+import 'package:guyub/core/database/in_memory_local_store.dart';
 import 'package:guyub/features/auth/application/resident_session_vault.dart';
 import 'package:guyub/features/tasks/application/task_response.dart';
 import 'package:guyub/features/tasks/application/task_response_boundary.dart';
@@ -12,6 +13,7 @@ import 'package:guyub/features/tasks/presentation/screens/task_response_screens.
 import 'package:guyub/features/auth/application/operator_profile.dart';
 import 'package:guyub/features/auth/application/resident_session.dart';
 import 'package:guyub/features/notifications/application/task_push_notifications.dart';
+import 'package:guyub/features/notifications/data/firebase_task_push_notifications_boundary.dart';
 
 const _taskId = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
 final _session = ResidentSession(
@@ -137,28 +139,43 @@ ResidentTaskList _activeTaskList(String taskId) => ResidentTaskList(
 );
 
 final class _FakePreferences implements TaskPushPreferenceStore {
-  final values = <TaskPushAudience, bool>{};
+  final values = <(TaskPushAudience, String), bool>{};
   @override
-  Future<bool> isEnabled(TaskPushAudience audience) async =>
-      values[audience] ?? false;
+  Future<bool> isEnabled(
+    TaskPushAudience audience, {
+    required String identityId,
+  }) async => values[(audience, identityId)] ?? false;
   @override
-  Future<void> setEnabled(TaskPushAudience audience, bool enabled) async {
-    values[audience] = enabled;
+  Future<void> setEnabled(
+    TaskPushAudience audience, {
+    required String identityId,
+    required bool enabled,
+  }) async {
+    values[(audience, identityId)] = enabled;
   }
 }
 
 final class _FakeDeviceTokens implements TaskPushDeviceTokenStore {
-  final values = <TaskPushAudience, String>{};
+  final values = <(TaskPushAudience, String), String>{};
   @override
-  Future<String?> read(TaskPushAudience audience) async => values[audience];
+  Future<String?> read(
+    TaskPushAudience audience, {
+    required String identityId,
+  }) async => values[(audience, identityId)];
   @override
-  Future<void> write(TaskPushAudience audience, String token) async {
-    values[audience] = token;
+  Future<void> write(
+    TaskPushAudience audience, {
+    required String identityId,
+    required String token,
+  }) async {
+    values[(audience, identityId)] = token;
   }
 
   @override
-  Future<void> clear(TaskPushAudience audience) async =>
-      values.remove(audience);
+  Future<void> clear(
+    TaskPushAudience audience, {
+    required String identityId,
+  }) async => values.remove((audience, identityId));
 }
 
 void main() {
@@ -186,6 +203,53 @@ void main() {
     );
   });
 
+  test('local push preferences are scoped to each identity', () async {
+    final store = InMemoryLocalStore();
+    final preferences = LocalTaskPushPreferenceStore(store);
+
+    await preferences.setEnabled(
+      TaskPushAudience.resident,
+      identityId: 'resident-1',
+      enabled: true,
+    );
+    await preferences.setEnabled(
+      TaskPushAudience.pendamping,
+      identityId: 'operator/1',
+      enabled: true,
+    );
+
+    expect(
+      await preferences.isEnabled(
+        TaskPushAudience.resident,
+        identityId: 'resident-1',
+      ),
+      isTrue,
+    );
+    await store.write('task_push_opt_in_resident', 'true');
+    expect(
+      await preferences.isEnabled(
+        TaskPushAudience.resident,
+        identityId: 'resident-2',
+      ),
+      isFalse,
+    );
+    expect(
+      await preferences.isEnabled(
+        TaskPushAudience.pendamping,
+        identityId: 'operator/1',
+      ),
+      isTrue,
+    );
+    expect(
+      await preferences.isEnabled(
+        TaskPushAudience.pendamping,
+        identityId: 'operator/2',
+      ),
+      isFalse,
+    );
+    await store.close();
+  });
+
   test(
     'opening a resident dashboard never requests permission without opt-in',
     () async {
@@ -199,6 +263,131 @@ void main() {
       await controller.syncResidentSession(_session);
       expect(boundary.permissionRequests, 0);
       expect(boundary.registeredResidents, isEmpty);
+      await controller.dispose();
+      await boundary.refreshes.close();
+      await boundary.opened.close();
+      await boundary.foreground.close();
+    },
+  );
+
+  test(
+    'resident notification consent is not reused by another identity',
+    () async {
+      final boundary = _FakeBoundary();
+      final preferences = _FakePreferences()
+        ..values[(TaskPushAudience.resident, _session.residentId)] = true;
+      final tokens = _FakeDeviceTokens()
+        ..values[(TaskPushAudience.resident, _session.residentId)] =
+            'resident-1-token';
+      final controller = TaskPushNotificationsController(
+        boundary: boundary,
+        preferences: preferences,
+        deviceTokens: tokens,
+        readResidentSessionToken: () async => 'active-session-token',
+      );
+      final secondResident = ResidentSession(
+        residentId: 'resident-2',
+        communityId: 'rt-1',
+        communityName: 'Komunitas uji',
+        rtLabel: 'RT 01',
+        nickname: 'Warga lain',
+        expiresAt: DateTime.utc(2027),
+      );
+
+      await controller.syncResidentSession(secondResident);
+      expect(boundary.registeredResidents, isEmpty);
+      await controller.disableResident(secondResident);
+      expect(boundary.unregisteredResidents, isEmpty);
+      expect(
+        await tokens.read(
+          TaskPushAudience.resident,
+          identityId: _session.residentId,
+        ),
+        'resident-1-token',
+      );
+
+      await controller.dispose();
+      await boundary.refreshes.close();
+      await boundary.opened.close();
+      await boundary.foreground.close();
+    },
+  );
+
+  test(
+    'resident sign-out unregisters its push token before clearing the session',
+    () async {
+      final boundary = _FakeBoundary();
+      final preferences = _FakePreferences()
+        ..values[(TaskPushAudience.resident, _session.residentId)] = true;
+      final tokens = _FakeDeviceTokens()
+        ..values[(TaskPushAudience.resident, _session.residentId)] =
+            boundary.token!;
+      final controller = TaskPushNotificationsController(
+        boundary: boundary,
+        preferences: preferences,
+        deviceTokens: tokens,
+        readResidentSessionToken: () async => 'opaque-session-token',
+      );
+
+      await controller.syncResidentSession(_session);
+      boundary.registeredResidents.clear();
+      await controller.unregisterResidentBeforeSignOut(_session);
+      boundary.refreshes.add('fcm-token-after-sign-out');
+      await Future<void>.delayed(Duration.zero);
+
+      expect(boundary.unregisteredResidents, [
+        ('opaque-session-token', boundary.token!),
+      ]);
+      expect(
+        await tokens.read(
+          TaskPushAudience.resident,
+          identityId: _session.residentId,
+        ),
+        isNull,
+      );
+      expect(boundary.registeredResidents, isEmpty);
+
+      await controller.dispose();
+      await boundary.refreshes.close();
+      await boundary.opened.close();
+      await boundary.foreground.close();
+    },
+  );
+
+  test(
+    'operator notification consent is not reused by another identity',
+    () async {
+      final boundary = _FakeBoundary();
+      final preferences = _FakePreferences()
+        ..values[(TaskPushAudience.pendamping, 'operator-1')] = true;
+      final tokens = _FakeDeviceTokens()
+        ..values[(TaskPushAudience.pendamping, 'operator-1')] =
+            'operator-1-token';
+      final controller = TaskPushNotificationsController(
+        boundary: boundary,
+        preferences: preferences,
+        deviceTokens: tokens,
+        readResidentSessionToken: () async => null,
+      );
+      final secondOperator = OperatorProfile(
+        uid: 'operator-2',
+        communityId: 'rt-1',
+        role: OperatorRole.pendampingRt,
+        displayName: 'Pendamping lain',
+      );
+
+      await controller.syncPendamping(secondOperator);
+      expect(boundary.registeredOperators, isEmpty);
+      await controller.disablePendamping(secondOperator);
+      expect(boundary.unregisteredOperators, isEmpty);
+      expect(
+        await tokens.read(
+          TaskPushAudience.pendamping,
+          identityId: 'operator-1',
+        ),
+        'operator-1-token',
+      );
+
       await controller.dispose();
       await boundary.refreshes.close();
       await boundary.opened.close();
@@ -227,14 +416,32 @@ void main() {
       expect(boundary.registeredResidents, [
         ('opaque-session-token', boundary.token!),
       ]);
-      expect(await preferences.isEnabled(TaskPushAudience.resident), isTrue);
+      expect(
+        await preferences.isEnabled(
+          TaskPushAudience.resident,
+          identityId: _session.residentId,
+        ),
+        isTrue,
+      );
 
       await controller.disableResident(_session);
       expect(boundary.unregisteredResidents, [
         ('opaque-session-token', boundary.token!),
       ]);
-      expect(await preferences.isEnabled(TaskPushAudience.resident), isFalse);
-      expect(await tokens.read(TaskPushAudience.resident), isNull);
+      expect(
+        await preferences.isEnabled(
+          TaskPushAudience.resident,
+          identityId: _session.residentId,
+        ),
+        isFalse,
+      );
+      expect(
+        await tokens.read(
+          TaskPushAudience.resident,
+          identityId: _session.residentId,
+        ),
+        isNull,
+      );
       await controller.dispose();
       await boundary.refreshes.close();
       await boundary.opened.close();
@@ -247,9 +454,10 @@ void main() {
     () async {
       final boundary = _FakeBoundary();
       final preferences = _FakePreferences()
-        ..values[TaskPushAudience.resident] = true;
+        ..values[(TaskPushAudience.resident, _session.residentId)] = true;
       final tokens = _FakeDeviceTokens()
-        ..values[TaskPushAudience.resident] = boundary.token!;
+        ..values[(TaskPushAudience.resident, _session.residentId)] =
+            boundary.token!;
       final controller = TaskPushNotificationsController(
         boundary: boundary,
         preferences: preferences,
@@ -258,8 +466,20 @@ void main() {
       );
 
       await expectLater(controller.disableResident(_session), throwsStateError);
-      expect(await preferences.isEnabled(TaskPushAudience.resident), isTrue);
-      expect(await tokens.read(TaskPushAudience.resident), boundary.token);
+      expect(
+        await preferences.isEnabled(
+          TaskPushAudience.resident,
+          identityId: _session.residentId,
+        ),
+        isTrue,
+      );
+      expect(
+        await tokens.read(
+          TaskPushAudience.resident,
+          identityId: _session.residentId,
+        ),
+        boundary.token,
+      );
       expect(boundary.unregisteredResidents, isEmpty);
       await controller.dispose();
       await boundary.refreshes.close();
@@ -274,9 +494,10 @@ void main() {
       final boundary = _FakeBoundary()
         ..token = 'fcm-token-bbbbbbbbbbbbbbbbbbbb';
       final preferences = _FakePreferences()
-        ..values[TaskPushAudience.resident] = true;
+        ..values[(TaskPushAudience.resident, _session.residentId)] = true;
       final tokens = _FakeDeviceTokens()
-        ..values[TaskPushAudience.resident] = 'fcm-token-aaaaaaaaaaaaaaaaaaaa';
+        ..values[(TaskPushAudience.resident, _session.residentId)] =
+            'fcm-token-aaaaaaaaaaaaaaaaaaaa';
       final controller = TaskPushNotificationsController(
         boundary: boundary,
         preferences: preferences,
@@ -292,7 +513,13 @@ void main() {
       expect(boundary.registeredResidents, [
         ('opaque-session-token', 'fcm-token-bbbbbbbbbbbbbbbbbbbb'),
       ]);
-      expect(await tokens.read(TaskPushAudience.resident), boundary.token);
+      expect(
+        await tokens.read(
+          TaskPushAudience.resident,
+          identityId: _session.residentId,
+        ),
+        boundary.token,
+      );
       await controller.dispose();
       await boundary.refreshes.close();
       await boundary.opened.close();
@@ -305,9 +532,10 @@ void main() {
     () async {
       final boundary = _FakeBoundary();
       final preferences = _FakePreferences()
-        ..values[TaskPushAudience.resident] = true;
+        ..values[(TaskPushAudience.resident, _session.residentId)] = true;
       final tokens = _FakeDeviceTokens()
-        ..values[TaskPushAudience.resident] = boundary.token!;
+        ..values[(TaskPushAudience.resident, _session.residentId)] =
+            boundary.token!;
       final controller = TaskPushNotificationsController(
         boundary: boundary,
         preferences: preferences,
@@ -317,12 +545,24 @@ void main() {
       await controller.syncResidentSession(_session);
       boundary.registeredResidents.clear();
 
-      await controller.clearResidentStateAfterDeletion();
+      await controller.clearResidentStateAfterDeletion(_session);
       boundary.refreshes.add('fcm-token-after-deletion');
       await Future<void>.delayed(Duration.zero);
 
-      expect(await preferences.isEnabled(TaskPushAudience.resident), isFalse);
-      expect(await tokens.read(TaskPushAudience.resident), isNull);
+      expect(
+        await preferences.isEnabled(
+          TaskPushAudience.resident,
+          identityId: _session.residentId,
+        ),
+        isFalse,
+      );
+      expect(
+        await tokens.read(
+          TaskPushAudience.resident,
+          identityId: _session.residentId,
+        ),
+        isNull,
+      );
       expect(boundary.registeredResidents, isEmpty);
       await controller.dispose();
       await boundary.refreshes.close();
