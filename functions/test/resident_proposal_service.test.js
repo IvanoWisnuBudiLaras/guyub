@@ -258,6 +258,16 @@ test('rejects coordinate, NIK, mobile, and address data from title or descriptio
     '-6.200123, 106.816456',
     '-6.2, 106.8',
     'GPS: -6.2',
+    String.raw`7°45'22"S, 110°22'05"E`,
+    String.raw`7° 45′ 22″ S; 110° 22′ 05″ E`,
+    String.raw`S 7° 45′ 22″; E 110° 22′ 05″`,
+    String.raw`LS 7° 45′ 22″, BT 110° 22′ 05″`,
+    String.raw`7 45 22 S, 110 22 05 E`,
+    String.raw`S 7 45 22, E 110 22 05`,
+    String.raw`S 7° 45.5', E 110° 22.5'`,
+    String.raw`N 0° 45′ 22″, W 100° 22′ 05″`,
+    String.raw`7°45.366′S 110°22.083′E`,
+    String.raw`Koordinat: 7°45′22″, 110°22′05″`,
     'NIK 3175010101900001',
     'NIK 3175 0101 0190 0001',
     'NIK 1234/5678/9012/3456',
@@ -275,6 +285,10 @@ test('rejects coordinate, NIK, mobile, and address data from title or descriptio
       description,
     );
   }
+  const ordinaryText = await service.submitResidentProposal(payload({
+    description: 'Curah hujan 7,5 mm; dokumen penting sudah disiapkan.',
+  }));
+  assert.equal(ordinaryText.state, 'SUBMITTED');
 });
 
 test('enforces bounded text and only exposes pending same-RT operator queue', async () => {

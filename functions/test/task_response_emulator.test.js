@@ -293,6 +293,24 @@ test('resident task participation, completion, RT verification, recap, and acces
     commandId: randomRequestId(),
   });
   assertError(addressNote, 'INVALID_ARGUMENT');
+  for (const note of [
+    String.raw`7°45'22"S, 110°22'05"E`,
+    String.raw`7° 45′ 22″ S; 110° 22′ 05″ E`,
+    String.raw`S 7° 45′ 22″; E 110° 22′ 05″`,
+    String.raw`LS 7° 45′ 22″, BT 110° 22′ 05″`,
+    String.raw`7 45 22 S, 110 22 05 E`,
+    String.raw`S 7 45 22, E 110 22 05`,
+    String.raw`S 7° 45.5', E 110° 22.5'`,
+    String.raw`N 0° 45′ 22″, W 100° 22′ 05″`,
+    String.raw`7°45.366′S 110°22.083′E`,
+  ]) {
+    const coordinateNote = await callFunction('submitTaskCompletion', {
+      ...completionPayload,
+      note,
+      commandId: randomRequestId(),
+    });
+    assertError(coordinateNote, 'INVALID_ARGUMENT');
+  }
 
   const responseId = responseDocumentId(rtA, taskId, residentA.residentId);
   const responseDocument = await request('GET', documentUrl('task_responses', responseId), {

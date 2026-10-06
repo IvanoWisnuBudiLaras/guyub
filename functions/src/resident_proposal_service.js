@@ -1,5 +1,6 @@
 const crypto = require('node:crypto');
 const { hashSessionToken } = require('./resident_session_service');
+const { containsDmsCoordinates } = require('./precise_coordinate_detector');
 const { TASK_CATEGORIES, TASK_LOCATION_REFERENCES, OPERATOR_ROLES, asDate } =
   require('./task_campaign_service');
 
@@ -79,7 +80,7 @@ function containsForbiddenPersonalData(value) {
   // before matching so punctuation cannot hide a number sequence.
   const normalized = value.replace(/[()]/gu, '');
   return NIK_PATTERN.test(normalized) || MOBILE_PATTERN.test(normalized) ||
-    COORDINATE_PAIR_PATTERN.test(normalized) ||
+    COORDINATE_PAIR_PATTERN.test(normalized) || containsDmsCoordinates(normalized) ||
     LABELED_COORDINATE_PATTERN.test(normalized) ||
     EXPLICIT_ADDRESS_PATTERN.test(normalized) || STREET_ADDRESS_PATTERN.test(normalized) ||
     HOUSE_NUMBER_PATTERN.test(normalized);
