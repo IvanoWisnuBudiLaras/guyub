@@ -31,6 +31,10 @@ import '../features/tasks/data/firebase_task_campaign_boundary.dart';
 import '../features/tasks/data/firebase_task_response_boundary.dart';
 import '../features/tasks/data/resident_task_offline_store.dart';
 import '../features/weather/application/weather_snapshot_store.dart';
+import '../features/weather/application/weather_snapshot_boundary.dart';
+import '../features/weather/application/weather_suggestion_boundary.dart';
+import '../features/weather/data/firebase_weather_snapshot_boundary.dart';
+import '../features/weather/data/firebase_weather_suggestion_boundary.dart';
 import '../features/weather/data/weather_snapshot_cache.dart';
 import '../features/notifications/application/task_push_notifications.dart';
 import '../features/notifications/data/firebase_task_push_notifications_boundary.dart';
@@ -50,6 +54,8 @@ Future<Widget> createBootstrapApp(
   ResidentProposalReviewController? proposalReviewController,
   EmergencyDirectoryController? emergencyDirectoryController,
   WeatherSnapshotStore? weatherSnapshotStore,
+  WeatherSnapshotSyncController? weatherSnapshotSyncController,
+  WeatherSuggestionBoundary? weatherSuggestionBoundary,
   ProxyResidentController? proxyResidentController,
   AssistanceVolunteerController? assistanceVolunteerController,
   TaskPushNotificationsController? taskPushNotificationsController,
@@ -65,6 +71,8 @@ Future<Widget> createBootstrapApp(
     proposalReviewController: proposalReviewController,
     emergencyDirectoryController: emergencyDirectoryController,
     weatherSnapshotStore: weatherSnapshotStore,
+    weatherSnapshotSyncController: weatherSnapshotSyncController,
+    weatherSuggestionBoundary: weatherSuggestionBoundary,
     proxyResidentController: proxyResidentController,
     assistanceVolunteerController: assistanceVolunteerController,
     taskPushNotificationsController: taskPushNotificationsController,
@@ -92,6 +100,9 @@ Future<void> bootstrap(AppConfig config) async {
   EmergencyDirectoryBoundary? emergencyDirectoryBoundary;
   EmergencyDirectoryController? emergencyDirectoryController;
   WeatherSnapshotStore? weatherSnapshotStore;
+  WeatherSnapshotBoundary? weatherSnapshotBoundary;
+  WeatherSnapshotSyncController? weatherSnapshotSyncController;
+  WeatherSuggestionBoundary? weatherSuggestionBoundary;
   ProxyResidentController? proxyResidentController;
   AssistanceVolunteerController? assistanceVolunteerController;
   TaskPushNotificationsController? taskPushNotificationsController;
@@ -159,6 +170,10 @@ Future<void> bootstrap(AppConfig config) async {
         emergencyDirectoryBoundary = FirebaseEmergencyDirectoryBoundary(
           functions,
         );
+        weatherSnapshotBoundary = FirebaseWeatherSnapshotBoundary(functions);
+        weatherSuggestionBoundary = FirebaseWeatherSuggestionBoundary(
+          functions,
+        );
         residentSessionController = ResidentSessionController(
           boundary: FirebaseResidentSessionBoundary(functions),
           vault: residentVault,
@@ -212,6 +227,14 @@ Future<void> bootstrap(AppConfig config) async {
   if (localStore != null) {
     final weatherCache = WeatherSnapshotCache(localStore);
     weatherSnapshotStore = weatherCache;
+    final weatherBoundary = weatherSnapshotBoundary;
+    if (weatherBoundary != null) {
+      weatherSnapshotSyncController = WeatherSnapshotSyncController(
+        boundary: weatherBoundary,
+        store: weatherCache,
+        readResidentSessionToken: residentVault.read,
+      );
+    }
     emergencyDirectoryController = EmergencyDirectoryController(
       boundary:
           emergencyDirectoryBoundary ??
@@ -232,6 +255,8 @@ Future<void> bootstrap(AppConfig config) async {
       proposalReviewController: proposalReviewController,
       emergencyDirectoryController: emergencyDirectoryController,
       weatherSnapshotStore: weatherSnapshotStore,
+      weatherSnapshotSyncController: weatherSnapshotSyncController,
+      weatherSuggestionBoundary: weatherSuggestionBoundary,
       proxyResidentController: proxyResidentController,
       assistanceVolunteerController: assistanceVolunteerController,
       taskPushNotificationsController: taskPushNotificationsController,

@@ -129,9 +129,61 @@ function validateSuggestion(record, expectedId, expectedRtId) {
   return { ...normalized, suggestionFingerprint: fingerprint };
 }
 
+async function lastValidSnapshotInTransaction(transaction, firestore, rtId) {
+  const pointerRef = firestore.collection(LAST_VALID_COLLECTION).doc(rtId);
+  const pointerSnapshot = await transaction.get(pointerRef);
+  if (!pointerSnapshot.exists) return null;
+  const pointer = pointerSnapshot.data();
+  if (pointer?.rtId !== rtId || !HASH_ID_PATTERN.test(pointer.snapshotId || '')) {
+    throw invalidData();
+  }
+  const weatherSnapshot = await transaction.get(
+    firestore.collection(WEATHER_SNAPSHOT_COLLECTION).doc(pointer.snapshotId),
+  );
+  if (!weatherSnapshot.exists || weatherSnapshot.data()?.isLastValid !== true) {
+    throw invalidData();
+  }
+  const snapshot = snapshotRecord(weatherSnapshot.data(), pointer.snapshotId, rtId);
+  let maximumAgeSeconds = null;
+  try {
+    const sourceSnapshot = await transaction.get(
+      firestore.collection(WEATHER_SOURCE_COLLECTION).doc(rtId),
+    );
+    if (sourceSnapshot.exists) {
+      const source = validateWeatherSource({
+        ...sourceSnapshot.data(),
+        sourceId: sourceSnapshot.id,
+      }, new Date());
+      if (source.sourceFingerprint === snapshot.sourceFingerprint) {
+        maximumAgeSeconds = source.maximumAgeSeconds;
+      }
+    }
+  } catch (_) {
+    // Keep the last valid snapshot readable, but do not claim its freshness.
+  }
+  return { ...snapshot, maximumAgeSeconds };
+}
+
 class FirestoreWeatherSuggestionRepository {
   constructor(firestore) {
     this.firestore = firestore;
+  }
+
+  async getLastValidSnapshotForOperator(operatorUid) {
+    const operatorRef = this.firestore.collection('operators').doc(operatorUid);
+    let result = null;
+    await this.firestore.runTransaction(async (transaction) => {
+      const operatorSnapshot = await transaction.get(operatorRef);
+      const rtId = requireOperator(operatorSnapshot);
+      result = await lastValidSnapshotInTransaction(transaction, this.firestore, rtId);
+    });
+    return result;
+  }
+
+  async getLastValidSnapshotForRt(rtId) {
+    if (!RT_ID_PATTERN.test(rtId || '')) throw invalidData();
+    return this.firestore.runTransaction((transaction) =>
+      lastValidSnapshotInTransaction(transaction, this.firestore, rtId));
   }
 
   async listEnabledWeatherSources() {

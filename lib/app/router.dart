@@ -21,6 +21,9 @@ import '../features/auth/presentation/screens/role_selection_screen.dart';
 import '../features/emergency/application/emergency_directory_controller.dart';
 import '../features/emergency/presentation/emergency_directory_screen.dart';
 import '../features/weather/application/weather_snapshot_store.dart';
+import '../features/weather/application/weather_snapshot_boundary.dart';
+import '../features/weather/application/weather_suggestion_boundary.dart';
+import '../features/weather/presentation/weather_suggestion_review_screen.dart';
 import '../features/assistance/application/assistance_volunteer_boundary.dart';
 import '../features/assistance/application/proxy_resident_boundary.dart';
 import '../features/assistance/presentation/assistance_volunteer_screen.dart';
@@ -36,6 +39,8 @@ final class AppRouter {
   static const String operatorTaskCatalog = '/operator/tasks/catalog';
   static const String operatorActiveTasks = '/operator/tasks/active';
   static const String operatorTaskHistory = '/operator/tasks/history';
+  static const String operatorWeatherSuggestions =
+      '/operator/weather-suggestions';
   static const String operatorTaskVerification = '/operator/tasks/verification';
   static const String residentEntry = '/resident/entry';
   static const String residentHome = '/resident/home';
@@ -56,6 +61,8 @@ final class AppRouter {
     ResidentProposalReviewController? proposalReviewController,
     EmergencyDirectoryController? emergencyDirectoryController,
     WeatherSnapshotStore? weatherSnapshotStore,
+    WeatherSnapshotSyncController? weatherSnapshotSyncController,
+    WeatherSuggestionBoundary? weatherSuggestionBoundary,
     ProxyResidentController? proxyResidentController,
     AssistanceVolunteerController? assistanceVolunteerController,
     TaskPushNotificationsController? taskPushNotificationsController,
@@ -89,6 +96,7 @@ final class AppRouter {
               proposalReviewController: proposalReviewController,
               proxyResidentController: proxyResidentController,
               taskPushNotificationsController: taskPushNotificationsController,
+              weatherSuggestionBoundary: weatherSuggestionBoundary,
             );
             if (taskPushNotificationsController == null ||
                 profile.role != OperatorRole.pendampingRt) {
@@ -102,6 +110,26 @@ final class AppRouter {
               child: home,
             );
           },
+          settings: settings,
+        );
+      case operatorWeatherSuggestions:
+        final profile = settings.arguments;
+        final suggestions = weatherSuggestionBoundary;
+        if (profile is! OperatorProfile ||
+            suggestions == null ||
+            taskCampaignBoundary == null) {
+          return _roleSelection(settings);
+        }
+        return MaterialPageRoute<void>(
+          builder: (_) => WeatherSuggestionReviewScreen(
+            profile: profile,
+            suggestionBoundary: suggestions,
+            taskCampaignController: TaskCampaignController(
+              taskCampaignBoundary,
+            ),
+            weatherSnapshotStore: weatherSnapshotStore,
+            weatherSnapshotSyncController: weatherSnapshotSyncController,
+          ),
           settings: settings,
         );
       case operatorTaskCatalog:
@@ -213,6 +241,7 @@ final class AppRouter {
               taskResponseController: taskResponseController,
               residentProposalController: residentProposalController,
               weatherSnapshotStore: weatherSnapshotStore,
+              weatherSnapshotSyncController: weatherSnapshotSyncController,
               assistanceVolunteerController: assistanceVolunteerController,
               taskPushNotificationsController: taskPushNotificationsController,
             );
