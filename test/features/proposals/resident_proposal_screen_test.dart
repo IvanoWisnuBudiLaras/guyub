@@ -110,6 +110,33 @@ void main() {
       expect(boundary.activationCalls, 0);
     },
   );
+
+  testWidgets(
+    'same-RT operator can mark a submitted proposal as needing official report without activation',
+    (tester) async {
+      final boundary = _FakeProposalBoundary(withQueueItem: true);
+      final controller = ResidentProposalReviewController(
+        boundary: boundary,
+        commandIdFactory: () => 'off-${'c' * 36}',
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ResidentProposalReviewScreen(
+            profile: _operatorProfile,
+            controller: controller,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Arahkan ke kanal resmi'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('proposal-official-proposal-1')));
+      await tester.pumpAndSettle();
+
+      expect(boundary.lastDecision, 'NEEDS_OFFICIAL_REPORT');
+      expect(boundary.activationCalls, 0);
+    },
+  );
 }
 
 final _residentSession = ResidentSession(

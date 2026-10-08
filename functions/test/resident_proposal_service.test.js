@@ -82,8 +82,9 @@ class FakeRepository {
       error.code = 'permission-denied';
       throw error;
     }
-    if (record.state === 'DISMISSED') {
-      if (record.reviewCommandHash === input.commandHash &&
+    if (['DISMISSED', 'NEEDS_OFFICIAL_REPORT'].includes(record.state)) {
+      if (record.reviewDecision === input.decision &&
+          record.reviewCommandHash === input.commandHash &&
           record.reviewedByOperatorUid === input.operatorUid) return structuredClone(record);
       const error = new Error('already reviewed');
       error.code = 'failed-precondition';
@@ -233,7 +234,7 @@ test('enforces bounded text and only exposes pending same-RT operator queue', as
   });
 });
 
-test('review allows only DISMISSED and is idempotent for the same command', async () => {
+test('review allows only DISMISSED or NEEDS_OFFICIAL_REPORT and is idempotent for the same command', async () => {
   const { service } = setup();
   const submitted = await service.submitResidentProposal(payload());
   await assert.rejects(service.reviewResidentProposal(AUTH, {
@@ -258,4 +259,19 @@ test('review allows only DISMISSED and is idempotent for the same command', asyn
     decision: 'DISMISSED',
     commandId: 'z'.repeat(43),
   }), { code: 'failed-precondition' });
+
+  // Test NEEDS_OFFICIAL_REPORT
+  const submitted2 = await service.submitResidentProposal(payload({ requestId: 'request-for-official-report-0001' }));
+  const officialReview = await service.reviewResidentProposal(AUTH, {
+    proposalId: submitted2.proposalId,
+    decision: 'NEEDS_OFFICIAL_REPORT',
+    commandId: REQUEST_ID,
+  });
+  assert.equal(officialReview.state, 'NEEDS_OFFICIAL_REPORT');
+  assert.equal(officialReview.reviewedAt, NOW.toISOString());
+  assert.deepEqual(await service.reviewResidentProposal(AUTH, {
+    proposalId: submitted2.proposalId,
+    decision: 'NEEDS_OFFICIAL_REPORT',
+    commandId: REQUEST_ID,
+  }), officialReview);
 });

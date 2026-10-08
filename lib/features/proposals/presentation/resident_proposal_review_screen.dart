@@ -59,6 +59,24 @@ final class _ResidentProposalReviewScreenState
     }
   }
 
+  Future<void> _markNeedsOfficialReport(ResidentProposalRecord proposal) async {
+    setState(() {
+      _busyIds.add(proposal.proposalId);
+      _error = null;
+    });
+    try {
+      await widget.controller.markNeedsOfficialReport(proposal.proposalId);
+      if (!mounted) return;
+      await _refresh();
+    } catch (_) {
+      if (mounted) {
+        setState(() => _error = 'Usulan belum dapat diperbarui. Coba lagi.');
+      }
+    } finally {
+      if (mounted) setState(() => _busyIds.remove(proposal.proposalId));
+    }
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: const Text('Tinjau Usulan Warga')),
@@ -147,6 +165,9 @@ final class _ResidentProposalReviewScreenState
                         onDismiss: proposal.state == 'SUBMITTED'
                             ? () => _dismiss(proposal)
                             : null,
+                        onOfficialReport: proposal.state == 'SUBMITTED'
+                            ? () => _markNeedsOfficialReport(proposal)
+                            : null,
                       ),
                   ],
                 ),
@@ -164,11 +185,13 @@ final class _ProposalCard extends StatelessWidget {
     required this.proposal,
     required this.busy,
     required this.onDismiss,
+    this.onOfficialReport,
   });
 
   final ResidentProposalRecord proposal;
   final bool busy;
   final VoidCallback? onDismiss;
+  final VoidCallback? onOfficialReport;
 
   @override
   Widget build(BuildContext context) => Card(
@@ -191,24 +214,42 @@ final class _ProposalCard extends StatelessWidget {
           Text(
             proposal.state == 'SUBMITTED'
                 ? 'Menunggu tinjauan RT'
+                : proposal.state == 'NEEDS_OFFICIAL_REPORT'
+                ? 'Perlu penanganan kanal resmi'
                 : 'Usulan ditutup',
           ),
-          if (onDismiss != null) ...[
+          if (onDismiss != null || onOfficialReport != null) ...[
             const SizedBox(height: 8),
-            Align(
-              alignment: Alignment.centerRight,
-              child: TextButton.icon(
-                key: Key('proposal-dismiss-${proposal.proposalId}'),
-                onPressed: busy ? null : onDismiss,
-                icon: busy
-                    ? const SizedBox.square(
-                        dimension: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.archive_outlined),
-                label: const Text('Tutup usulan'),
+            if (onOfficialReport != null)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  key: Key('proposal-official-${proposal.proposalId}'),
+                  onPressed: busy ? null : onOfficialReport,
+                  icon: busy
+                      ? const SizedBox.square(
+                          dimension: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.outbond_outlined),
+                  label: const Text('Arahkan ke kanal resmi'),
+                ),
               ),
-            ),
+            if (onDismiss != null)
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  key: Key('proposal-dismiss-${proposal.proposalId}'),
+                  onPressed: busy ? null : onDismiss,
+                  icon: busy
+                      ? const SizedBox.square(
+                          dimension: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.archive_outlined),
+                  label: const Text('Tutup usulan'),
+                ),
+              ),
           ],
         ],
       ),

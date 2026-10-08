@@ -56,23 +56,47 @@ void main() {
     expect(boundary.decisions, ['DISMISSED', 'DISMISSED']);
   });
 
-  test(
-    'wire parser rejects unknown workflow states and free-text locations',
-    () {
-      final payload = _proposalWire();
-      expect(
-        () => ResidentProposalRecord.fromWire({...payload, 'state': 'ACTIVE'}),
-        throwsFormatException,
-      );
-      expect(
-        () => ResidentProposalRecord.fromWire({
-          ...payload,
-          'locationReference': 'Masuk ke saluran air',
-        }),
-        throwsFormatException,
-      );
-    },
-  );
+  test('wire parser accepts NEEDS_OFFICIAL_REPORT and rejects unknown workflow states', () {
+    final payload = _proposalWire();
+    final official = ResidentProposalRecord.fromWire({
+      ...payload,
+      'state': 'NEEDS_OFFICIAL_REPORT',
+      'reviewedAt': '2026-10-04T13:00:00.000Z',
+    });
+    expect(official.state, 'NEEDS_OFFICIAL_REPORT');
+    expect(official.reviewedAt, isNotNull);
+
+    expect(
+      () => ResidentProposalRecord.fromWire({...payload, 'state': 'ACTIVE'}),
+      throwsFormatException,
+    );
+    expect(
+      () => ResidentProposalRecord.fromWire({
+        ...payload,
+        'locationReference': 'Masuk ke saluran air',
+      }),
+      throwsFormatException,
+    );
+  });
+
+  test('operator review can mark proposal as NEEDS_OFFICIAL_REPORT with stable command ID', () async {
+    final boundary = _FakeProposalBoundary()..failNextReview = true;
+    final controller = ResidentProposalReviewController(
+      boundary: boundary,
+      commandIdFactory: () => 'cmd-official-001',
+    );
+    await expectLater(
+      controller.markNeedsOfficialReport('a' * 40),
+      throwsStateError,
+    );
+    final record = await controller.markNeedsOfficialReport('a' * 40);
+    expect(record.state, 'NEEDS_OFFICIAL_REPORT');
+    expect(boundary.decisions, [
+      'NEEDS_OFFICIAL_REPORT',
+      'NEEDS_OFFICIAL_REPORT',
+    ]);
+    expect(boundary.commandIds, ['cmd-official-001', 'cmd-official-001']);
+  });
 }
 
 Map<String, Object?> _proposalWire({String state = 'SUBMITTED'}) => {

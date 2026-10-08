@@ -45,7 +45,7 @@ function proposalFromSnapshot(snapshot) {
   if (proposal?.proposalId !== snapshot.id || typeof proposal.rtId !== 'string' ||
       typeof proposal.residentId !== 'string' || typeof proposal.title !== 'string' ||
       typeof proposal.description !== 'string' || typeof proposal.category !== 'string' ||
-      !['SUBMITTED', 'DISMISSED'].includes(proposal.state) || !asDate(proposal.submittedAt)) {
+      !['SUBMITTED', 'DISMISSED', 'NEEDS_OFFICIAL_REPORT'].includes(proposal.state) || !asDate(proposal.submittedAt)) {
     return null;
   }
   return {
@@ -67,7 +67,10 @@ function publicQueueItem(proposal, nickname) {
 }
 
 function auditMatches(audit, input, operator) {
-  return audit?.action === 'RESIDENT_PROPOSAL_DISMISSED' &&
+  const expectedAction = input.decision === 'NEEDS_OFFICIAL_REPORT'
+    ? 'RESIDENT_PROPOSAL_MARKED_NEEDS_OFFICIAL_REPORT'
+    : 'RESIDENT_PROPOSAL_DISMISSED';
+  return audit?.action === expectedAction &&
     audit.proposalId === input.proposalId && audit.rtId === operator.rtId &&
     audit.actorUid === input.operatorUid && audit.commandHash === input.commandHash;
 }
@@ -148,10 +151,19 @@ class FirestoreResidentProposalRepository {
   }
 
   async reviewProposal(input) {
+    if (!['DISMISSED', 'NEEDS_OFFICIAL_REPORT'].includes(input.decision)) {
+      throw fail('invalid-argument', 'Keputusan peninjauan tidak valid.');
+    }
+    const auditDocId = input.decision === 'NEEDS_OFFICIAL_REPORT'
+      ? `${input.proposalId}_official_report`
+      : `${input.proposalId}_dismissed`;
+    const auditAction = input.decision === 'NEEDS_OFFICIAL_REPORT'
+      ? 'RESIDENT_PROPOSAL_MARKED_NEEDS_OFFICIAL_REPORT'
+      : 'RESIDENT_PROPOSAL_DISMISSED';
+
     const operatorRef = this.firestore.collection(OPERATOR_COLLECTION).doc(input.operatorUid);
     const proposalRef = this.firestore.collection(PROPOSAL_COLLECTION).doc(input.proposalId);
-    const auditRef = this.firestore.collection(AUDIT_COLLECTION)
-      .doc(`${input.proposalId}_dismissed`);
+    const auditRef = this.firestore.collection(AUDIT_COLLECTION).doc(auditDocId);
     let result;
 
     await this.firestore.runTransaction(async (transaction) => {
@@ -163,9 +175,9 @@ class FirestoreResidentProposalRepository {
       if (!proposal) throw deny();
       if (proposal.rtId !== operator.rtId) throw deny();
 
-      if (proposal.state === 'DISMISSED') {
+      if (proposal.state === input.decision) {
         const storedProposal = proposalSnapshot.data();
-        if (storedProposal.reviewDecision === 'DISMISSED' &&
+        if (storedProposal.reviewDecision === input.decision &&
             storedProposal.reviewCommandHash === input.commandHash &&
             storedProposal.reviewedByOperatorUid === input.operatorUid && auditSnapshot.exists &&
             auditMatches(auditSnapshot.data(), input, operator)) {
@@ -180,18 +192,19 @@ class FirestoreResidentProposalRepository {
       if (auditSnapshot.exists) throw fail('failed-precondition', 'Riwayat peninjauan tidak konsisten.');
 
       const update = {
-        state: 'DISMISSED',
-        reviewDecision: 'DISMISSED',
+        state: input.decision,
+        reviewDecision: input.decision,
         reviewCommandHash: input.commandHash,
         reviewedByOperatorUid: input.operatorUid,
         reviewedAt: input.now,
       };
       transaction.update(proposalRef, update);
       transaction.create(auditRef, {
-        auditId: `${input.proposalId}_dismissed`,
+        auditId: auditDocId,
         proposalId: input.proposalId,
         rtId: operator.rtId,
-        action: 'RESIDENT_PROPOSAL_DISMISSED',
+        action: auditAction,
+        decision: input.decision,
         actorUid: input.operatorUid,
         commandHash: input.commandHash,
         occurredAt: input.now,

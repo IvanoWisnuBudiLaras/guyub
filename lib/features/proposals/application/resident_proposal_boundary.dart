@@ -84,7 +84,9 @@ final class ResidentProposalRecord {
       throw const FormatException('Invalid proposal location.');
     }
     final state = _requiredString(wire['state'], 'state');
-    if (state != 'SUBMITTED' && state != 'DISMISSED') {
+    if (state != 'SUBMITTED' &&
+        state != 'DISMISSED' &&
+        state != 'NEEDS_OFFICIAL_REPORT') {
       throw const FormatException('Invalid proposal state.');
     }
     final proposalId = _requiredString(wire['proposalId'], 'proposalId');
@@ -177,6 +179,23 @@ final class ResidentProposalReviewController {
       final result = await boundary.reviewResidentProposal(
         proposalId: proposalId,
         decision: 'DISMISSED',
+        commandId: commandId,
+      );
+      _commandIds.remove(proposalId);
+      return result;
+    } catch (_) {
+      rethrow;
+    }
+  }
+
+  Future<ResidentProposalRecord> markNeedsOfficialReport(
+    String proposalId,
+  ) async {
+    final commandId = _commandIds.putIfAbsent(proposalId, _commandIdFactory);
+    try {
+      final result = await boundary.reviewResidentProposal(
+        proposalId: proposalId,
+        decision: 'NEEDS_OFFICIAL_REPORT',
         commandId: commandId,
       );
       _commandIds.remove(proposalId);

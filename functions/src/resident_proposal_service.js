@@ -121,7 +121,8 @@ function publicProposal(proposal) {
     locationReference: proposal.locationReference ?? null,
     state: proposal.state,
     submittedAt: iso(proposal.submittedAt),
-    ...(proposal.state === 'DISMISSED' ? { reviewedAt: iso(proposal.reviewedAt) } : {}),
+    ...(proposal.state === 'DISMISSED' || proposal.state === 'NEEDS_OFFICIAL_REPORT'
+      ? { reviewedAt: iso(proposal.reviewedAt) } : {}),
   };
 }
 
@@ -177,11 +178,12 @@ class ResidentProposalService {
     };
   }
 
+  // [status-usulan:kanal-resmi]: Tandai usulan butuh tindak lanjut tanpa mengklaim laporan eksternal terkirim.
   async reviewResidentProposal(auth, data) {
     validateOperatorAuth(auth);
     assertOnlyKeys(data, ['proposalId', 'decision', 'commandId']);
     if (typeof data.proposalId !== 'string' || !PROPOSAL_ID_PATTERN.test(data.proposalId) ||
-        data.decision !== 'DISMISSED') {
+        !['DISMISSED', 'NEEDS_OFFICIAL_REPORT'].includes(data.decision)) {
       throw invalidArgument('Keputusan peninjauan tidak valid.');
     }
     const commandId = requireRequestId(data.commandId);
