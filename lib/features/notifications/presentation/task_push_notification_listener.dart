@@ -119,8 +119,9 @@ final class _TaskPushNotificationListenerState
   }
 
   Future<void> _openInitial() async {
-    final notification = await widget.controller.consumeInitialNotification();
-    if (mounted && notification != null) _open(notification);
+    final notification = await widget.controller
+        .readPendingInitialNotification();
+    if (mounted && notification != null) _open(notification, isInitial: true);
   }
 
   void _showForeground(TaskPushNotification notification) {
@@ -152,7 +153,7 @@ final class _TaskPushNotificationListenerState
       );
   }
 
-  void _open(TaskPushNotification notification) {
+  void _open(TaskPushNotification notification, {bool isInitial = false}) {
     if (!mounted || _routing) return;
     final destination = taskNotificationDestination(
       notification: notification,
@@ -162,6 +163,9 @@ final class _TaskPushNotificationListenerState
       campaignBoundary: widget.campaignBoundary,
     );
     if (destination == null) return;
+    if (isInitial) {
+      widget.controller.acknowledgeInitialNotification(notification);
+    }
     _routing = true;
     unawaited(
       Navigator.of(context)
