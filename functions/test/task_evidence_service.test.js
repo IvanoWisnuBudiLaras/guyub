@@ -90,8 +90,14 @@ class FakeRepository {
 
   async listDueEvidence(input) {
     this.calls.push(['listDueEvidence', input]);
-    return [...this.records.values()].filter((record) => record.expiresAt <= input.now &&
-      record.status !== 'DELETED').map((record) => ({ ...record }));
+    let all = [...this.records.values()];
+    if (input.startAfterEvidenceId) {
+      const idx = all.findIndex((r) => r.evidenceId === input.startAfterEvidenceId);
+      if (idx >= 0) all = all.slice(idx + 1);
+    }
+    all = all.filter((record) => record.expiresAt <= input.now && record.status !== 'DELETED');
+    if (input.limit) all = all.slice(0, input.limit);
+    return all.map((record) => ({ ...record }));
   }
 
   async beginExpiredDeletion(input) {
@@ -321,4 +327,39 @@ test('retention cleanup physically deletes expired objects and retries failures'
   assert.deepEqual(failed, { examined: 1, deleted: 0, retryPending: 1 });
   assert.equal(storage.objects.has(pendingPath), true);
   assert.equal(repository.records.get(pending.evidenceId).status, 'DELETE_PENDING');
+});
+
+test('retention cleanup paginates across batches and prevents starvation when items fail', async () => {
+  const repository = new FakeRepository();
+  const storage = new FakeStorage();
+  const { service } = createService(repository, storage);
+
+  const later = new Date('2026-11-05T12:00:00.000Z');
+  const past = new Date('2026-10-01T12:00:00.000Z');
+  for (let i = 0; i < 125; i += 1) {
+    const id = `evi-${String(i).padStart(4, '0')}`;
+    const storagePath = `evidence/test/${id}.jpg`;
+    storage.objects.set(storagePath, Buffer.from('test'));
+    repository.records.set(id, {
+      evidenceId: id,
+      storagePath,
+      status: 'READY',
+      expiresAt: past,
+      uploadLeaseUntil: null,
+    });
+  }
+
+  const failingPath = 'evidence/test/evi-0000.jpg';
+  const originalDelete = storage.delete.bind(storage);
+  storage.delete = async (p) => {
+    if (p === failingPath) throw new Error('Simulated failure on first item');
+    return originalDelete(p);
+  };
+
+  const cleanup = await service.deleteExpiredEvidence({ now: later, batchSize: 50 });
+  assert.equal(cleanup.examined, 125);
+  assert.equal(cleanup.deleted, 124);
+  assert.equal(cleanup.retryPending, 1);
+  assert.equal(repository.records.get('evi-0000').status, 'DELETE_PENDING');
+  assert.equal(repository.records.get('evi-0124').status, 'DELETED');
 });

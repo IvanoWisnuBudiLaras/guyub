@@ -266,35 +266,54 @@ class TaskEvidenceService {
     return { deleted: true };
   }
 
+  // [cleanup-bukti:isolasi-starvasi]: Paginasi multi-batch dengan cursor; item gagal tidak memblokir record berikutnya.
   async deleteExpiredEvidence(options = {}) {
     const now = options.now ?? this.clock();
-    const records = await this.repository.listDueEvidence({ now, limit: MAX_CLEANUP_BATCH });
+    const batchSize = options.batchSize ?? MAX_CLEANUP_BATCH;
+    const maxBatches = options.maxBatches ?? 20;
+    let examined = 0;
     let deleted = 0;
     let retryPending = 0;
-    for (const candidate of records) {
-      const record = await this.repository.beginExpiredDeletion({
-        evidenceId: candidate.evidenceId,
+    let lastRecord = null;
+
+    for (let batch = 0; batch < maxBatches; batch += 1) {
+      const records = await this.repository.listDueEvidence({
         now,
+        limit: batchSize,
+        startAfterDoc: lastRecord?._doc,
+        startAfterEvidenceId: lastRecord?.evidenceId,
       });
-      if (!record) continue;
-      try {
-        await this.storage.delete(record.storagePath);
-        await this.repository.markDeleted({ evidenceId: record.evidenceId, now });
-        deleted += 1;
-      } catch (_) {
-        await this.repository.markDeleteFailed({
-          evidenceId: record.evidenceId,
+      if (!records || records.length === 0) break;
+
+      for (const candidate of records) {
+        lastRecord = candidate;
+        const record = await this.repository.beginExpiredDeletion({
+          evidenceId: candidate.evidenceId,
           now,
-          errorCode: 'storage-delete-failed',
         });
-        console.warn('Task evidence deletion remains pending.', {
-          evidenceId: record.evidenceId,
-          errorCode: 'storage-delete-failed',
-        });
-        retryPending += 1;
+        if (!record) continue;
+        try {
+          await this.storage.delete(record.storagePath);
+          await this.repository.markDeleted({ evidenceId: record.evidenceId, now });
+          deleted += 1;
+        } catch (_) {
+          await this.repository.markDeleteFailed({
+            evidenceId: record.evidenceId,
+            now,
+            errorCode: 'storage-delete-failed',
+          });
+          console.warn('Task evidence deletion remains pending.', {
+            evidenceId: record.evidenceId,
+            errorCode: 'storage-delete-failed',
+          });
+          retryPending += 1;
+        }
       }
+      examined += records.length;
+      if (records.length < batchSize) break;
     }
-    return { examined: records.length, deleted, retryPending };
+
+    return { examined, deleted, retryPending };
   }
 
   async _deleteObject(record, now) {

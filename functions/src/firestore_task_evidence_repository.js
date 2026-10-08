@@ -197,12 +197,15 @@ class FirestoreTaskEvidenceRepository {
   }
 
   async listDueEvidence(input) {
-    const snapshot = await this.firestore.collection(EVIDENCE_COLLECTION)
+    let query = this.firestore.collection(EVIDENCE_COLLECTION)
       .where('expiresAt', '<=', input.now)
-      .limit(input.limit)
-      .get();
+      .orderBy('expiresAt');
+    if (input.startAfterDoc) {
+      query = query.startAfter(input.startAfterDoc);
+    }
+    const snapshot = await query.limit(input.limit).get();
     return snapshot.docs
-      .map((doc) => ({ ...doc.data(), evidenceId: doc.id }))
+      .map((doc) => ({ ...doc.data(), evidenceId: doc.id, _doc: doc }))
       .filter((record) => record.status !== 'DELETED');
   }
 
