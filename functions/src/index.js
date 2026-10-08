@@ -158,9 +158,25 @@ exports.listRtTaskHistory = onCall(callableOptions, async (request) => {
   }
 });
 
+exports.listTaskLifecycleEvents = onCall(callableOptions, async (request) => {
+  try {
+    return await tasks.listTaskLifecycleEvents(operatorAuth(request), request.data);
+  } catch (error) {
+    throw toHttpsError(error);
+  }
+});
+
 exports.listWeatherSuggestions = onCall(callableOptions, async (request) => {
   try {
     return await weatherSuggestions.listWeatherSuggestions(operatorAuth(request), request.data);
+  } catch (error) {
+    throw toHttpsError(error);
+  }
+});
+
+exports.closeTaskCampaign = onCall(callableOptions, async (request) => {
+  try {
+    return await tasks.closeTaskCampaign(operatorAuth(request), request.data);
   } catch (error) {
     throw toHttpsError(error);
   }

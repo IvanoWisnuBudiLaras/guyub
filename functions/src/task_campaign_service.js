@@ -328,9 +328,60 @@ class TaskCampaignService {
         status: task.status,
         activatedAt: asDate(task.activatedAt)?.toISOString() ?? null,
         cancelledAt: asDate(task.cancelledAt)?.toISOString() ?? null,
+        closedAt: asDate(task.closedAt)?.toISOString() ?? null,
       })),
       nextCursor: page.nextCursor == null ? null : encodeTaskHistoryCursor(page.nextCursor),
     };
+  }
+
+  async listTaskLifecycleEvents(auth, data) {
+    validateOperatorAuth(auth);
+    assertOnlyKeys(data, ['taskId']);
+    if (typeof data.taskId !== 'string' || !TASK_ID_PATTERN.test(data.taskId)) {
+      throw invalidArgument('Identitas tugas tidak valid.');
+    }
+    const events = await this.repository.listTaskLifecycleEvents(
+      auth.operatorUid,
+      data.taskId,
+    );
+    if (!Array.isArray(events) || events.length < 1 || events.length > 3 ||
+        events[0]?.eventType !== 'ACTIVATED' ||
+        (events.length === 2 &&
+          !['CLOSED', 'CANCELLED'].includes(events[1]?.eventType)) ||
+        (events.length === 3)) {
+      throw failedPrecondition('Riwayat perubahan tugas tidak konsisten.');
+    }
+    const allowedTypes = new Set(['ACTIVATED', 'CLOSED', 'CANCELLED']);
+    const seenTypes = new Set();
+    let previousAt = -Infinity;
+    return {
+      events: events.map((event) => {
+        const occurredAt = asDate(event?.occurredAt);
+        if (!allowedTypes.has(event?.eventType) || seenTypes.has(event.eventType) ||
+            !occurredAt || occurredAt.getTime() < previousAt) {
+          throw failedPrecondition('Riwayat perubahan tugas tidak konsisten.');
+        }
+        previousAt = occurredAt.getTime();
+        seenTypes.add(event.eventType);
+        return { eventType: event.eventType, occurredAt: occurredAt.toISOString() };
+      }),
+    };
+  }
+
+  async closeTaskCampaign(auth, data) {
+    validateOperatorAuth(auth);
+    assertOnlyKeys(data, ['taskId', 'commandId']);
+    if (typeof data.taskId !== 'string' || !TASK_ID_PATTERN.test(data.taskId) ||
+        typeof data.commandId !== 'string' || !REQUEST_ID_PATTERN.test(data.commandId)) {
+      throw invalidArgument('Konfirmasi penutupan tidak valid.');
+    }
+    await this.repository.closeCampaign({
+      operatorUid: auth.operatorUid,
+      taskId: data.taskId,
+      commandHash: sha256(data.commandId),
+      now: this.clock(),
+    });
+    return { taskId: data.taskId, status: 'CLOSED' };
   }
 
   async cancelTaskCampaign(auth, data) {

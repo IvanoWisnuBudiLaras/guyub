@@ -489,11 +489,11 @@ test('operator task callables enforce RT scope, reviewed templates, locked conte
     assert.equal(historyResult.tasks.length, 1);
     const task = historyResult.tasks[0];
     assert.deepEqual(Object.keys(task).sort(), [
-      'activatedAt', 'cancelledAt', 'deadline', 'locationReference', 'status',
+      'activatedAt', 'cancelledAt', 'closedAt', 'deadline', 'locationReference', 'status',
       'taskId', 'templateSnapshot',
     ]);
     assert.equal(task.activatedAt, sharedActivatedAt.toISOString());
-    assert.ok(['ACTIVE', 'CANCELLED'].includes(task.status));
+    assert.ok(['ACTIVE', 'CLOSED', 'CANCELLED'].includes(task.status));
     assert.equal('rtId' in task, false);
     assert.equal('actorUid' in task, false);
     pagedHistoryIds.push(task.taskId);
@@ -513,7 +513,7 @@ test('operator task callables enforce RT scope, reviewed templates, locked conte
   const cancelledHistoryTask = pagedHistoryTasks.find((task) => task.status === 'CANCELLED');
   assert.ok(cancelledHistoryTask.cancelledAt);
   assert.ok(pagedHistoryTasks.filter((task) => task.status === 'ACTIVE')
-    .every((task) => task.cancelledAt === null));
+    .every((task) => task.cancelledAt === null && task.closedAt === null));
   const historyForOperatorB = await callFunction('listRtTaskHistory', {}, operatorB.idToken);
   assert.equal(historyForOperatorB.status, 200, JSON.stringify(historyForOperatorB.body));
   assert.deepEqual(historyForOperatorB.body.result.tasks.map((task) => task.taskId), [foreignTaskId]);
@@ -638,4 +638,183 @@ test('operator task callables enforce RT scope, reviewed templates, locked conte
     });
     assert.equal(directWrite.status, 403, `${collection} direct write was allowed`);
   }
+});
+
+test('explicit closure is same-RT, idempotent, excluded from residents, and exposes safe timeline events', async () => {
+  const suffix = crypto.randomUUID().replaceAll('-', '');
+  const rtId = `rt-close-${suffix}`;
+  const operator = await createAccount();
+  const foreignOperator = await createAccount();
+  const replacementOperator = await createAccount();
+  const resident = await createAccount({ anonymous: true });
+  await seedOperator(operator.localId, { rtId });
+  await seedOperator(foreignOperator.localId, { rtId: `rt-other-${suffix}` });
+  await seedOperator(replacementOperator.localId, { rtId });
+  const templateId = `close_safe_${suffix.slice(0, 8)}`;
+  await seedTemplate({ templateId });
+
+  const joinCode = `JC${crypto.randomBytes(8).toString('hex').toUpperCase()}`;
+  await seedCommunity(rtId, joinCode);
+  const session = await callFunction('createResidentSession', {
+    joinCode,
+    nickname: 'Warga Uji',
+    requestId: randomRequestId(),
+  });
+  assert.equal(session.status, 200, JSON.stringify(session.body));
+  const queuedResident = await callFunction('createResidentSession', {
+    joinCode,
+    nickname: 'Warga Offline',
+    requestId: randomRequestId(),
+  });
+  assert.equal(queuedResident.status, 200, JSON.stringify(queuedResident.body));
+
+  const draft = await callFunction('createTaskDraft', {
+    templateId,
+    version: 1,
+    deadline: DEADLINE,
+    locationReference: 'COMMUNITY_GENERAL_AREA',
+    requestId: randomRequestId(),
+  }, operator.idToken);
+  assert.equal(draft.status, 200, JSON.stringify(draft.body));
+  const taskId = draft.body.result.campaignId;
+  const activationCommandId = randomRequestId();
+  const activation = await callFunction('activateTaskCampaign', {
+    campaignId: taskId,
+    commandId: activationCommandId,
+  }, operator.idToken);
+  assert.equal(activation.status, 200, JSON.stringify(activation.body));
+
+  const residentBeforeClose = await callFunction('listResidentActiveTasks', {
+    sessionToken: session.body.result.sessionToken,
+  });
+  assert.deepEqual(residentBeforeClose.body.result.items.map((item) => item.taskId), [taskId]);
+  const residentJoin = await callFunction('recordResidentTaskResponse', {
+    sessionToken: session.body.result.sessionToken,
+    taskId,
+    choice: 'JOINED',
+    commandId: randomRequestId(),
+  });
+  assert.equal(residentJoin.status, 200, JSON.stringify(residentJoin.body));
+  assertError(await callFunction('closeTaskCampaign', {
+    taskId,
+    commandId: randomRequestId(),
+  }, foreignOperator.idToken), 'PERMISSION_DENIED');
+  assertError(await callFunction('closeTaskCampaign', {
+    taskId,
+    commandId: randomRequestId(),
+    rtId,
+  }, operator.idToken), 'INVALID_ARGUMENT');
+  assertError(await callFunction('closeTaskCampaign', {
+    taskId,
+    commandId: randomRequestId(),
+  }, resident.idToken), 'PERMISSION_DENIED');
+
+  const closePayload = { taskId, commandId: randomRequestId() };
+  const closeResults = await Promise.all([
+    callFunction('closeTaskCampaign', closePayload, operator.idToken),
+    callFunction('closeTaskCampaign', closePayload, operator.idToken),
+  ]);
+  for (const result of closeResults) {
+    assert.equal(result.status, 200, JSON.stringify(result.body));
+    assert.deepEqual(result.body.result, { taskId, status: 'CLOSED' });
+  }
+  const closeReplay = await callFunction('closeTaskCampaign', closePayload, operator.idToken);
+  assert.equal(closeReplay.status, 200, JSON.stringify(closeReplay.body));
+  assertError(await callFunction('closeTaskCampaign', {
+    taskId,
+    commandId: randomRequestId(),
+  }, operator.idToken), 'FAILED_PRECONDITION');
+
+  const stored = await readDocument('task_campaigns', taskId);
+  assert.equal(stored.status, 200, JSON.stringify(stored.body));
+  assert.equal(stored.body.fields.status.stringValue, 'CLOSED');
+  assert.equal(stored.body.fields.closedByOperatorUid.stringValue, operator.localId);
+  assert.match(stored.body.fields.closureCommandHash.stringValue, /^[a-f0-9]{64}$/u);
+  assert.ok(stored.body.fields.closedAt.timestampValue);
+  assert.equal(stored.body.fields.commandId, undefined);
+
+  const closeAuditId = `${taskId}_closed`;
+  const closeAudit = await readDocument('task_audit_events', closeAuditId);
+  assert.equal(closeAudit.status, 200, JSON.stringify(closeAudit.body));
+  assert.equal(closeAudit.body.fields.action.stringValue, 'CAMPAIGN_CLOSED');
+  assert.equal(closeAudit.body.fields.occurredAt.timestampValue,
+    stored.body.fields.closedAt.timestampValue);
+  assert.equal(closeAudit.body.fields.actorUid.stringValue, operator.localId);
+  assert.equal(closeAudit.body.fields.commandHash.stringValue,
+    crypto.createHash('sha256').update(closePayload.commandId).digest('hex'));
+  assert.equal(closeAudit.body.fields.commandId, undefined);
+  const audits = await request('GET', `${FIRESTORE_BASE}/task_audit_events?pageSize=100`, {
+    token: 'owner',
+  });
+  assert.equal(audits.status, 200, JSON.stringify(audits.body));
+  assert.equal((audits.body.documents ?? []).filter((document) =>
+    document.name.endsWith(`/${closeAuditId}`)).length, 1);
+
+  const operatorActive = await callFunction('listActiveTaskCampaigns', {}, operator.idToken);
+  assert.deepEqual(operatorActive.body.result.tasks, []);
+  const residentAfterClose = await callFunction('listResidentActiveTasks', {
+    sessionToken: session.body.result.sessionToken,
+  });
+  assert.deepEqual(residentAfterClose.body.result.items, []);
+  const queuedResponseReplay = await callFunction('recordResidentTaskResponse', {
+    sessionToken: queuedResident.body.result.sessionToken,
+    taskId,
+    choice: 'JOINED',
+    commandId: randomRequestId(),
+  });
+  assertError(queuedResponseReplay, 'PERMISSION_DENIED');
+  const queuedCompletionReplay = await callFunction('submitTaskCompletion', {
+    sessionToken: session.body.result.sessionToken,
+    taskId,
+    note: null,
+    commandId: randomRequestId(),
+  });
+  assertError(queuedCompletionReplay, 'PERMISSION_DENIED');
+
+  const history = await callFunction('listRtTaskHistory', { pageSize: 1 }, operator.idToken);
+  assert.equal(history.status, 200, JSON.stringify(history.body));
+  assert.equal(history.body.result.tasks.length, 1);
+  assert.equal(history.body.result.tasks[0].taskId, taskId);
+  assert.equal(history.body.result.tasks[0].status, 'CLOSED');
+  assert.equal(history.body.result.tasks[0].cancelledAt, null);
+  assert.ok(history.body.result.tasks[0].closedAt);
+
+  const events = await callFunction('listTaskLifecycleEvents', { taskId }, operator.idToken);
+  assert.equal(events.status, 200, JSON.stringify(events.body));
+  assert.deepEqual(events.body.result.events.map((event) => event.eventType), [
+    'ACTIVATED', 'CLOSED',
+  ]);
+  assert.deepEqual(Object.keys(events.body.result.events[0]).sort(), [
+    'eventType', 'occurredAt',
+  ]);
+  assert.equal(JSON.stringify(events.body.result).includes(operator.localId), false);
+  assert.equal(JSON.stringify(events.body.result).includes('commandHash'), false);
+  assertError(await callFunction('listTaskLifecycleEvents', {
+    taskId,
+    rtId,
+  }, operator.idToken), 'INVALID_ARGUMENT');
+  assertError(await callFunction('listTaskLifecycleEvents', { taskId }, foreignOperator.idToken),
+    'PERMISSION_DENIED');
+  assertError(await callFunction('listTaskLifecycleEvents', { taskId }, resident.idToken),
+    'PERMISSION_DENIED');
+  const replacementEvents = await callFunction(
+    'listTaskLifecycleEvents', { taskId }, replacementOperator.idToken,
+  );
+  assert.equal(replacementEvents.status, 200, JSON.stringify(replacementEvents.body));
+  assert.deepEqual(replacementEvents.body.result.events.map((event) => event.eventType), [
+    'ACTIVATED', 'CLOSED',
+  ]);
+
+  const directAuditRead = await request('GET', documentUrl('task_audit_events', closeAuditId), {
+    token: operator.idToken,
+  });
+  assert.notEqual(directAuditRead.status, 200,
+    'lifecycle audit records must remain callable-only');
+  await updateDocumentFields('task_audit_events', closeAuditId, {
+    action: 'CORRUPTED',
+  });
+  const inconsistentEvents = await callFunction(
+    'listTaskLifecycleEvents', { taskId }, operator.idToken,
+  );
+  assertError(inconsistentEvents, 'FAILED_PRECONDITION');
 });

@@ -30,6 +30,9 @@ class FakeRepository {
     this.drafts = [];
     this.activations = [];
     this.cancellations = [];
+    this.closures = [];
+    this.lifecycleRequests = [];
+    this.lifecycleEvents = [];
     this.activeCampaigns = [];
     this.historyRequests = [];
     this.historyPage = { tasks: [], nextCursor: null };
@@ -78,6 +81,14 @@ class FakeRepository {
   async listRtTaskHistory(operatorUid, input) {
     this.historyRequests.push({ operatorUid, ...input });
     return this.historyPage;
+  }
+  async closeCampaign(input) {
+    this.closures.push(input);
+    return { campaignId: input.taskId, status: 'CLOSED' };
+  }
+  async listTaskLifecycleEvents(operatorUid, taskId) {
+    this.lifecycleRequests.push({ operatorUid, taskId });
+    return this.lifecycleEvents;
   }
   async cancelCampaign(input) {
     this.cancellations.push(input);
@@ -257,6 +268,7 @@ test('RT task history validates input, returns bounded records, and uses opaque 
       status: 'ACTIVE',
       activatedAt: NOW,
       cancelledAt: null,
+      closedAt: null,
     }],
     nextCursor: cursor,
   };
@@ -264,7 +276,7 @@ test('RT task history validates input, returns bounded records, and uses opaque 
   const result = await service.listRtTaskHistory(AUTH, { pageSize: 2 });
   assert.deepEqual(Object.keys(result).sort(), ['nextCursor', 'tasks']);
   assert.deepEqual(Object.keys(result.tasks[0]).sort(), [
-    'activatedAt', 'cancelledAt', 'deadline', 'locationReference', 'status',
+    'activatedAt', 'cancelledAt', 'closedAt', 'deadline', 'locationReference', 'status',
     'taskId', 'templateSnapshot',
   ]);
   assert.deepEqual(result.tasks[0], {
@@ -275,6 +287,7 @@ test('RT task history validates input, returns bounded records, and uses opaque 
     status: 'ACTIVE',
     activatedAt: NOW.toISOString(),
     cancelledAt: null,
+    closedAt: null,
   });
   assert.match(result.nextCursor, /^[A-Za-z0-9_-]{1,256}$/u);
   assert.deepEqual(JSON.parse(Buffer.from(result.nextCursor, 'base64url').toString('utf8')), {
@@ -343,4 +356,59 @@ test('cancellation accepts only task and command IDs and stores the command hash
   await assert.rejects(service.cancelTaskCampaign({
     operatorUid: AUTH.operatorUid, signInProvider: 'anonymous',
   }, { taskId, commandId: COMMAND_ID }), { code: 'permission-denied' });
+});
+
+test('closure accepts only task and command IDs and stores a hash', async () => {
+  const { repository, service } = setup();
+  const taskId = 'd'.repeat(40);
+  const result = await service.closeTaskCampaign(AUTH, { taskId, commandId: COMMAND_ID });
+  assert.deepEqual(result, { taskId, status: 'CLOSED' });
+  assert.deepEqual(repository.closures[0], {
+    operatorUid: AUTH.operatorUid,
+    taskId,
+    commandHash: crypto.createHash('sha256').update(COMMAND_ID).digest('hex'),
+    now: NOW,
+  });
+  assert.equal('commandId' in repository.closures[0], false);
+  await assert.rejects(service.closeTaskCampaign(AUTH, {
+    taskId,
+    commandId: COMMAND_ID,
+    rtId: 'rt-a',
+  }), { code: 'invalid-argument' });
+  await assert.rejects(service.closeTaskCampaign({
+    operatorUid: AUTH.operatorUid, signInProvider: 'anonymous',
+  }, { taskId, commandId: COMMAND_ID }), { code: 'permission-denied' });
+});
+
+test('lifecycle history returns only bounded public event types and times', async () => {
+  const { repository, service } = setup();
+  const taskId = 'e'.repeat(40);
+  repository.lifecycleEvents = [
+    { eventType: 'ACTIVATED', occurredAt: NOW, actorUid: 'private-actor' },
+    { eventType: 'CLOSED', occurredAt: new Date(NOW.getTime() + 1000), actorUid: 'private-actor' },
+  ];
+  const result = await service.listTaskLifecycleEvents(AUTH, { taskId });
+  assert.deepEqual(Object.keys(result), ['events']);
+  assert.deepEqual(result.events, [
+    { eventType: 'ACTIVATED', occurredAt: NOW.toISOString() },
+    { eventType: 'CLOSED', occurredAt: new Date(NOW.getTime() + 1000).toISOString() },
+  ]);
+  assert.deepEqual(Object.keys(result.events[0]).sort(), ['eventType', 'occurredAt']);
+  assert.deepEqual(repository.lifecycleRequests[0], {
+    operatorUid: AUTH.operatorUid,
+    taskId,
+  });
+  await assert.rejects(service.listTaskLifecycleEvents(AUTH, { taskId, rtId: 'rt-b' }), {
+    code: 'invalid-argument',
+  });
+  await assert.rejects(service.listTaskLifecycleEvents({
+    operatorUid: AUTH.operatorUid, signInProvider: 'anonymous',
+  }, { taskId }), { code: 'permission-denied' });
+  repository.lifecycleEvents = [
+    { eventType: 'ACTIVATED', occurredAt: NOW },
+    { eventType: 'ACTIVATED', occurredAt: new Date(NOW.getTime() + 1000) },
+  ];
+  await assert.rejects(service.listTaskLifecycleEvents(AUTH, { taskId }), {
+    code: 'failed-precondition',
+  });
 });
