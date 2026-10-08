@@ -55,13 +55,14 @@ function normalizeCompletionNote(value) {
   if (typeof value !== 'string') throw invalidArgument('Catatan penyelesaian tidak valid.');
   const note = value.normalize('NFC').trim();
   if (note.length === 0) return null;
+  const numberCheckText = note.replace(/[()]/gu, '');
   if ([...note].length > RESIDENT_NOTE_LIMIT ||
       /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/u.test(note) ||
-      /-?\d{1,3}\.\d{3,}\s*[,; ]\s*-?\d{1,3}\.\d{3,}/u.test(note) ||
+      /-?\d{1,3}\.\d+\s*[,;/ ]\s*-?\d{1,3}\.\d+/u.test(note) ||
       /\b(?:alamat|rumah|jalan|jl\.?|gang|gg\.?|blok|perumahan)\b/iu.test(note) ||
       /\b(?:no\.?|nomor)\s*\d/iu.test(note) ||
-      /(?<!\d)(?:\d[\s.-]?){15}\d(?!\d)/u.test(note) ||
-      /(?<!\d)(?:\+?62|0)[\s.-]*8(?:[\s.-]?\d){8,11}(?!\d)/u.test(note)) {
+      /(?<!\d)(?:\d[\s.\/-]?){15}\d(?!\d)/u.test(numberCheckText) ||
+      /(?<!\d)(?:\+?62|0)[\s.\/-]*8(?:[\s.\/-]*\d){8,11}(?!\d)/u.test(numberCheckText)) {
     throw invalidArgument('Gunakan catatan singkat tanpa alamat, data pribadi, atau koordinat GPS.');
   }
   return note;
