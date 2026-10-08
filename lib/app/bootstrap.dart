@@ -3,6 +3,7 @@ import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../core/config/app_config.dart';
@@ -53,8 +54,11 @@ Future<void> bootstrap(AppConfig config) async {
         residentAppCheckReady = true;
       } else {
         try {
+          // [app-check:debug-provider]: Pakai debug provider saat kDebugMode agar build APK debug pilot tidak ditolak callable.
           await FirebaseAppCheck.instance.activate(
-            providerAndroid: const AndroidPlayIntegrityProvider(),
+            providerAndroid: kDebugMode
+                ? const AndroidDebugProvider()
+                : const AndroidPlayIntegrityProvider(),
           );
           residentAppCheckReady = true;
         } catch (_) {
