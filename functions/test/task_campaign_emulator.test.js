@@ -71,13 +71,49 @@ async function seedOperator(uid, {
   await seedDocument('operators', uid, { rtId, role, active });
 }
 
-async function seedCommunity(rtId, joinCode) {
-  await seedDocument('rt_communities', rtId, {
+async function seedCommunity(rtId, joinCode, reminderPolicyId = null) {
+  const record = {
     displayName: `Komunitas ${rtId}`,
     rtLabel: 'RT Uji',
     joinCodeHash: hashJoinCode(joinCode),
     joinCodeActive: true,
+  };
+  if (reminderPolicyId) record.reminderPolicyId = reminderPolicyId;
+  await seedDocument('rt_communities', rtId, record);
+}
+
+async function seedNotificationPolicy(policyDocumentId, rtId, { reviewStatus = 'approved' } = {}) {
+  const scalar = (key, value) => ({ [key]: { stringValue: value } });
+  const integer = (key, value) => ({ [key]: { integerValue: String(value) } });
+  const fields = {
+    ...scalar('policyDocumentId', policyDocumentId),
+    ...scalar('policyId', 'community-readiness'),
+    ...integer('version', 4),
+    ...scalar('rtId', rtId),
+    enabled: { booleanValue: true },
+    ...scalar('reviewStatus', reviewStatus),
+    ...scalar('reviewedBy', 'trusted-reviewer'),
+    reviewedAt: { timestampValue: new Date().toISOString() },
+    reminderWindows: { arrayValue: { values: [{ mapValue: { fields: {
+      windowId: { stringValue: 'before-deadline-60' },
+      minutesBeforeDeadline: { integerValue: '60' },
+      cohort: { stringValue: 'UNRESPONDED' },
+    } } }] } },
+    escalation: { mapValue: { fields: {
+      enabled: { booleanValue: true },
+      windowId: { stringValue: 'admin-before-deadline-30' },
+      minutesBeforeDeadline: { integerValue: '30' },
+      cohort: { stringValue: 'UNRESPONDED' },
+      minimumCohortSize: { integerValue: '1' },
+    } } },
+    deliveryRetrySeconds: { arrayValue: { values: [
+      { integerValue: '60' }, { integerValue: '300' },
+    ] } },
+  };
+  const result = await request('PATCH', documentUrl('task_reminder_policies', policyDocumentId), {
+    token: 'owner', body: { fields },
   });
+  assert.equal(result.status, 200, JSON.stringify(result.body));
 }
 
 async function seedTemplate({
@@ -817,4 +853,66 @@ test('explicit closure is same-RT, idempotent, excluded from residents, and expo
     'listTaskLifecycleEvents', { taskId }, operator.idToken,
   );
   assertError(inconsistentEvents, 'FAILED_PRECONDITION');
+});
+
+
+test('activation snapshots only valid reviewed reminder policy and remains available without one', async () => {
+  const operator = await createAccount();
+  const suffix = crypto.randomUUID().replaceAll('-', '');
+  const rtId = `rt-policy-${suffix}`;
+  const joinCode = `JP${suffix.slice(0, 14).toUpperCase()}`;
+  const templateId = `policy_template_${suffix.slice(0, 16)}`;
+  const validPolicyId = `policy-valid-${suffix.slice(0, 16)}`;
+  const pendingPolicyId = `policy-pending-${suffix.slice(0, 16)}`;
+  await seedOperator(operator.localId, { rtId });
+  await seedCommunity(rtId, joinCode, validPolicyId);
+  await seedNotificationPolicy(validPolicyId, rtId);
+  await seedNotificationPolicy(pendingPolicyId, rtId, { reviewStatus: 'pending' });
+  await seedTemplate({ templateId });
+
+  async function activateDraft() {
+    const draft = await callFunction('createTaskDraft', {
+      templateId,
+      version: 1,
+      deadline: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+      locationReference: 'COMMUNITY_GENERAL_AREA',
+      requestId: randomRequestId(),
+    }, operator.idToken);
+    assert.equal(draft.status, 200, JSON.stringify(draft.body));
+    const activation = await callFunction('activateTaskCampaign', {
+      campaignId: draft.body.result.campaignId,
+      commandId: randomRequestId(),
+    }, operator.idToken);
+    assert.equal(activation.status, 200, JSON.stringify(activation.body));
+    assert.equal(activation.body.result.status, 'ACTIVE');
+    return readDocument('task_campaigns', draft.body.result.campaignId);
+  }
+
+  const reviewed = await activateDraft();
+  assert.equal(reviewed.status, 200, JSON.stringify(reviewed.body));
+  assert.equal(reviewed.body.fields.notificationPolicyDocumentId.stringValue, validPolicyId);
+  assert.equal(reviewed.body.fields.notificationPolicyVersion.integerValue, '4');
+  assert.match(reviewed.body.fields.notificationPolicyFingerprint.stringValue, /^[a-f0-9]{64}$/u);
+
+  await updateDocumentFields('rt_communities', rtId, { reminderPolicyId: pendingPolicyId });
+  const unreviewed = await activateDraft();
+  assert.equal(unreviewed.status, 200, JSON.stringify(unreviewed.body));
+  assert.equal(unreviewed.body.fields.status.stringValue, 'ACTIVE');
+  assert.equal(unreviewed.body.fields.notificationPolicyDocumentId.nullValue, null);
+  assert.equal(unreviewed.body.fields.notificationPolicyVersion.nullValue, null);
+  assert.equal(unreviewed.body.fields.notificationPolicyFingerprint.nullValue, null);
+
+  await updateDocumentFields('rt_communities', rtId, { reminderPolicyId: 'invalid/policy/path' });
+  const malformed = await activateDraft();
+  assert.equal(malformed.status, 200, JSON.stringify(malformed.body));
+  assert.equal(malformed.body.fields.status.stringValue, 'ACTIVE');
+  assert.equal(malformed.body.fields.notificationPolicyDocumentId.nullValue, null);
+
+  await updateDocumentFields('rt_communities', rtId, {
+    reminderPolicyId: `missing-policy-${suffix.slice(0, 12)}`,
+  });
+  const missing = await activateDraft();
+  assert.equal(missing.status, 200, JSON.stringify(missing.body));
+  assert.equal(missing.body.fields.status.stringValue, 'ACTIVE');
+  assert.equal(missing.body.fields.notificationPolicyDocumentId.nullValue, null);
 });

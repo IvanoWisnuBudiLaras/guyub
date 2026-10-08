@@ -1,3 +1,4 @@
+const { FieldValue } = require('firebase-admin/firestore');
 const { SessionServiceError } = require('./resident_session_service');
 
 class FirestoreResidentSessionRepository {
@@ -24,6 +25,7 @@ class FirestoreResidentSessionRepository {
       .doc(record.residentId);
     const sessionRef = this.firestore.collection('resident_sessions').doc(record.sessionId);
     let committedResidentId;
+    let sessionsToCleanup = [];
 
     await this.firestore.runTransaction(async (transaction) => {
       const communitySnapshot = await transaction.get(communityRef);
@@ -79,6 +81,13 @@ class FirestoreResidentSessionRepository {
           ...record.session,
           residentId: enrollment.residentId,
         };
+        // [rotasi-sesi:retensi-token-fcm]: Catat sesi lama ke pendingTokenCleanups agar retry tetap membersihkan token orphan.
+        const pendingCleanups = [
+          ...(Array.isArray(enrollment.pendingTokenCleanups) ? enrollment.pendingTokenCleanups : []),
+          ...(enrollment.sessionHash ? [enrollment.sessionHash] : []),
+        ].filter((hash) => typeof hash === 'string' && hash !== record.sessionId);
+        const uniquePending = [...new Set(pendingCleanups)];
+
         transaction.create(sessionRef, replacementSession);
         if (previousSessionSnapshot.exists && previousSessionSnapshot.data().active === true) {
           transaction.update(previousSessionRef, {
@@ -88,9 +97,11 @@ class FirestoreResidentSessionRepository {
         }
         transaction.update(enrollmentRef, {
           sessionHash: record.sessionId,
+          pendingTokenCleanups: uniquePending,
           updatedAt: record.session.createdAt,
         });
         committedResidentId = enrollment.residentId;
+        sessionsToCleanup = uniquePending;
         return;
       }
 
@@ -106,7 +117,33 @@ class FirestoreResidentSessionRepository {
       });
       committedResidentId = record.residentId;
     });
+
+    for (const oldSessionId of sessionsToCleanup) {
+      await this._deletePushTokensForSession(oldSessionId);
+      await this._removePendingTokenCleanup(enrollmentRef, oldSessionId);
+    }
     return { residentId: committedResidentId };
+  }
+
+  async _removePendingTokenCleanup(enrollmentRef, sessionId) {
+    try {
+      await this.firestore.runTransaction(async (transaction) => {
+        const snap = await transaction.get(enrollmentRef);
+        if (!snap.exists) return;
+        const current = snap.data()?.pendingTokenCleanups;
+        if (!Array.isArray(current) || !current.includes(sessionId)) return;
+        const remaining = current.filter((id) => id !== sessionId);
+        if (remaining.length > 0) {
+          transaction.update(enrollmentRef, { pendingTokenCleanups: remaining });
+        } else {
+          transaction.update(enrollmentRef, {
+            pendingTokenCleanups: FieldValue.delete(),
+          });
+        }
+      });
+    } catch (_) {
+      // Non-fatal: token is deleted; next run will safely no-op delete
+    }
   }
 
   async getSession(sessionId) {
@@ -131,6 +168,18 @@ class FirestoreResidentSessionRepository {
       if (!snapshot.exists || snapshot.data().active !== true) return;
       transaction.update(sessionRef, { active: false, revokedAt });
     });
+    await this._deletePushTokensForSession(sessionId);
+  }
+
+  async _deletePushTokensForSession(sessionId) {
+    const tokenCollection = this.firestore.collection('resident_push_tokens');
+    while (true) {
+      const tokens = await tokenCollection.where('sessionIdHash', '==', sessionId).limit(400).get();
+      if (tokens.empty) return;
+      const batch = this.firestore.batch();
+      for (const token of tokens.docs) batch.delete(token.ref);
+      await batch.commit();
+    }
   }
 }
 
