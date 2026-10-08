@@ -2,6 +2,7 @@ const crypto = require('node:crypto');
 const sharp = require('sharp');
 const { TaskCampaignError } = require('./task_campaign_service');
 const { hashSessionToken } = require('./resident_session_service');
+const { UPLOAD_LEASE_MS } = require('./task_evidence_upload_lease');
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const EVIDENCE_RETENTION_DAYS = 30;
@@ -158,6 +159,7 @@ class TaskEvidenceService {
     const scopeHash = residentScopeHash(session.communityId, session.residentId);
     const storagePath = buildStoragePath(session.communityId, data.taskId, session.residentId, evidenceId);
     const expiresAt = new Date(now.getTime() + EVIDENCE_RETENTION_DAYS * DAY_MS);
+    const uploadLeaseUntil = new Date(now.getTime() + UPLOAD_LEASE_MS);
     const reservation = await this.repository.reserveUpload({
       evidenceId,
       rtId: session.communityId,
@@ -170,6 +172,7 @@ class TaskEvidenceService {
       storagePath,
       now,
       expiresAt,
+      uploadLeaseUntil,
     });
     if (!['READY', 'UPLOADING'].includes(reservation.status)) {
       throw failedPrecondition('Bukti yang sudah dihapus tidak dapat dipulihkan.');

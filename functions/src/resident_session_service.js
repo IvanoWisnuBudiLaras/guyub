@@ -105,6 +105,7 @@ class ResidentSessionService {
       rtId: community.id,
       nickname: cleanNickname,
       needsAssistance: false,
+      willingToHelp: false,
       createdBy: 'self',
       createdAt: now,
       updatedAt: now,
@@ -147,7 +148,8 @@ class ResidentSessionService {
       throw sessionDenied();
     }
     const resident = await this.repository.getResident(session.residentId);
-    if (!resident || resident.rtId !== session.rtId || typeof resident.nickname !== 'string') {
+    if (!resident || resident.rtId !== session.rtId || resident.deletionPending === true ||
+        typeof resident.nickname !== 'string') {
       throw sessionDenied();
     }
     const community = await this.repository.getCommunity(session.rtId);

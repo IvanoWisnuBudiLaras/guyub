@@ -44,6 +44,12 @@ class FirestoreResidentSessionRepository {
 
       if (enrollmentSnapshot.exists) {
         const enrollment = enrollmentSnapshot.data();
+        if (enrollment.status === 'DELETED') {
+          throw new SessionServiceError(
+            'permission-denied',
+            'Kode RT tidak valid atau tidak aktif.',
+          );
+        }
         if (enrollment.rtId !== record.communityId ||
             enrollment.requestFingerprint !== record.requestFingerprint ||
             typeof enrollment.residentId !== 'string' ||
@@ -61,7 +67,8 @@ class FirestoreResidentSessionRepository {
           .doc(enrollment.sessionHash);
         const residentSnapshot = await transaction.get(residentRef);
         const previousSessionSnapshot = await transaction.get(previousSessionRef);
-        if (!residentSnapshot.exists || residentSnapshot.data().rtId !== record.communityId) {
+        if (!residentSnapshot.exists || residentSnapshot.data().rtId !== record.communityId ||
+            residentSnapshot.data().deletionPending === true) {
           throw new SessionServiceError(
             'permission-denied',
             'Permintaan pendaftaran tidak valid.',

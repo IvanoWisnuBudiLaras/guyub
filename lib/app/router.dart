@@ -21,7 +21,9 @@ import '../features/auth/presentation/screens/role_selection_screen.dart';
 import '../features/emergency/application/emergency_directory_controller.dart';
 import '../features/emergency/presentation/emergency_directory_screen.dart';
 import '../features/weather/application/weather_snapshot_store.dart';
+import '../features/assistance/application/assistance_volunteer_boundary.dart';
 import '../features/assistance/application/proxy_resident_boundary.dart';
+import '../features/assistance/presentation/assistance_volunteer_screen.dart';
 import '../features/assistance/presentation/proxy_resident_screen.dart';
 
 /// Role-aware routes for the Android MVP.
@@ -39,6 +41,7 @@ final class AppRouter {
   static const String residentProposals = '/resident/proposals';
   static const String operatorProposals = '/operator/proposals';
   static const String operatorAssistance = '/operator/assistance';
+  static const String residentAssistance = '/resident/assistance';
   static const String emergencyDirectory = '/emergency';
 
   static Route<dynamic> onGenerateRoute(
@@ -52,6 +55,7 @@ final class AppRouter {
     EmergencyDirectoryController? emergencyDirectoryController,
     WeatherSnapshotStore? weatherSnapshotStore,
     ProxyResidentController? proxyResidentController,
+    AssistanceVolunteerController? assistanceVolunteerController,
   }) {
     switch (settings.name) {
       case initial:
@@ -191,6 +195,20 @@ final class AppRouter {
             taskResponseController: taskResponseController,
             residentProposalController: residentProposalController,
             weatherSnapshotStore: weatherSnapshotStore,
+            assistanceVolunteerController: assistanceVolunteerController,
+          ),
+          settings: settings,
+        );
+      case residentAssistance:
+        final session = settings.arguments;
+        if (session is! ResidentSession ||
+            assistanceVolunteerController == null) {
+          return _roleSelection(settings);
+        }
+        return MaterialPageRoute<void>(
+          builder: (_) => AssistanceVolunteerScreen(
+            session: session,
+            controller: assistanceVolunteerController,
           ),
           settings: settings,
         );

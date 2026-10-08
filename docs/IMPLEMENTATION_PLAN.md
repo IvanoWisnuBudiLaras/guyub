@@ -158,6 +158,9 @@ AT-001, AT-008.
 ## Deliverable
 Active tasks notify residents, reminders run automatically, and administrative escalation reaches Pendamping RT.
 
+## Current status and decisions required
+**Blocked; do not invent timing or recipient rules.** The product owner must approve reminder offsets, escalation thresholds, the non-response cohort, recipient snapshot semantics, and which Pendamping RT accounts receive escalation. FCM token lifecycle, payload privacy, retry/delivery semantics, and scheduler ownership also need review. Keep sending disabled until these decisions and configuration exist.
+
 ## Work items
 - register/update FCM tokens,
 - send active-task notification,
@@ -189,9 +192,10 @@ Residents can propose tasks/conditions, and RT can manage vulnerable-resident as
 - [x] implement resident proposal form and same-RT review queue,
 - [x] map a SUBMITTED proposal only to a DRAFT created from an approved, versioned safe template; proposal text is context only,
 - [ ] optional supporting evidence reference and temporary image retention (requires approved storage policy/configuration),
-- [ ] implement vulnerable-resident records,
-- [ ] implement voluntary helper assignment,
-- [ ] implement consent-defined proxy status update.
+- [x] implement RT-scoped resident profiles and minimal assistance markers,
+- [x] implement voluntary helper opt-in, private same-RT assignment, and helper accept/decline/withdrawal,
+- [x] implement consent-attested RT status updates for proxy and self-enrolled profiles; preserve conflicting resident choices and pending RT verification,
+- [x] persist proxy-create retries by RT scope and support server-confirmed cancellation/reconciliation with replay tombstones.
 
 ## Required tests
 - proposal cannot activate task directly;
@@ -200,7 +204,7 @@ Residents can propose tasks/conditions, and RT can manage vulnerable-resident as
 - proxy status requires authorized operator.
 
 ## Acceptance linkage
-AT-012, AT-014.
+AT-012, AT-014, AT-020.
 
 ---
 
@@ -236,7 +240,7 @@ AT-006, AT-007, AT-008, AT-018, AT-019 and offline/reconciliation scenarios O-01
 ## Deliverable
 Optional evidence works without expanding permanent resident data.
 
-**Current status: PARTIAL.** Client and server JPEG sanitization, private RT-scoped storage/review, same-device deletion, and 30-day physical cleanup are implemented with unit and emulator coverage. The local Storage/Functions emulator suite still needs Java 21; production bucket, scheduled job, and billing are not configured. RT-assisted deletion remains blocked on the pilot identity-verification policy.
+**Current status: PARTIAL.** Client and server JPEG sanitization, private RT-scoped storage/review, same-device evidence deletion, RT-assisted full server-data deletion, retryable evidence cleanup, and 30-day physical cleanup have unit and emulator coverage. A bounded upload lease makes resident-request deletion reject during an active write and keeps RT-assisted deletion pending until it is safe to retry cleanup after the upload callable timeout; failed object deletion retains metadata and remains retryable. Completed deletion retains only minimal enrollment/profile replay tombstones, with no nickname, resident ID, or session token; a retryable job temporarily keeps the scoped resident ID only while cleanup is incomplete. The RT deletion callable requires an explicit resident request and an operator attestation that the pilot's offline identity check is complete; the app does not verify or recover identity. Same-device full profile deletion is not yet implemented. Production bucket, scheduled jobs, and billing are not configured.
 
 ## Work items
 - [x] Strip EXIF/location metadata on the client and re-encode again on the server.
@@ -246,7 +250,7 @@ Optional evidence works without expanding permanent resident data.
 - [x] Set `expiresAt` to 30 days after upload and implement scheduled physical deletion.
 - [x] Retry failed deletion and log only the opaque evidence ID and generic failure code.
 - [x] Allow the resident session to delete its own evidence; remove the completion reference.
-- [ ] Add RT-assisted deletion after stakeholders define the required offline identity check.
+- [x] Add same-RT RT-assisted server-data deletion with explicit resident-request/identity-check attestations, retryable cleanup, private audit, and evidence-object deletion. Pilot identity-check procedure still requires stakeholder definition; same-device full profile deletion remains open.
 - [ ] Configure a production bucket and deploy/observe cleanup only after explicit billing and deployment approval.
 
 ## Required tests
