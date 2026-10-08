@@ -241,6 +241,36 @@ class TaskCampaignService {
     });
     return publicCampaign(campaign);
   }
+
+  async listActiveTaskCampaigns(auth, data) {
+    validateOperatorAuth(auth);
+    assertOnlyKeys(data, []);
+    const campaigns = await this.repository.listActiveCampaigns(auth.operatorUid);
+    return {
+      tasks: campaigns.map((campaign) => ({
+        taskId: campaign.campaignId,
+        templateSnapshot: campaign.templateSnapshot,
+        deadline: asDate(campaign.deadline)?.toISOString() ?? null,
+        locationReference: campaign.locationReference ?? null,
+      })),
+    };
+  }
+
+  async cancelTaskCampaign(auth, data) {
+    validateOperatorAuth(auth);
+    assertOnlyKeys(data, ['taskId', 'commandId']);
+    if (typeof data.taskId !== 'string' || !/^[a-f0-9]{40}$/u.test(data.taskId) ||
+        typeof data.commandId !== 'string' || !REQUEST_ID_PATTERN.test(data.commandId)) {
+      throw invalidArgument('Konfirmasi pembatalan tidak valid.');
+    }
+    const campaign = await this.repository.cancelCampaign({
+      operatorUid: auth.operatorUid,
+      taskId: data.taskId,
+      commandHash: sha256(data.commandId),
+      now: this.clock(),
+    });
+    return { taskId: data.taskId, status: 'CANCELLED' };
+  }
 }
 
 module.exports = {

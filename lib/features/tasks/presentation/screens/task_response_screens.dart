@@ -28,24 +28,37 @@ final class _ResidentTaskListScreenState extends State<ResidentTaskListScreen> {
   @override
   void initState() {
     super.initState();
-    _tasks = widget.controller.listResidentActiveTasks();
+    _tasks = widget.controller.listResidentActiveTasks(session: widget.session);
   }
 
-  void _reload() {
-    setState(() => _tasks = widget.controller.listResidentActiveTasks());
+  Future<void> _reload() async {
+    final request = widget.controller.listResidentActiveTasks(
+      session: widget.session,
+    );
+    setState(() => _tasks = request);
+    try {
+      await request;
+    } catch (_) {
+      // The FutureBuilder displays a safe retry state.
+    }
   }
 
-  Future<void> _openTask(ResidentTaskRecord task) async {
+  Future<void> _openTask(
+    ResidentTaskRecord task,
+    ResidentTaskList taskList,
+  ) async {
     await Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
         builder: (_) => ResidentTaskDetailScreen(
           session: widget.session,
           controller: widget.controller,
           task: task,
+          isCached: taskList.isCached,
+          lastSyncedAt: taskList.lastSyncedAt,
         ),
       ),
     );
-    if (mounted) _reload();
+    if (mounted) await _reload();
   }
 
   @override
@@ -59,28 +72,38 @@ final class _ResidentTaskListScreenState extends State<ResidentTaskListScreen> {
         }
         if (snapshot.hasError) {
           return _LoadError(
-            message: 'Tugas membutuhkan koneksi. Cache offline belum tersedia.',
-            onRetry: _reload,
+            message: 'Tugas belum tersedia. Periksa koneksi atau sinkronkan saat online.',
+            onRetry: () => _reload(),
           );
         }
         final taskList = snapshot.data!;
         final tasks = taskList.items;
         if (tasks.isEmpty) {
           return RefreshIndicator(
-            onRefresh: () async => _reload(),
+            onRefresh: _reload,
             child: ListView(
               physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.all(24),
-              children: const [
-                SizedBox(height: 120),
-                Icon(Icons.checklist_outlined, size: 52),
-                SizedBox(height: 16),
-                Text(
+              children: [
+                if (taskList.isCached || widget.session.isOfflineSnapshot) ...[
+                  _ResidentTaskOfflineBanner(
+                    lastSyncedAt: taskList.lastSyncedAt,
+                  ),
+                  const SizedBox(height: 12),
+                ],
+                for (final issue in taskList.syncIssues) ...[
+                  _TaskSyncIssueCard(issue: issue),
+                  const SizedBox(height: 8),
+                ],
+                const SizedBox(height: 64),
+                const Icon(Icons.checklist_outlined, size: 52),
+                const SizedBox(height: 16),
+                const Text(
                   'Belum ada tugas aktif untuk RT ini.',
                   textAlign: TextAlign.center,
                 ),
-                SizedBox(height: 8),
-                Text(
+                const SizedBox(height: 8),
+                const Text(
                   'Tugas tampil setelah diaktifkan oleh operator RT. '
                   'Notifikasi belum tersedia.',
                   textAlign: TextAlign.center,
@@ -90,10 +113,18 @@ final class _ResidentTaskListScreenState extends State<ResidentTaskListScreen> {
           );
         }
         return RefreshIndicator(
-          onRefresh: () async => _reload(),
+          onRefresh: _reload,
           child: ListView(
             padding: const EdgeInsets.all(16),
             children: [
+              if (taskList.isCached || widget.session.isOfflineSnapshot) ...[
+                _ResidentTaskOfflineBanner(lastSyncedAt: taskList.lastSyncedAt),
+                const SizedBox(height: 12),
+              ],
+              for (final issue in taskList.syncIssues) ...[
+                _TaskSyncIssueCard(issue: issue),
+                const SizedBox(height: 8),
+              ],
               Text(
                 'Warga • ${widget.session.rtLabel}',
                 style: Theme.of(context).textTheme.titleMedium,
@@ -113,11 +144,12 @@ final class _ResidentTaskListScreenState extends State<ResidentTaskListScreen> {
                     key: Key('resident-task-${task.taskId}'),
                     title: Text(task.templateSnapshot.title),
                     subtitle: Text(
-                      '${_participationLabel(task.participation)} • '
-                      'Batas ${_formatDate(task.deadline)}',
+                      _taskListSubtitle(task),
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
                     ),
                     trailing: const Icon(Icons.chevron_right),
-                    onTap: () => _openTask(task),
+                    onTap: () => _openTask(task, taskList),
                   ),
                 ),
             ],
@@ -128,18 +160,129 @@ final class _ResidentTaskListScreenState extends State<ResidentTaskListScreen> {
   );
 }
 
+String _taskListSubtitle(ResidentTaskRecord task) {
+  final lines = <String>[
+    '${_participationLabel(task.participation)} • Batas ${_formatDate(task.deadline)}',
+  ];
+  if (task.pendingChoice != null) {
+    lines.add(
+      'Pilihan ${_choiceLabel(task.pendingChoice!)} menunggu sinkronisasi.',
+    );
+  }
+  if (task.hasPendingCompletionSync) {
+    lines.add('Penyelesaian menunggu sinkronisasi.');
+  }
+  if (task.hasSyncConflict) {
+    lines.add(
+      'Perlu pemeriksaan status; pilihan belum dipastikan oleh server.',
+    );
+  }
+  return lines.join('\n');
+}
+
+final class _ResidentTaskOfflineBanner extends StatelessWidget {
+  const _ResidentTaskOfflineBanner({this.lastSyncedAt});
+
+  final DateTime? lastSyncedAt;
+
+  @override
+  Widget build(BuildContext context) => Card(
+    key: const Key('resident-task-offline-banner'),
+    color: Theme.of(context).colorScheme.tertiaryContainer,
+    child: Padding(
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Mode offline • data tugas tersimpan, belum diperbarui.',
+            style: TextStyle(fontWeight: FontWeight.w600),
+          ),
+          if (lastSyncedAt != null) ...[
+            const SizedBox(height: 4),
+            Text('Terakhir tersinkron: ${_formatDate(lastSyncedAt!)}'),
+          ],
+          const SizedBox(height: 4),
+          const Text(
+            'Status server dapat berubah. Pilihan offline belum dihitung '
+            'sampai diterima server RT.',
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+final class _TaskSyncIssueCard extends StatelessWidget {
+  const _TaskSyncIssueCard({required this.issue});
+
+  final ResidentTaskSyncIssue issue;
+
+  @override
+  Widget build(BuildContext context) {
+    final isConflict = switch (issue.kind) {
+      ResidentTaskSyncIssueKind.choiceConflict ||
+      ResidentTaskSyncIssueKind.completionConflict ||
+      ResidentTaskSyncIssueKind.taskUnavailable => true,
+      _ => false,
+    };
+    return Card(
+      color: isConflict
+          ? Theme.of(context).colorScheme.errorContainer
+          : Theme.of(context).colorScheme.secondaryContainer,
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (issue.taskTitle case final title?) ...[
+              Text(title, style: Theme.of(context).textTheme.titleSmall),
+              const SizedBox(height: 4),
+            ],
+            Text(_syncIssueMessage(issue)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+String _syncIssueMessage(ResidentTaskSyncIssue issue) => switch (issue.kind) {
+  ResidentTaskSyncIssueKind.choicePending =>
+    'Pilihan ${issue.pendingChoice == null ? '' : _choiceLabel(issue.pendingChoice!)} '
+        'belum tersinkron. Server RT belum mengonfirmasinya.',
+  ResidentTaskSyncIssueKind.choiceConflict =>
+    'Pilihan offline belum disimpan. Status server: '
+        '${issue.authoritativeParticipation == null ? 'perlu diperiksa' : _participationLabel(issue.authoritativeParticipation!)}.',
+  ResidentTaskSyncIssueKind.completionPending =>
+    'Penyelesaian menunggu sinkronisasi. Ini belum menjadi penyelesaian resmi; '
+        'RT tetap harus memverifikasinya.',
+  ResidentTaskSyncIssueKind.completionConflict => 'Penyelesaian offline belum disimpan karena tugas tidak lagi aktif di server.',
+  ResidentTaskSyncIssueKind.taskUnavailable =>
+    'Tugas tidak lagi aktif di server. Pilihan offline belum dikonfirmasi.',
+};
+
+String _choiceLabel(ParticipationChoice choice) => switch (choice) {
+  ParticipationChoice.join => 'ikut',
+  ParticipationChoice.decline => 'tidak ikut',
+};
+
 /// Safety instructions appear before any resident action.
 final class ResidentTaskDetailScreen extends StatefulWidget {
   const ResidentTaskDetailScreen({
     required this.session,
     required this.controller,
     required this.task,
+    this.isCached = false,
+    this.lastSyncedAt,
     super.key,
   });
 
   final ResidentSession session;
   final TaskResponseController controller;
   final ResidentTaskRecord task;
+  final bool isCached;
+  final DateTime? lastSyncedAt;
 
   @override
   State<ResidentTaskDetailScreen> createState() =>
@@ -170,6 +313,7 @@ final class _ResidentTaskDetailScreenState
       final result = await widget.controller.recordParticipation(
         taskId: _task.taskId,
         choice: choice,
+        session: widget.session,
       );
       _applyResponse(result);
     });
@@ -180,6 +324,7 @@ final class _ResidentTaskDetailScreenState
       final result = await widget.controller.submitCompletion(
         taskId: _task.taskId,
         note: _noteController.text,
+        session: widget.session,
       );
       _applyResponse(result);
     });
@@ -190,6 +335,19 @@ final class _ResidentTaskDetailScreenState
     setState(() => _busy = true);
     try {
       await action();
+    } on OfflineCompletionNoteException {
+      if (mounted) {
+        _showMessage(
+          'Catatan tidak disimpan. Hubungkan internet untuk mengirim catatan; '
+          'tidak ada penyelesaian yang tercatat.',
+        );
+      }
+    } on TaskResponseRejectedException {
+      if (mounted) {
+        _showMessage(
+          'Server RT menolak perubahan ini. Status tugas belum diubah.',
+        );
+      }
     } catch (_) {
       if (mounted) {
         _showMessage(
@@ -223,6 +381,10 @@ final class _ResidentTaskDetailScreenState
           'Warga • ${widget.session.rtLabel}',
           style: Theme.of(context).textTheme.titleSmall,
         ),
+        if (widget.isCached || widget.session.isOfflineSnapshot) ...[
+          const SizedBox(height: 12),
+          _ResidentTaskOfflineBanner(lastSyncedAt: widget.lastSyncedAt),
+        ],
         const SizedBox(height: 8),
         Text(
           _task.templateSnapshot.title,
@@ -243,6 +405,37 @@ final class _ResidentTaskDetailScreenState
   );
 
   Widget _responseActions() {
+    if (_task.hasSyncConflict) {
+      final kind = _task.hasPendingCompletionSync
+          ? ResidentTaskSyncIssueKind.completionConflict
+          : _task.pendingChoice != null
+          ? ResidentTaskSyncIssueKind.choiceConflict
+          : ResidentTaskSyncIssueKind.taskUnavailable;
+      return _TaskSyncIssueCard(
+        issue: ResidentTaskSyncIssue(
+          taskId: _task.taskId,
+          kind: kind,
+          pendingChoice: _task.pendingChoice,
+        ),
+      );
+    }
+    if (_task.pendingChoice != null) {
+      return _TaskSyncIssueCard(
+        issue: ResidentTaskSyncIssue(
+          taskId: _task.taskId,
+          kind: ResidentTaskSyncIssueKind.choicePending,
+          pendingChoice: _task.pendingChoice,
+        ),
+      );
+    }
+    if (_task.hasPendingCompletionSync) {
+      return _TaskSyncIssueCard(
+        issue: ResidentTaskSyncIssue(
+          taskId: _task.taskId,
+          kind: ResidentTaskSyncIssueKind.completionPending,
+        ),
+      );
+    }
     if (_task.participation == ParticipationState.unresponded) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,

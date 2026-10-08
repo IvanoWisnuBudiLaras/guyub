@@ -7,6 +7,7 @@ import '../features/auth/application/resident_session_controller.dart';
 import '../features/tasks/application/task_campaign_boundary.dart';
 import '../features/tasks/application/task_response_boundary.dart';
 import '../features/tasks/presentation/screens/task_catalog_screen.dart';
+import '../features/tasks/presentation/screens/task_active_campaigns_screen.dart';
 import '../features/tasks/presentation/screens/task_response_screens.dart';
 import '../features/proposals/application/resident_proposal_boundary.dart';
 import '../features/proposals/presentation/resident_proposal_screen.dart';
@@ -16,6 +17,9 @@ import '../features/auth/presentation/screens/operator_login_screen.dart';
 import '../features/auth/presentation/screens/resident_entry_screen.dart';
 import '../features/auth/presentation/screens/resident_session_home_screen.dart';
 import '../features/auth/presentation/screens/role_selection_screen.dart';
+import '../features/emergency/application/emergency_directory_controller.dart';
+import '../features/emergency/presentation/emergency_directory_screen.dart';
+import '../features/weather/application/weather_snapshot_store.dart';
 
 /// Role-aware routes for the Android MVP.
 final class AppRouter {
@@ -23,12 +27,14 @@ final class AppRouter {
   static const String operatorLogin = '/operator/login';
   static const String operatorHome = '/operator/home';
   static const String operatorTaskCatalog = '/operator/tasks/catalog';
+  static const String operatorActiveTasks = '/operator/tasks/active';
   static const String operatorTaskVerification = '/operator/tasks/verification';
   static const String residentEntry = '/resident/entry';
   static const String residentHome = '/resident/home';
   static const String residentTaskList = '/resident/tasks';
   static const String residentProposals = '/resident/proposals';
   static const String operatorProposals = '/operator/proposals';
+  static const String emergencyDirectory = '/emergency';
 
   static Route<dynamic> onGenerateRoute(
     RouteSettings settings, {
@@ -38,6 +44,8 @@ final class AppRouter {
     TaskResponseController? taskResponseController,
     ResidentProposalController? residentProposalController,
     ResidentProposalReviewController? proposalReviewController,
+    EmergencyDirectoryController? emergencyDirectoryController,
+    WeatherSnapshotStore? weatherSnapshotStore,
   }) {
     switch (settings.name) {
       case initial:
@@ -77,6 +85,21 @@ final class AppRouter {
           builder: (_) => TaskCatalogScreen(
             profile: profile,
             controller: TaskCampaignController(taskCampaignBoundary),
+          ),
+          settings: settings,
+        );
+      case operatorActiveTasks:
+        final profile = settings.arguments;
+        final boundary = taskCampaignBoundary;
+        if (profile is! OperatorProfile ||
+            boundary == null ||
+            boundary is! TaskCampaignManagementBoundary) {
+          return _roleSelection(settings);
+        }
+        return MaterialPageRoute<void>(
+          builder: (_) => TaskActiveCampaignsScreen(
+            profile: profile,
+            controller: TaskCampaignController(boundary),
           ),
           settings: settings,
         );
@@ -125,6 +148,7 @@ final class AppRouter {
             controller: residentSessionController,
             taskResponseController: taskResponseController,
             residentProposalController: residentProposalController,
+            weatherSnapshotStore: weatherSnapshotStore,
           ),
           settings: settings,
         );
@@ -149,6 +173,22 @@ final class AppRouter {
           builder: (_) => ResidentProposalScreen(
             session: session,
             controller: residentProposalController,
+          ),
+          settings: settings,
+        );
+      case emergencyDirectory:
+        final directoryController = emergencyDirectoryController;
+        if (directoryController == null) {
+          return MaterialPageRoute<void>(
+            builder: (_) => const EmergencyDirectoryUnavailableScreen(),
+            settings: settings,
+          );
+        }
+        final session = settings.arguments;
+        return MaterialPageRoute<void>(
+          builder: (_) => EmergencyDirectoryScreen(
+            controller: directoryController,
+            session: session is ResidentSession ? session : null,
           ),
           settings: settings,
         );

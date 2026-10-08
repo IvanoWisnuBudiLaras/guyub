@@ -73,6 +73,16 @@ final class OperatorHomeScreen extends StatelessWidget {
                 icon: const Icon(Icons.checklist),
                 label: const Text('Buka Katalog Tugas Aman'),
               ),
+              if (taskCampaignBoundary is TaskCampaignManagementBoundary) ...[
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  key: const Key('operator-active-task-campaigns'),
+                  onPressed: () => Navigator.of(context)
+                      .pushNamed('/operator/tasks/active', arguments: profile),
+                  icon: const Icon(Icons.task_alt_outlined),
+                  label: const Text('Tinjau Tugas Aktif'),
+                ),
+              ],
               if (taskResponseController != null) ...[
                 const SizedBox(height: 12),
                 OutlinedButton.icon(

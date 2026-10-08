@@ -8,15 +8,25 @@ import 'package:flutter/material.dart';
 
 import '../core/config/app_config.dart';
 import '../core/config/app_environment.dart';
+import '../core/database/local_store.dart';
+import '../core/database/shared_prefs_local_store.dart';
 import '../features/auth/application/operator_auth_boundary.dart';
 import '../features/auth/application/resident_session_controller.dart';
 import '../features/auth/data/firebase_operator_auth_boundary.dart';
 import '../features/auth/data/firebase_resident_session_boundary.dart';
 import '../features/auth/data/flutter_secure_resident_session_vault.dart';
+import '../features/emergency/application/emergency_directory.dart';
+import '../features/emergency/application/emergency_directory_boundary.dart';
+import '../features/emergency/application/emergency_directory_controller.dart';
+import '../features/emergency/data/emergency_directory_cache.dart';
+import '../features/emergency/data/firebase_emergency_directory_boundary.dart';
 import '../features/tasks/application/task_campaign_boundary.dart';
 import '../features/tasks/application/task_response_boundary.dart';
 import '../features/tasks/data/firebase_task_campaign_boundary.dart';
 import '../features/tasks/data/firebase_task_response_boundary.dart';
+import '../features/tasks/data/resident_task_offline_store.dart';
+import '../features/weather/application/weather_snapshot_store.dart';
+import '../features/weather/data/weather_snapshot_cache.dart';
 import '../features/proposals/application/resident_proposal_boundary.dart';
 import '../features/proposals/data/firebase_resident_proposal_boundary.dart';
 import '../firebase_options.dart';
@@ -31,6 +41,8 @@ Future<Widget> createBootstrapApp(
   TaskResponseController? taskResponseController,
   ResidentProposalController? residentProposalController,
   ResidentProposalReviewController? proposalReviewController,
+  EmergencyDirectoryController? emergencyDirectoryController,
+  WeatherSnapshotStore? weatherSnapshotStore,
 }) async {
   WidgetsFlutterBinding.ensureInitialized();
   AppConfig.initialize(config);
@@ -41,6 +53,8 @@ Future<Widget> createBootstrapApp(
     taskResponseController: taskResponseController,
     residentProposalController: residentProposalController,
     proposalReviewController: proposalReviewController,
+    emergencyDirectoryController: emergencyDirectoryController,
+    weatherSnapshotStore: weatherSnapshotStore,
   );
 }
 
@@ -51,6 +65,20 @@ Future<Widget> createBootstrapApp(
 /// failures never fall back to the configured production project.
 Future<void> bootstrap(AppConfig config) async {
   WidgetsFlutterBinding.ensureInitialized();
+  LocalStore? localStore;
+  try {
+    localStore = await SharedPrefsLocalStore.create();
+  } catch (_) {
+    // Directory and task offline features fail closed if local storage fails.
+  }
+  final residentVault = FlutterSecureResidentSessionVault();
+  ResidentTaskOfflineStore? taskOfflineStore;
+  if (localStore != null) {
+    taskOfflineStore = LocalResidentTaskOfflineStore(localStore: localStore);
+  }
+  EmergencyDirectoryBoundary? emergencyDirectoryBoundary;
+  EmergencyDirectoryController? emergencyDirectoryController;
+  WeatherSnapshotStore? weatherSnapshotStore;
   OperatorAuthBoundary? operatorAuthBoundary;
   ResidentSessionController? residentSessionController;
   TaskCampaignBoundary? taskCampaignBoundary;
@@ -112,7 +140,9 @@ Future<void> bootstrap(AppConfig config) async {
             config.functionsPort,
           );
         }
-        final residentVault = FlutterSecureResidentSessionVault();
+        emergencyDirectoryBoundary = FirebaseEmergencyDirectoryBoundary(
+          functions,
+        );
         residentSessionController = ResidentSessionController(
           boundary: FirebaseResidentSessionBoundary(functions),
           vault: residentVault,
@@ -121,6 +151,7 @@ Future<void> bootstrap(AppConfig config) async {
         taskResponseController = TaskResponseController(
           boundary: FirebaseTaskResponseBoundary(functions),
           vault: residentVault,
+          offlineStore: taskOfflineStore,
         );
         final proposalBoundary = FirebaseResidentProposalBoundary(functions);
         residentProposalController = ResidentProposalController(
@@ -136,6 +167,18 @@ Future<void> bootstrap(AppConfig config) async {
     }
   }
 
+  if (localStore != null) {
+    final weatherCache = WeatherSnapshotCache(localStore);
+    weatherSnapshotStore = weatherCache;
+    emergencyDirectoryController = EmergencyDirectoryController(
+      boundary:
+          emergencyDirectoryBoundary ??
+          _UnavailableEmergencyDirectoryBoundary(),
+      cache: EmergencyDirectoryCache(localStore),
+      vault: residentVault,
+    );
+  }
+
   runApp(
     await createBootstrapApp(
       config,
@@ -145,6 +188,8 @@ Future<void> bootstrap(AppConfig config) async {
       taskResponseController: taskResponseController,
       residentProposalController: residentProposalController,
       proposalReviewController: proposalReviewController,
+      emergencyDirectoryController: emergencyDirectoryController,
+      weatherSnapshotStore: weatherSnapshotStore,
     ),
   );
 }
@@ -157,4 +202,12 @@ FirebaseOptions _developmentEmulatorOptions() {
     messagingSenderId: platform.messagingSenderId,
     projectId: 'demo-guyub-development',
   );
+}
+
+final class _UnavailableEmergencyDirectoryBoundary
+    implements EmergencyDirectoryBoundary {
+  @override
+  Future<EmergencyDirectoryResponse> getEmergencyDirectory({
+    required String sessionToken,
+  }) async => throw StateError('Emergency directory callable is unavailable.');
 }

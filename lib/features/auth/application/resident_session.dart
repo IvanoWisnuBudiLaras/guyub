@@ -7,6 +7,7 @@ final class ResidentSession {
     required this.rtLabel,
     required this.nickname,
     required this.expiresAt,
+    this.isOfflineSnapshot = false,
   });
 
   final String residentId;
@@ -16,6 +17,20 @@ final class ResidentSession {
   final String nickname;
   final DateTime expiresAt;
 
+  /// True when this profile came from secure local metadata after transport loss.
+  /// It is presentation context only and never authorizes a backend call.
+  final bool isOfflineSnapshot;
+
+  ResidentSession asOfflineSnapshot() => ResidentSession(
+    residentId: residentId,
+    communityId: communityId,
+    communityName: communityName,
+    rtLabel: rtLabel,
+    nickname: nickname,
+    expiresAt: expiresAt,
+    isOfflineSnapshot: true,
+  );
+
   @override
   bool operator ==(Object other) =>
       other is ResidentSession &&
@@ -24,7 +39,8 @@ final class ResidentSession {
       other.communityName == communityName &&
       other.rtLabel == rtLabel &&
       other.nickname == nickname &&
-      other.expiresAt == expiresAt;
+      other.expiresAt == expiresAt &&
+      other.isOfflineSnapshot == isOfflineSnapshot;
 
   @override
   int get hashCode => Object.hash(
@@ -34,6 +50,7 @@ final class ResidentSession {
     rtLabel,
     nickname,
     expiresAt,
+    isOfflineSnapshot,
   );
 }
 

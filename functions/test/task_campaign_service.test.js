@@ -1,5 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const crypto = require('node:crypto');
 const {
   TaskCampaignService,
   approvedTemplateFromRecord,
@@ -28,6 +29,8 @@ class FakeRepository {
     this.templates = [TEMPLATE];
     this.drafts = [];
     this.activations = [];
+    this.cancellations = [];
+    this.activeCampaigns = [];
   }
   async listApprovedTemplates() {
     return this.templates.map((record) => approvedTemplateFromRecord(
@@ -66,6 +69,13 @@ class FakeRepository {
       status: 'ACTIVE',
       activatedAt: input.now,
     };
+  }
+  async listActiveCampaigns() {
+    return this.activeCampaigns;
+  }
+  async cancelCampaign(input) {
+    this.cancellations.push(input);
+    return { campaignId: input.taskId, status: 'CANCELLED' };
   }
 }
 
@@ -185,4 +195,65 @@ test('activation accepts only a campaign id and a stable command id', async () =
     commandId: COMMAND_ID,
     coreInstruction: 'replace the immutable instruction',
   }), { code: 'invalid-argument' });
+});
+
+
+test('active campaign listing is operator-authenticated and exposes only bounded task fields', async () => {
+  const { repository, service } = setup();
+  repository.activeCampaigns = [{
+    campaignId: 'a'.repeat(40),
+    rtId: 'rt-a',
+    templateSnapshot: {
+      templateId: TEMPLATE.templateId,
+      version: TEMPLATE.version,
+      title: TEMPLATE.title,
+      category: TEMPLATE.category,
+      coreInstruction: TEMPLATE.coreInstruction,
+      safetyInstruction: TEMPLATE.safetyInstruction,
+    },
+    deadline: NOW,
+    locationReference: 'HOUSEHOLD',
+  }];
+  const result = await service.listActiveTaskCampaigns(AUTH, {});
+  assert.deepEqual(result, {
+    tasks: [{
+      taskId: 'a'.repeat(40),
+      templateSnapshot: repository.activeCampaigns[0].templateSnapshot,
+      deadline: NOW.toISOString(),
+      locationReference: 'HOUSEHOLD',
+    }],
+  });
+  await assert.rejects(service.listActiveTaskCampaigns({
+    operatorUid: AUTH.operatorUid, signInProvider: 'anonymous',
+  }, {}), { code: 'permission-denied' });
+  await assert.rejects(service.listActiveTaskCampaigns(AUTH, { rtId: 'rt-b' }), {
+    code: 'invalid-argument',
+  });
+});
+
+test('cancellation accepts only task and command IDs and stores the command hash only', async () => {
+  const { repository, service } = setup();
+  const taskId = 'b'.repeat(40);
+  const result = await service.cancelTaskCampaign(AUTH, { taskId, commandId: COMMAND_ID });
+  assert.deepEqual(result, { taskId, status: 'CANCELLED' });
+  assert.deepEqual(repository.cancellations[0], {
+    operatorUid: AUTH.operatorUid,
+    taskId,
+    commandHash: crypto.createHash('sha256').update(COMMAND_ID).digest('hex'),
+    now: NOW,
+  });
+  assert.equal('commandId' in repository.cancellations[0], false);
+  await assert.rejects(service.cancelTaskCampaign(AUTH, {
+    taskId,
+    commandId: COMMAND_ID,
+    rtId: 'rt-a',
+  }), { code: 'invalid-argument' });
+  await assert.rejects(service.cancelTaskCampaign(AUTH, {
+    taskId,
+    commandId: COMMAND_ID,
+    actorUid: AUTH.operatorUid,
+  }), { code: 'invalid-argument' });
+  await assert.rejects(service.cancelTaskCampaign({
+    operatorUid: AUTH.operatorUid, signInProvider: 'anonymous',
+  }, { taskId, commandId: COMMAND_ID }), { code: 'permission-denied' });
 });
