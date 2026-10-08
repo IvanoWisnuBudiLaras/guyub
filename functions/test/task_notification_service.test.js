@@ -244,3 +244,32 @@ test('declined residents never receive a reminder', async () => {
   assert.equal(result.scheduled, 0);
   assert.equal(repository.events.size, 0);
 });
+
+test('one-minute reminder window is delivered during its deadline interval and remains idempotent', async () => {
+  const policy = {
+    ...POLICY,
+    reminderWindows: [{
+      windowId: 'before-1', minutesBeforeDeadline: 1, cohort: 'UNRESPONDED',
+    }],
+  };
+  const repository = new FakeRepository({ policy });
+  const delivery = { async send({ event }) {
+    repository.sendings.push(event.eventId);
+  } };
+  const service = createService(repository, delivery);
+  const windowStart = new Date(DEADLINE.getTime() - 60_000);
+
+  const early = await service.sendTaskReminders({ now: new Date(windowStart.getTime() - 1) });
+  assert.equal(early.scheduled, 0);
+  assert.equal(repository.events.size, 0);
+
+  const first = await service.sendTaskReminders({ now: new Date(windowStart.getTime() + 15_000) });
+  const replay = await service.sendTaskReminders({ now: new Date(windowStart.getTime() + 30_000) });
+  assert.equal(first.scheduled, 1);
+  assert.equal(first.delivered, 1);
+  assert.equal(replay.scheduled, 0);
+  assert.equal(replay.delivered, 0);
+  assert.equal(repository.events.size, 1);
+  assert.equal(repository.audit.size, 1);
+  assert.equal(repository.sendings.length, 1);
+});
