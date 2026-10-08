@@ -1,9 +1,20 @@
+import 'dart:convert';
+
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:crypto/crypto.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../../../core/database/local_store.dart';
 import '../application/task_push_notifications.dart';
+
+String _identityScope(String identityId) {
+  final normalized = identityId.trim();
+  if (normalized.isEmpty) {
+    throw ArgumentError.value(identityId, 'identityId', 'Must not be empty.');
+  }
+  return sha256.convert(utf8.encode(normalized)).toString();
+}
 
 final class FirebaseTaskPushNotificationsBoundary
     implements TaskPushNotificationsBoundary {
@@ -103,17 +114,30 @@ final class LocalTaskPushPreferenceStore implements TaskPushPreferenceStore {
   final LocalStore store;
 
   @override
-  Future<bool> isEnabled(TaskPushAudience audience) async =>
-      await store.read(_preferenceKey(audience)) == 'true';
+  Future<bool> isEnabled(
+    TaskPushAudience audience, {
+    required String identityId,
+  }) async => await store.read(_preferenceKey(audience, identityId)) == 'true';
 
   @override
-  Future<void> setEnabled(TaskPushAudience audience, bool enabled) =>
-      store.write(_preferenceKey(audience), enabled ? 'true' : 'false');
+  Future<void> setEnabled(
+    TaskPushAudience audience, {
+    required String identityId,
+    required bool enabled,
+  }) => store.write(
+    _preferenceKey(audience, identityId),
+    enabled ? 'true' : 'false',
+  );
 
-  String _preferenceKey(TaskPushAudience audience) => switch (audience) {
-    TaskPushAudience.resident => 'task_push_opt_in_resident',
-    TaskPushAudience.pendamping => 'task_push_opt_in_pendamping',
-  };
+  String _preferenceKey(TaskPushAudience audience, String identityId) {
+    // Legacy audience-only consent has no attributable identity and is ignored.
+    final scopedIdentity = _identityScope(identityId);
+    return switch (audience) {
+      TaskPushAudience.resident => 'task_push_opt_in_resident_$scopedIdentity',
+      TaskPushAudience.pendamping =>
+        'task_push_opt_in_pendamping_$scopedIdentity',
+    };
+  }
 }
 
 final class FlutterSecureTaskPushDeviceTokenStore
@@ -123,20 +147,30 @@ final class FlutterSecureTaskPushDeviceTokenStore
 
   final FlutterSecureStorage _storage;
 
-  String _key(TaskPushAudience audience) => switch (audience) {
-    TaskPushAudience.resident => 'guyub_task_push_token_resident',
-    TaskPushAudience.pendamping => 'guyub_task_push_token_pendamping',
-  };
+  String _key(TaskPushAudience audience, String identityId) {
+    final scopedIdentity = _identityScope(identityId);
+    return switch (audience) {
+      TaskPushAudience.resident =>
+        'guyub_task_push_token_resident_$scopedIdentity',
+      TaskPushAudience.pendamping =>
+        'guyub_task_push_token_pendamping_$scopedIdentity',
+    };
+  }
 
   @override
-  Future<String?> read(TaskPushAudience audience) =>
-      _storage.read(key: _key(audience));
+  Future<String?> read(
+    TaskPushAudience audience, {
+    required String identityId,
+  }) => _storage.read(key: _key(audience, identityId));
 
   @override
-  Future<void> write(TaskPushAudience audience, String token) =>
-      _storage.write(key: _key(audience), value: token);
+  Future<void> write(
+    TaskPushAudience audience, {
+    required String identityId,
+    required String token,
+  }) => _storage.write(key: _key(audience, identityId), value: token);
 
   @override
-  Future<void> clear(TaskPushAudience audience) =>
-      _storage.delete(key: _key(audience));
+  Future<void> clear(TaskPushAudience audience, {required String identityId}) =>
+      _storage.delete(key: _key(audience, identityId));
 }

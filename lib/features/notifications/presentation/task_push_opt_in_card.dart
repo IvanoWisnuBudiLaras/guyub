@@ -25,6 +25,8 @@ final class TaskPushOptInCard extends StatefulWidget {
   TaskPushAudience get _audience =>
       session != null ? TaskPushAudience.resident : TaskPushAudience.pendamping;
 
+  String get _identityId => session?.residentId ?? profile!.uid;
+
   @override
   State<TaskPushOptInCard> createState() => _TaskPushOptInCardState();
 }
@@ -36,7 +38,10 @@ final class _TaskPushOptInCardState extends State<TaskPushOptInCard> {
   @override
   void initState() {
     super.initState();
-    _preference = widget.controller.isEnabled(widget._audience);
+    _preference = widget.controller.isEnabled(
+      widget._audience,
+      identityId: widget._identityId,
+    );
   }
 
   Future<void> _enable() async {
@@ -63,7 +68,10 @@ final class _TaskPushOptInCardState extends State<TaskPushOptInCard> {
       if (mounted) {
         setState(() {
           _busy = false;
-          _preference = widget.controller.isEnabled(widget._audience);
+          _preference = widget.controller.isEnabled(
+            widget._audience,
+            identityId: widget._identityId,
+          );
         });
       }
     }
@@ -89,7 +97,10 @@ final class _TaskPushOptInCardState extends State<TaskPushOptInCard> {
       if (mounted) {
         setState(() {
           _busy = false;
-          _preference = widget.controller.isEnabled(widget._audience);
+          _preference = widget.controller.isEnabled(
+            widget._audience,
+            identityId: widget._identityId,
+          );
         });
       }
     }
