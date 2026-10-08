@@ -270,6 +270,7 @@ RT history survives operator changes and the app is ready for controlled pilot.
 - historical task/event view,
 - confirm RT-owned persistence,
 - operator replacement/handover test,
+- [x] add safe explicit HTTPS/telephone actions for trusted RT-configured official channels; pilot route provisioning and verification remain external,
 - configure pilot emergency numbers and assembly points,
 - configure pilot weather rules with human-reviewed values,
 - review all safe templates with local stakeholders,

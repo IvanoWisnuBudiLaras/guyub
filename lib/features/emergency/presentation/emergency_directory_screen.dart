@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../auth/application/resident_session.dart';
 import '../application/emergency_directory.dart';
@@ -11,11 +12,13 @@ final class EmergencyDirectoryScreen extends StatefulWidget {
   const EmergencyDirectoryScreen({
     required this.controller,
     this.session,
+    this.onLaunchUri,
     super.key,
   });
 
   final EmergencyDirectoryController controller;
   final ResidentSession? session;
+  final Future<bool> Function(Uri uri)? onLaunchUri;
 
   @override
   State<EmergencyDirectoryScreen> createState() =>
@@ -41,6 +44,25 @@ final class _EmergencyDirectoryScreenState
     } else if (oldWidget.session != widget.session) {
       _load();
     }
+  }
+
+  Future<void> _openOfficialUri(Uri uri) async {
+    var didLaunch = false;
+    try {
+      didLaunch = widget.onLaunchUri == null
+          ? await launchUrl(uri, mode: LaunchMode.externalApplication)
+          : await widget.onLaunchUri!(uri);
+    } catch (_) {
+      didLaunch = false;
+    }
+    if (!mounted || didLaunch) return;
+    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Kanal resmi tidak dapat dibuka. Periksa koneksi atau gunakan kanal lain yang tercantum.',
+        ),
+      ),
+    );
   }
 
   void _load() {
@@ -128,7 +150,10 @@ final class _EmergencyDirectoryScreenState
               const SizedBox(height: 12),
               _AssemblySection(items: directory.assemblyPoints),
               const SizedBox(height: 12),
-              _OfficialChannelSection(items: directory.officialReportChannels),
+              _OfficialChannelSection(
+                items: directory.officialReportChannels,
+                onLaunchUri: _openOfficialUri,
+              ),
               const SizedBox(height: 12),
               const Text(
                 'Guyub.id tidak menggantikan layanan darurat atau pelaporan resmi.',
@@ -286,31 +311,71 @@ final class _AssemblySection extends StatelessWidget {
 }
 
 final class _OfficialChannelSection extends StatelessWidget {
-  const _OfficialChannelSection({required this.items});
+  const _OfficialChannelSection({
+    required this.items,
+    required this.onLaunchUri,
+  });
 
   final List<OfficialReportChannel> items;
+  final Future<void> Function(Uri uri) onLaunchUri;
 
   @override
   Widget build(BuildContext context) => _DirectorySection(
     title: 'Kanal Pelaporan Resmi',
     children: [
       if (items.isEmpty)
-        const Text('Belum ada kanal pelaporan resmi yang dicantumkan.')
-      else
-        ...items.map(
-          (item) => ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.account_balance_outlined),
-            title: Text(item.label),
-            subtitle: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (item.url != null) SelectableText(item.url!),
-                if (item.phone != null) SelectableText(item.phone!),
-              ],
-            ),
-          ),
+        const Text(
+          'Belum ada kanal pelaporan resmi yang dikonfigurasi untuk wilayah ini.',
+        )
+      else ...[
+        const Text(
+          'Masalah di luar kapasitas warga? Gunakan salah satu kanal resmi yang dikonfigurasi untuk RT ini.',
         ),
+        const SizedBox(height: 8),
+        ...List.generate(items.length, (index) {
+          final item = items[index];
+          final urlUri = item.safeUrlUri;
+          final phoneUri = item.safePhoneUri;
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.account_balance_outlined),
+                title: Text(item.label),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (item.url != null) SelectableText(item.url!),
+                    if (item.phone != null) SelectableText(item.phone!),
+                  ],
+                ),
+              ),
+              if (urlUri != null || phoneUri != null)
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    if (urlUri != null)
+                      OutlinedButton.icon(
+                        key: Key('official-report-url-$index'),
+                        onPressed: () => onLaunchUri(urlUri),
+                        icon: const Icon(Icons.open_in_new),
+                        label: const Text('Buka situs'),
+                      ),
+                    if (phoneUri != null)
+                      OutlinedButton.icon(
+                        key: Key('official-report-phone-$index'),
+                        onPressed: () => onLaunchUri(phoneUri),
+                        icon: const Icon(Icons.phone_outlined),
+                        label: const Text('Telepon'),
+                      ),
+                  ],
+                ),
+            ],
+          );
+        }),
+      ],
     ],
   );
 }
