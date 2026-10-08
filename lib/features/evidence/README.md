@@ -1,23 +1,22 @@
 # Feature: Evidence (Bukti Foto Persiapan)
 
-Pengunggahan bukti foto opsional pelaksanaan tugas kesiapsiagaan dan pembersihan siklus hidup data.
+Bukti foto bersifat opsional. Foto tidak boleh menggagalkan penyelesaian tugas.
 
-**Status:** Belum diimplementasikan pada Phase 0 (Direncanakan pada Phase 8).
+**Status:** Pipeline bukti privat diimplementasikan dan diuji pada emulator; bucket dan job produksi belum dikonfigurasi atau dideploy.
 
-## Keputusan Provider: NOT A PRODUCTION PROVIDER / DEFERRED
-- Firebase Cloud Storage **bukan** provider produksi karena ketiadaan kartu kredit / Firebase Blaze Plan.
-- Emulator Storage tidak diaktifkan pada baseline Phase 0.
-- Boundary storage/evidence dipertahankan pada layer application/data sebagai antarmuka abstrak agar provider (lokal/S3-compatible/alternatif) dapat ditentukan pada Phase 8.
+## Implemented
+- Flutter menulis ulang JPEG untuk menghapus metadata; Cloud Functions memvalidasi dan mengodekan ulang gambar sebelum penyimpanan.
+- Upload hanya lewat callable dengan sesi warga yang divalidasi dan respons JOINED untuk tugas aktif.
+- Storage dan Firestore menolak akses langsung klien. Tidak ada URL publik atau signed URL.
+- Warga dapat menghapus bukti miliknya melalui sesi pada perangkat yang sama. Cleanup idempotent menghapus objek berumur lebih dari 30 hari dan dapat mencoba ulang kegagalan.
+- Unit dan Functions/Storage Emulator CI menguji sanitasi, batas akses, penghapusan, dan retry.
 
-## Rencana Layer
-- `presentation/`: Image picker widget, viewer bukti terkompresi.
-- `application/`: Workflow kompresi, stripping metadata EXIF, scheduled retention cleaner.
-- `data/`: StorageBoundary interface dan repository adapter (provider ditentukan pada Phase 8).
+## Belum tersedia / manual-eksternal
+- Penghapusan seluruh profil, proposal, dan respons warga belum tersedia.
+- Proses penghapusan warga melalui RT untuk perangkat hilang menunggu prosedur verifikasi identitas yang disetujui.
+- Bucket Storage, scheduled cleanup, kredensial, dan deployment produksi belum dikonfigurasi. Tidak ada billing yang diaktifkan.
 
-## Invariant Penting (PRD & Acceptance Matrix)
-- Bukti foto bersifat opsional; kegagalan upload foto tidak boleh menggagalkan status selesai tugas (ERR-06).
-- Metadata lokasi (EXIF GPS) wajib dibersihkan sebelum disimpan (AT-010, P-02).
-- Foto bukti wajib dihapus setelah masa retensi 30 hari berakhir (AT-011, P-03).
-- Penghapusan bukti kedaluwarsa dapat diaudit/diverifikasi (SEC-09).
-
-*Perhatian: Jangan mengimplementasikan invariant di atas pada Phase 0; implementasikan saat Phase 8.*
+## Invariants
+- Foto bersifat opsional; kegagalan upload tidak memblokir penyelesaian tugas (ERR-06).
+- Metadata lokasi (EXIF GPS) dibersihkan sebelum penyimpanan (AT-010, P-02).
+- Bukti dihapus setelah 30 hari; kegagalan terdeteksi dan dapat dicoba ulang (AT-011, P-03, SEC-09).

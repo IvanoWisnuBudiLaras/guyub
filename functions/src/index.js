@@ -9,12 +9,15 @@ const { FirestoreTaskResponseRepository } = require('./firestore_task_response_r
 const { FirestoreTaskEvidenceRepository } = require('./firestore_task_evidence_repository');
 const { FirestoreResidentProposalRepository } = require('./firestore_resident_proposal_repository');
 const { FirestoreEmergencyDirectoryRepository } = require('./firestore_emergency_directory_repository');
+const { FirestoreWeatherSuggestionRepository } = require('./firestore_weather_suggestion_repository');
+const { fetchBmkgPayload } = require('./bmkg_forecast_client');
 const { ResidentSessionService, SessionServiceError } = require('./resident_session_service');
 const { TaskCampaignService, TaskCampaignError } = require('./task_campaign_service');
 const { TaskResponseService } = require('./task_response_service');
 const { TaskEvidenceService } = require('./task_evidence_service');
 const { ResidentProposalService, ResidentProposalError } = require('./resident_proposal_service');
 const { EmergencyDirectoryService, EmergencyDirectoryError } = require('./emergency_directory_service');
+const { WeatherSuggestionService, WeatherPipelineError } = require('./weather_suggestion_service');
 const { protectedCallableOptions } = require('./callable_options');
 
 if (getApps().length === 0) initializeApp();
@@ -65,6 +68,10 @@ const taskEvidence = new TaskEvidenceService(
   new FirestoreTaskEvidenceRepository(firestore),
   sessions,
   taskEvidenceStorage,
+);
+const weatherSuggestions = new WeatherSuggestionService(
+  new FirestoreWeatherSuggestionRepository(firestore),
+  { fetchPayload: fetchBmkgPayload },
 );
 const callableOptions = protectedCallableOptions();
 const evidenceUploadOptions = {
@@ -151,6 +158,14 @@ exports.listRtTaskHistory = onCall(callableOptions, async (request) => {
   }
 });
 
+exports.listWeatherSuggestions = onCall(callableOptions, async (request) => {
+  try {
+    return await weatherSuggestions.listWeatherSuggestions(operatorAuth(request), request.data);
+  } catch (error) {
+    throw toHttpsError(error);
+  }
+});
+
 exports.cancelTaskCampaign = onCall(callableOptions, async (request) => {
   try {
     return await tasks.cancelTaskCampaign(operatorAuth(request), request.data);
@@ -214,6 +229,22 @@ exports.deleteExpiredTaskEvidence = onSchedule({
   maxInstances: 1,
   timeoutSeconds: 120,
 }, async () => taskEvidence.deleteExpiredEvidence());
+
+async function runScheduledWeatherSync() {
+  const result = await weatherSuggestions.syncConfiguredSources();
+  if (result.failed > 0) {
+    throw new WeatherPipelineError('unavailable', 'Sebagian sumber BMKG gagal disinkronkan.');
+  }
+  return result;
+}
+
+exports.syncBmkgWeather = onSchedule({
+  region: 'asia-southeast2',
+  schedule: 'every 6 hours',
+  timeZone: 'Etc/UTC',
+  maxInstances: 1,
+  timeoutSeconds: 120,
+}, runScheduledWeatherSync);
 
 exports.listPendingTaskVerifications = onCall(callableOptions, async (request) => {
   try {
@@ -297,7 +328,8 @@ function operatorAuth(request) {
 
 function toHttpsError(error) {
   if (error instanceof SessionServiceError || error instanceof TaskCampaignError ||
-      error instanceof ResidentProposalError || error instanceof EmergencyDirectoryError) {
+      error instanceof ResidentProposalError || error instanceof EmergencyDirectoryError ||
+      error instanceof WeatherPipelineError) {
     return new HttpsError(error.code, error.message);
   }
   // Never return Firestore paths, RT existence, or internal error details.
