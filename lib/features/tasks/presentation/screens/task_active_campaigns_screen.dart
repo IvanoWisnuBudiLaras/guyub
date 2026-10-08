@@ -11,11 +11,13 @@ final class TaskActiveCampaignsScreen extends StatefulWidget {
   const TaskActiveCampaignsScreen({
     required this.profile,
     required this.controller,
+    this.initialTaskId,
     super.key,
   });
 
   final OperatorProfile profile;
   final TaskCampaignController controller;
+  final String? initialTaskId;
 
   @override
   State<TaskActiveCampaignsScreen> createState() =>
@@ -65,11 +67,10 @@ final class _TaskActiveCampaignsScreenState
       builder: (context) => AlertDialog(
         title: const Text('Batalkan tugas aktif?'),
         content: Text(
-          '“${task.templateSnapshot.title}” akan dibatalkan. Pembatalan '
-          'dicatat dalam riwayat audit. Tidak ada notifikasi yang dikirim. '
-          'Pilihan warga yang masih antre secara offline dapat mengalami '
-          'konflik saat tersambung kembali dan perlu diselaraskan dengan '
-          'status server.',
+          '“${task.templateSnapshot.title}” akan dibatalkan dan dicatat dalam '
+          'riwayat audit. Anggota yang mengaktifkan push dapat menerima '
+          'pemberitahuan status; pemberitahuan tidak menjamin semua warga '
+          'melihat perubahan. Pilihan offline diselaraskan dengan status server.',
         ),
         actions: [
           TextButton(
@@ -215,6 +216,21 @@ final class _TaskActiveCampaignsScreenState
                 const SizedBox(height: 12),
                 _ActionError(message: _actionError!),
               ],
+              if (widget.initialTaskId != null &&
+                  !tasks.any(
+                    (task) => task.taskId == widget.initialTaskId,
+                  )) ...[
+                const SizedBox(height: 12),
+                const Card(
+                  key: Key('notification-task-unavailable'),
+                  child: Padding(
+                    padding: EdgeInsets.all(12),
+                    child: Text(
+                      'Tugas dari notifikasi tidak lagi aktif atau tidak dapat dibuka untuk RT ini.',
+                    ),
+                  ),
+                ),
+              ],
               const SizedBox(height: 12),
               if (tasks.isEmpty)
                 const Padding(
@@ -229,6 +245,7 @@ final class _TaskActiveCampaignsScreenState
                 for (final task in tasks) ...[
                   _ActiveTaskCard(
                     task: task,
+                    isHighlighted: task.taskId == widget.initialTaskId,
                     cancelling: _cancellingTaskIds.contains(task.taskId),
                     actionsDisabled: _isActing,
                     onCancel: () => _cancel(task),
@@ -248,6 +265,7 @@ final class _TaskActiveCampaignsScreenState
 final class _ActiveTaskCard extends StatelessWidget {
   const _ActiveTaskCard({
     required this.task,
+    required this.isHighlighted,
     required this.cancelling,
     required this.closing,
     required this.actionsDisabled,
@@ -256,6 +274,7 @@ final class _ActiveTaskCard extends StatelessWidget {
   });
 
   final ActiveTaskCampaignRecord task;
+  final bool isHighlighted;
   final bool cancelling;
   final bool closing;
   final bool actionsDisabled;
@@ -264,6 +283,10 @@ final class _ActiveTaskCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Card(
+    key: isHighlighted ? Key('notification-task-${task.taskId}') : null,
+    color: isHighlighted
+        ? Theme.of(context).colorScheme.primaryContainer
+        : null,
     child: Padding(
       padding: const EdgeInsets.all(16),
       child: Column(

@@ -13,6 +13,34 @@ void main() {
   final syncedAt = DateTime.utc(2026, 10, 5, 10);
 
   test(
+    'same-device deletion clears scoped cache and pending task commands',
+    () async {
+      final local = _RecordingLocalStore();
+      final offline = LocalResidentTaskOfflineStore(localStore: local);
+      await offline.cacheAuthorizedActiveTasks(
+        session: session,
+        taskList: _list([_task()]),
+        syncedAt: syncedAt,
+      );
+      await offline.enqueueChoice(
+        session: session,
+        taskId: 'task-a',
+        choice: ParticipationChoice.join,
+        commandId: 'delete-test-command-000000000000000000000000',
+        queuedAt: syncedAt,
+      );
+      expect(local.values, hasLength(2));
+
+      await offline.clearResidentData(session: session);
+
+      expect(local.values, isEmpty);
+      expect(await offline.readCachedActiveTasks(session: session), isNull);
+      expect(await offline.pendingChoices(session: session), isEmpty);
+      expect(await offline.pendingCompletions(session: session), isEmpty);
+    },
+  );
+
+  test(
     'authorized task snapshot persists and restores across controllers',
     () async {
       final local = _RecordingLocalStore();

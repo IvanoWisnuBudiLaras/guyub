@@ -81,6 +81,25 @@ final class ResidentSessionController {
     }
   }
 
+  /// Requests server-side deletion using the validated same-device session.
+  /// Local resident cache cleanup and sign-out happen only after confirmation.
+  Future<void> deleteOwnResidentData(ResidentSession session) async {
+    if (session.isOfflineSnapshot) {
+      throw StateError(
+        'Resident data cannot be deleted from an offline snapshot.',
+      );
+    }
+    final token = await _vault.read();
+    if (token == null || token.isEmpty) {
+      throw StateError('A verified resident session is required.');
+    }
+    await _boundary.deleteOwnResidentData(
+      sessionToken: token,
+      residentId: session.residentId,
+      communityId: session.communityId,
+    );
+  }
+
   /// Local access is removed before best-effort remote revocation.
   Future<void> signOut() async {
     final token = await _vault.read();

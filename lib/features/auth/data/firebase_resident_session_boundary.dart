@@ -66,6 +66,23 @@ final class FirebaseResidentSessionBoundary implements ResidentSessionBoundary {
     });
   }
 
+  @override
+  Future<void> deleteOwnResidentData({
+    required String sessionToken,
+    required String residentId,
+    required String communityId,
+  }) async {
+    final result = await functions.httpsCallable('deleteOwnResidentData').call({
+      'sessionToken': sessionToken,
+      'residentId': residentId,
+      'communityId': communityId,
+    });
+    final data = _map(result.data);
+    if (data['deleted'] != true) {
+      throw const FormatException('Backend has not confirmed data deletion.');
+    }
+  }
+
   ResidentSession _session(Map<String, Object?> data) {
     final expiresAt = _date(data['expiresAt']);
     final requiredFields = [

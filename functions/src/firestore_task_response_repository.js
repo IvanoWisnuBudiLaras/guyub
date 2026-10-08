@@ -5,6 +5,11 @@ const {
 } = require('./task_campaign_service');
 const { responseDocumentId } = require('./task_response_service');
 const { residentScopeHash } = require('./task_evidence_service');
+const { validateTaskNotificationPolicy } = require('./task_notification_policy');
+const {
+  notificationEventId,
+  pendampingRecipientHash,
+} = require('./task_notification_id');
 
 const RESPONSE_COLLECTION = 'task_responses';
 const EVIDENCE_COLLECTION = 'task_evidence';
@@ -13,6 +18,8 @@ const OPERATOR_COLLECTION = 'operators';
 const RESIDENT_COLLECTION = 'resident_profiles';
 const SESSION_COLLECTION = 'resident_sessions';
 const AUDIT_COLLECTION = 'task_audit_events';
+const TASK_NOTIFICATION_EVENT_COLLECTION = 'task_notification_events';
+const TASK_NOTIFICATION_AUDIT_COLLECTION = 'task_notification_audit_events';
 const MAX_ACTIVE_TASKS = 200;
 const MAX_PENDING_VERIFICATIONS = 100;
 const MAX_RECAP_RESPONSES = 400;
@@ -206,6 +213,9 @@ class FirestoreTaskResponseRepository {
   }
 
   async submitCompletion(input) {
+    if (typeof input.commandHash !== 'string' || !/^[a-f0-9]{64}$/u.test(input.commandHash)) {
+      throw fail('invalid-argument', 'Perintah penyelesaian tidak valid.');
+    }
     const sessionRef = this.firestore.collection(SESSION_COLLECTION).doc(input.sessionIdHash);
     const residentRef = this.firestore.collection(RESIDENT_COLLECTION).doc(input.residentId);
     const campaignRef = this.firestore.collection(CAMPAIGN_COLLECTION).doc(input.taskId);
@@ -214,16 +224,32 @@ class FirestoreTaskResponseRepository {
     const evidenceRef = input.evidenceId == null
       ? null
       : this.firestore.collection(EVIDENCE_COLLECTION).doc(input.evidenceId);
+    const recipientHash = pendampingRecipientHash(input.rtId);
+    const windowId = `completion-${input.commandHash.slice(0, 32)}`;
+    const eventId = notificationEventId({
+      rtId: input.rtId,
+      campaignId: input.taskId,
+      eventType: 'TASK_VERIFICATION_NEEDED',
+      windowId,
+      recipientHash,
+    });
+    const notificationEventRef = this.firestore.collection(TASK_NOTIFICATION_EVENT_COLLECTION)
+      .doc(eventId);
+    const notificationAuditRef = this.firestore.collection(TASK_NOTIFICATION_AUDIT_COLLECTION)
+      .doc(eventId);
 
     return this.firestore.runTransaction(async (transaction) => {
-      const [sessionSnapshot, residentSnapshot, campaignSnapshot, responseSnapshot, evidenceSnapshot] =
-        await Promise.all([
-          transaction.get(sessionRef), transaction.get(residentRef),
-          transaction.get(campaignRef), transaction.get(responseRef),
-          evidenceRef ? transaction.get(evidenceRef) : Promise.resolve(null),
-        ]);
+      const [sessionSnapshot, residentSnapshot, campaignSnapshot, responseSnapshot,
+        evidenceSnapshot, notificationEventSnapshot, notificationAuditSnapshot] = await Promise.all([
+        transaction.get(sessionRef), transaction.get(residentRef),
+        transaction.get(campaignRef), transaction.get(responseRef),
+        evidenceRef ? transaction.get(evidenceRef) : Promise.resolve(null),
+        transaction.get(notificationEventRef), transaction.get(notificationAuditRef),
+      ]);
       requireResidentSession(sessionSnapshot, residentSnapshot, input);
-      requireCampaign(campaignSnapshot, input.taskId, input.rtId, { active: true });
+      const campaign = requireCampaign(
+        campaignSnapshot, input.taskId, input.rtId, { active: true },
+      );
       if (!responseSnapshot.exists) {
         throw fail('failed-precondition', 'Pilih Ikut sebelum mengirim penyelesaian.');
       }
@@ -256,6 +282,28 @@ class FirestoreTaskResponseRepository {
       if (existing.completionState !== 'NOT_SUBMITTED') {
         throw fail('failed-precondition', 'Status penyelesaian tidak dapat diubah.');
       }
+      if (notificationEventSnapshot.exists || notificationAuditSnapshot.exists) {
+        throw fail('failed-precondition', 'Status pemberitahuan tinjauan tidak konsisten.');
+      }
+
+      let deliveryRetrySeconds = [];
+      const policyDocumentId = campaign.notificationPolicyDocumentId;
+      if (typeof policyDocumentId === 'string' && /^[A-Za-z0-9_-]{1,120}$/u.test(policyDocumentId)) {
+        const policyRef = this.firestore.collection('task_reminder_policies').doc(policyDocumentId);
+        const policySnapshot = await transaction.get(policyRef);
+        try {
+          const policy = validateTaskNotificationPolicy(
+            policySnapshot.data(), policyDocumentId, input.rtId,
+          );
+          if (policySnapshot.exists && policy.version === campaign.notificationPolicyVersion &&
+              policy.fingerprint === campaign.notificationPolicyFingerprint) {
+            deliveryRetrySeconds = policy.deliveryRetrySeconds;
+          }
+        } catch (_) {
+          // An invalid or absent retry policy cannot block a resident completion report.
+        }
+      }
+
       const updated = {
         completionState: 'PENDING_RT_VERIFICATION',
         completionNote: input.completionNote,
@@ -264,7 +312,37 @@ class FirestoreTaskResponseRepository {
         updatedAt: input.now,
       };
       if (input.evidenceId != null) updated.evidenceId = input.evidenceId;
+      const notificationEvent = {
+        eventId,
+        rtId: input.rtId,
+        campaignId: input.taskId,
+        eventType: 'TASK_VERIFICATION_NEEDED',
+        policyDocumentId: null,
+        policyVersion: null,
+        policyFingerprint: null,
+        windowId,
+        recipientKind: 'PENDAMPING_RT',
+        recipientHash,
+        deliveryRetrySeconds,
+        status: 'PENDING',
+        attemptCount: 0,
+        nextAttemptAt: input.now,
+        createdAt: input.now,
+      };
       transaction.update(responseRef, updated);
+      transaction.create(notificationEventRef, notificationEvent);
+      transaction.create(notificationAuditRef, {
+        eventId,
+        rtId: input.rtId,
+        campaignId: input.taskId,
+        eventType: 'TASK_VERIFICATION_NEEDED',
+        policyDocumentId: null,
+        policyVersion: null,
+        windowId,
+        action: 'TASK_VERIFICATION_NEEDED_SCHEDULED',
+        actor: 'RESIDENT_COMPLETION',
+        occurredAt: input.now,
+      });
       return {
         ...responseView(responseSnapshot),
         completionState: updated.completionState,

@@ -301,6 +301,8 @@ abstract interface class ResidentTaskOfflineStore {
     required String commandId,
     bool taskNoLongerActive = false,
   });
+
+  Future<void> clearResidentData({required ResidentSession session});
 }
 
 final class ResidentTaskCacheSnapshot {
@@ -596,6 +598,18 @@ final class TaskResponseController {
   final Map<String, String?> _completionEvidenceIds = {};
   final Map<String, String> _evidenceDeleteCommands = {};
   final Map<String, String> _verificationCommands = {};
+
+  Future<void> clearLocalResidentData({
+    required ResidentSession session,
+  }) async {
+    await _offlineStore?.clearResidentData(session: session);
+    _choiceCommands.clear();
+    _completionCommands.clear();
+    _completionNotes.clear();
+    _completionEvidenceIds.clear();
+    _evidenceDeleteCommands.clear();
+    _verificationCommands.clear();
+  }
 
   Future<ResidentTaskList> listResidentActiveTasks({
     ResidentSession? session,

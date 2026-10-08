@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 const { hashJoinCode } = require('../src/resident_session_service');
+const { notificationEventId, residentRtRecipientHash } = require('../src/task_notification_id');
 
 const PROJECT_ID = 'demo-guyub-functions';
 const REGION = 'asia-southeast2';
@@ -340,6 +341,30 @@ test('operator task callables enforce RT scope, reviewed templates, locked conte
   }, operatorA.idToken);
   assertError(differentCommand, 'FAILED_PRECONDITION');
 
+  const activationNotificationId = notificationEventId({
+    rtId: draft.rtId,
+    campaignId: draft.campaignId,
+    eventType: 'TASK_ACTIVATED',
+    windowId: 'campaign-transition',
+    recipientHash: residentRtRecipientHash(draft.rtId),
+  });
+  const activationNotification = await readDocument(
+    'task_notification_events', activationNotificationId,
+  );
+  assert.equal(activationNotification.status, 200, JSON.stringify(activationNotification.body));
+  assert.equal(activationNotification.body.fields.eventType.stringValue, 'TASK_ACTIVATED');
+  assert.equal(activationNotification.body.fields.recipientKind.stringValue, 'RESIDENTS_RT');
+  assert.equal(activationNotification.body.fields.status.stringValue, 'PENDING');
+  assert.equal(activationNotification.body.fields.residentId, undefined);
+  assert.equal(activationNotification.body.fields.token, undefined);
+  const activationNotificationAudit = await readDocument(
+    'task_notification_audit_events', activationNotificationId,
+  );
+  assert.equal(activationNotificationAudit.status, 200,
+    JSON.stringify(activationNotificationAudit.body));
+  assert.equal(activationNotificationAudit.body.fields.action.stringValue,
+    'TASK_ACTIVATED_SCHEDULED');
+
   const foreignDraftResponse = await callFunction('createTaskDraft', {
     ...draftPayload,
     requestId: randomRequestId(),
@@ -471,6 +496,18 @@ test('operator task callables enforce RT scope, reviewed templates, locked conte
   assert.equal(cancellationAudit.body.fields.commandHash.stringValue,
     crypto.createHash('sha256').update(cancelPayload.commandId).digest('hex'));
   assert.equal(cancellationAudit.body.fields.commandId, undefined);
+  const cancellationNotificationId = notificationEventId({
+    rtId: draft.rtId, campaignId: draft.campaignId, eventType: 'TASK_CANCELLED',
+    windowId: 'campaign-transition', recipientHash: residentRtRecipientHash(draft.rtId),
+  });
+  const cancellationNotification = await readDocument(
+    'task_notification_events', cancellationNotificationId,
+  );
+  assert.equal(cancellationNotification.status, 200,
+    JSON.stringify(cancellationNotification.body));
+  assert.equal(cancellationNotification.body.fields.eventType.stringValue, 'TASK_CANCELLED');
+  assert.equal(cancellationNotification.body.fields.status.stringValue, 'PENDING');
+  assert.equal(cancellationNotification.body.fields.residentId, undefined);
   const auditEvents = await request('GET', `${FIRESTORE_BASE}/task_audit_events?pageSize=100`, {
     token: 'owner',
   });
@@ -779,6 +816,14 @@ test('explicit closure is same-RT, idempotent, excluded from residents, and expo
   assert.equal(closeAudit.body.fields.commandHash.stringValue,
     crypto.createHash('sha256').update(closePayload.commandId).digest('hex'));
   assert.equal(closeAudit.body.fields.commandId, undefined);
+  const closeNotificationId = notificationEventId({
+    rtId, campaignId: taskId, eventType: 'TASK_CLOSED',
+    windowId: 'campaign-transition', recipientHash: residentRtRecipientHash(rtId),
+  });
+  const closeNotification = await readDocument('task_notification_events', closeNotificationId);
+  assert.equal(closeNotification.status, 200, JSON.stringify(closeNotification.body));
+  assert.equal(closeNotification.body.fields.eventType.stringValue, 'TASK_CLOSED');
+  assert.equal(closeNotification.body.fields.status.stringValue, 'PENDING');
   const audits = await request('GET', `${FIRESTORE_BASE}/task_audit_events?pageSize=100`, {
     token: 'owner',
   });

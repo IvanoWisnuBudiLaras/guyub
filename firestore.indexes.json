@@ -73,6 +73,24 @@
       ]
     },
     {
+      "collectionGroup": "task_responses",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "rtId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "taskId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "completionState",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
       "collectionGroup": "resident_proposals",
       "queryScope": "COLLECTION",
       "fields": [
@@ -252,6 +270,20 @@
         },
         {
           "fieldPath": "role",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "active",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "resident_push_tokens",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "rtId",
           "order": "ASCENDING"
         },
         {

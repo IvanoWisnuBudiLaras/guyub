@@ -67,12 +67,16 @@ test('configured reminder cohorts never include declined or completed residents'
   }), false);
 });
 
-test('notification copy is generic, voluntary, and not an official warning', () => {
-  for (const eventType of ['TASK_REMINDER', 'TASK_ESCALATION']) {
+test('all task notification copy is generic, safe, and never an official warning', () => {
+  for (const eventType of [
+    'TASK_REMINDER', 'TASK_ESCALATION', 'TASK_ACTIVATED', 'TASK_CANCELLED', 'TASK_CLOSED',
+    'TASK_VERIFICATION_NEEDED',
+  ]) {
     const copy = notificationCopy(eventType);
     const text = `${copy.title} ${copy.body}`.toLowerCase();
-    assert.match(text, /sukarela|administratif/u);
     assert.doesNotMatch(text, /peringatan resmi|official flood warning|peringatan banjir resmi/u);
     assert.doesNotMatch(text, /nama warga|alamat|nomor rumah|diagnosis/u);
+    assert.match(text, /sukarela|administratif|perubahan tugas|tinjauan/u);
   }
+  assert.match(notificationCopy('TASK_ACTIVATED').body, /sukarela/u);
 });
