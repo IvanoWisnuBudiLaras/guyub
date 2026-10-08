@@ -5,6 +5,7 @@ import '../../application/operator_profile.dart';
 import '../../../tasks/application/task_campaign_boundary.dart';
 import '../../../tasks/application/task_response_boundary.dart';
 import '../../../proposals/application/resident_proposal_boundary.dart';
+import '../../../assistance/application/proxy_resident_boundary.dart';
 
 /// Authenticated operator landing page with access to server-reviewed tasks.
 final class OperatorHomeScreen extends StatelessWidget {
@@ -14,6 +15,7 @@ final class OperatorHomeScreen extends StatelessWidget {
     this.taskCampaignBoundary,
     this.taskResponseController,
     this.proposalReviewController,
+    this.proxyResidentController,
     super.key,
   });
 
@@ -22,6 +24,7 @@ final class OperatorHomeScreen extends StatelessWidget {
   final TaskCampaignBoundary? taskCampaignBoundary;
   final TaskResponseController? taskResponseController;
   final ResidentProposalReviewController? proposalReviewController;
+  final ProxyResidentController? proxyResidentController;
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -116,6 +119,17 @@ final class OperatorHomeScreen extends StatelessWidget {
                         .pushNamed('/operator/proposals', arguments: profile),
                 icon: const Icon(Icons.rate_review_outlined),
                 label: const Text('Tinjau Usulan Warga'),
+              ),
+            ],
+            if (proxyResidentController != null) ...[
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                key: const Key('operator-proxy-resident-assistance'),
+                onPressed: () =>
+                    Navigator.of(context)
+                        .pushNamed('/operator/assistance', arguments: profile),
+                icon: const Icon(Icons.support_outlined),
+                label: const Text('Dukungan Warga & Status Proxy'),
               ),
             ],
           ],
