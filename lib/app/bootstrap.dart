@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 
 import '../core/config/app_config.dart';
 import '../core/config/app_environment.dart';
+import '../core/connectivity/network_connectivity_boundary.dart';
 import '../core/database/local_store.dart';
 import '../core/database/shared_prefs_local_store.dart';
 import '../features/auth/application/operator_auth_boundary.dart';
@@ -59,6 +60,7 @@ Future<Widget> createBootstrapApp(
   ProxyResidentController? proxyResidentController,
   AssistanceVolunteerController? assistanceVolunteerController,
   TaskPushNotificationsController? taskPushNotificationsController,
+  Stream<bool>? connectivityChanges,
 }) async {
   WidgetsFlutterBinding.ensureInitialized();
   AppConfig.initialize(config);
@@ -76,6 +78,7 @@ Future<Widget> createBootstrapApp(
     proxyResidentController: proxyResidentController,
     assistanceVolunteerController: assistanceVolunteerController,
     taskPushNotificationsController: taskPushNotificationsController,
+    connectivityChanges: connectivityChanges,
   );
 }
 
@@ -86,6 +89,7 @@ Future<Widget> createBootstrapApp(
 /// failures never fall back to the configured production project.
 Future<void> bootstrap(AppConfig config) async {
   WidgetsFlutterBinding.ensureInitialized();
+  final connectivityChanges = ConnectivityPlusBoundary().onlineChanges;
   LocalStore? localStore;
   try {
     localStore = await SharedPrefsLocalStore.create();
@@ -260,6 +264,7 @@ Future<void> bootstrap(AppConfig config) async {
       proxyResidentController: proxyResidentController,
       assistanceVolunteerController: assistanceVolunteerController,
       taskPushNotificationsController: taskPushNotificationsController,
+      connectivityChanges: connectivityChanges,
     ),
   );
 }

@@ -66,6 +66,7 @@ final class AppRouter {
     ProxyResidentController? proxyResidentController,
     AssistanceVolunteerController? assistanceVolunteerController,
     TaskPushNotificationsController? taskPushNotificationsController,
+    Stream<bool>? connectivityChanges,
   }) {
     switch (settings.name) {
       case initial:
@@ -244,6 +245,7 @@ final class AppRouter {
               weatherSnapshotSyncController: weatherSnapshotSyncController,
               assistanceVolunteerController: assistanceVolunteerController,
               taskPushNotificationsController: taskPushNotificationsController,
+              connectivityChanges: connectivityChanges,
             );
             if (taskPushNotificationsController == null ||
                 taskResponseController == null) {
@@ -280,6 +282,7 @@ final class AppRouter {
           builder: (_) => ResidentTaskListScreen(
             session: session,
             controller: taskResponseController,
+            connectivityChanges: connectivityChanges,
           ),
           settings: settings,
         );
