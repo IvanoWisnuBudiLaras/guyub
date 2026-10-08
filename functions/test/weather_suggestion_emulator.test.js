@@ -6,6 +6,7 @@ const { getFirestore } = require('firebase-admin/firestore');
 const { FirestoreWeatherSuggestionRepository } = require('../src/firestore_weather_suggestion_repository');
 const { approvedTemplateFromRecord } = require('../src/task_campaign_service');
 const { WeatherSuggestionService } = require('../src/weather_suggestion_service');
+const { hashJoinCode } = require('../src/resident_session_service');
 
 const PROJECT_ID = 'demo-guyub-functions';
 const REGION = 'asia-southeast2';
@@ -57,14 +58,13 @@ async function seedOperator(uid, rtId) {
 }
 
 async function callFunction(name, data, idToken) {
+  const headers = { 'Content-Type': 'application/json' };
+  if (idToken) headers.Authorization = `Bearer ${idToken}`;
   const response = await fetch(
     `http://${HOST}:${PORTS.functions}/${PROJECT_ID}/${REGION}/${name}`,
     {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${idToken}`,
-      },
+      headers,
       body: JSON.stringify({ data }),
     },
   );
@@ -189,6 +189,19 @@ test('BMKG snapshot is stored once, only reviewed rules/templates suggest, and R
   assert.equal(read.body.result.suggestions[0].state, 'SUGGESTED');
   assert.equal(read.body.result.suggestions[0].isStale, false);
   assert.equal('rtId' in read.body.result.suggestions[0], false);
+  const operatorSnapshot = await callFunction(
+    'getLastValidWeatherSnapshot', {}, account.idToken,
+  );
+  assert.equal(operatorSnapshot.status, 200, JSON.stringify(operatorSnapshot.body));
+  assert.equal(operatorSnapshot.body.result.snapshot.communityId, rtId);
+  assert.equal(operatorSnapshot.body.result.snapshot.rainfallMm, 42);
+  assert.equal(operatorSnapshot.body.result.snapshot.maximumAgeSeconds, 86400);
+  assert.equal('rtId' in operatorSnapshot.body.result.snapshot, false);
+  assert.equal('sourceFingerprint' in operatorSnapshot.body.result.snapshot, false);
+  const forgedScope = await callFunction(
+    'getLastValidWeatherSnapshot', { communityId: `rt-other-${suffix}` }, account.idToken,
+  );
+  assert.equal(forgedScope.status, 400);
 
   const pointerRef = firestore.collection('weather_last_valid_snapshots').doc(rtId);
   const pointerBeforeFailure = (await pointerRef.get()).data();
@@ -212,6 +225,20 @@ test('BMKG snapshot is stored once, only reviewed rules/templates suggest, and R
     { token: account.idToken, body: { fields: { state: { stringValue: 'ACTIVE' } } } },
   );
   assert.notEqual(directWrite.status, 200, 'clients must not change suggestion state');
+  const snapshotRead = await request(
+    'GET', documentUrl('weather_snapshots', pointerBeforeFailure.snapshotId),
+    { token: account.idToken },
+  );
+  assert.notEqual(snapshotRead.status, 200, 'clients must not read weather snapshots directly');
+  const sourceRead = await request('GET', documentUrl('weather_sources', rtId), {
+    token: account.idToken,
+  });
+  assert.notEqual(sourceRead.status, 200, 'clients must not read BMKG source config directly');
+  const ruleRead = await request(
+    'GET', documentUrl('weather_rules', `${rtId}_heavy-rain-preparation_v1`),
+    { token: account.idToken },
+  );
+  assert.notEqual(ruleRead.status, 200, 'clients must not read weather rules directly');
 
   await firestore.collection('weather_rules')
     .doc(`${rtId}_heavy-rain-preparation_v2`).set(ruleRecord(rtId, {
@@ -265,4 +292,60 @@ test('BMKG snapshot is stored once, only reviewed rules/templates suggest, and R
   const otherRead = await callFunction('listWeatherSuggestions', {}, other.idToken);
   assert.equal(otherRead.status, 200, JSON.stringify(otherRead.body));
   assert.deepEqual(otherRead.body.result.suggestions, []);
+});
+
+test('resident weather snapshot derives its RT from the live session, not client scope', async () => {
+  const suffix = crypto.randomUUID().replaceAll('-', '');
+  const rtId = `rt-resident-weather-${suffix}`;
+  const joinCode = `A${suffix.slice(0, 11).toUpperCase()}`;
+  await firestore.collection('rt_communities').doc(rtId).set({
+    displayName: 'RT Uji Cuaca',
+    rtLabel: 'RT Uji',
+    joinCodeHash: hashJoinCode(joinCode),
+    joinCodeActive: true,
+  });
+  const snapshotId = crypto.createHash('sha256').update(`snapshot-${suffix}`)
+    .digest('hex').slice(0, 40);
+  const updatedAt = new Date(Date.now() - 10 * 60 * 1000);
+  const snapshotRecord = {
+    snapshotId,
+    rtId,
+    source: 'BMKG',
+    sourceFingerprint: 'a'.repeat(64),
+    sourceUpdatedAt: updatedAt,
+    fetchedAt: updatedAt,
+    rainfallMm: 7.5,
+    isLastValid: true,
+  };
+  await firestore.collection('weather_snapshots').doc(snapshotId).set(snapshotRecord);
+  await firestore.collection('weather_last_valid_snapshots').doc(rtId).set({
+    rtId,
+    snapshotId,
+    sourceFingerprint: snapshotRecord.sourceFingerprint,
+    sourceUpdatedAt: updatedAt,
+    fetchedAt: updatedAt,
+  });
+  const enrollment = await callFunction('createResidentSession', {
+    joinCode,
+    nickname: 'Warga Cuaca',
+    requestId: crypto.randomBytes(32).toString('base64url'),
+  });
+  assert.equal(enrollment.status, 200, JSON.stringify(enrollment.body));
+  const sessionToken = enrollment.body.result.sessionToken;
+
+  const snapshot = await callFunction('getLastValidWeatherSnapshot', { sessionToken });
+  assert.equal(snapshot.status, 200, JSON.stringify(snapshot.body));
+  assert.equal(snapshot.body.result.snapshot.communityId, rtId);
+  assert.equal(snapshot.body.result.snapshot.rainfallMm, 7.5);
+  assert.equal('rtId' in snapshot.body.result.snapshot, false);
+
+  const forgedScope = await callFunction('getLastValidWeatherSnapshot', {
+    sessionToken,
+    communityId: `rt-other-${suffix}`,
+  });
+  assert.equal(forgedScope.status, 400);
+  const invalidSession = await callFunction('getLastValidWeatherSnapshot', {
+    sessionToken: 'invalid-session-token',
+  });
+  assert.equal(invalidSession.status, 403);
 });

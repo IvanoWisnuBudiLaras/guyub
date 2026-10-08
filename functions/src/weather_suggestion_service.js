@@ -279,6 +279,30 @@ function evaluateWeatherRules(snapshot, rules, evaluatedAt, maximumAgeSeconds) {
   return suggestions;
 }
 
+function publicWeatherSnapshot(record) {
+  if (record == null) return null;
+  const sourceUpdatedAt = asDate(record.sourceUpdatedAt);
+  const fetchedAt = asDate(record.fetchedAt);
+  if (!/^[a-f0-9]{40}$/u.test(record.id || '') ||
+      !RT_ID_PATTERN.test(record.rtId || '') || record.source !== 'BMKG' ||
+      !sourceUpdatedAt || !fetchedAt || !Number.isFinite(record.rainfallMm) ||
+      record.rainfallMm < 0 ||
+      (record.maximumAgeSeconds != null &&
+        (!Number.isInteger(record.maximumAgeSeconds) ||
+          record.maximumAgeSeconds < 60 || record.maximumAgeSeconds > MAX_WEATHER_AGE_SECONDS))) {
+    throw invalidWeather('Snapshot cuaca tidak konsisten.');
+  }
+  return {
+    id: record.id,
+    source: 'BMKG',
+    communityId: record.rtId,
+    sourceUpdatedAt: sourceUpdatedAt.toISOString(),
+    fetchedAt: fetchedAt.toISOString(),
+    rainfallMm: record.rainfallMm,
+    maximumAgeSeconds: record.maximumAgeSeconds ?? null,
+  };
+}
+
 function validateOperatorAuth(auth) {
   if (!auth || typeof auth.operatorUid !== 'string' || !auth.operatorUid.trim() ||
       auth.signInProvider !== 'password') throw permissionDenied();
@@ -387,6 +411,21 @@ class WeatherSuggestionService {
       }
     }
     return result;
+  }
+
+  async getLastValidWeatherSnapshotForOperator(auth, data = {}) {
+    validateOperatorAuth(auth);
+    assertOnlyKeys(data, []);
+    const snapshot = await this.repository.getLastValidSnapshotForOperator(auth.operatorUid);
+    return { snapshot: publicWeatherSnapshot(snapshot) };
+  }
+
+  async getLastValidWeatherSnapshotForRt(rtId) {
+    if (typeof rtId !== 'string' || !RT_ID_PATTERN.test(rtId)) {
+      throw invalidArgument('Ruang RT tidak valid.');
+    }
+    const snapshot = await this.repository.getLastValidSnapshotForRt(rtId);
+    return { snapshot: publicWeatherSnapshot(snapshot) };
   }
 
   async listWeatherSuggestions(auth, data = {}) {

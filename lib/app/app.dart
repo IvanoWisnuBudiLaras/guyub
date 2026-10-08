@@ -10,6 +10,8 @@ import '../features/tasks/application/task_response_boundary.dart';
 import '../features/proposals/application/resident_proposal_boundary.dart';
 import '../features/emergency/application/emergency_directory_controller.dart';
 import '../features/weather/application/weather_snapshot_store.dart';
+import '../features/weather/application/weather_snapshot_boundary.dart';
+import '../features/weather/application/weather_suggestion_boundary.dart';
 import '../features/notifications/application/task_push_notifications.dart';
 import 'router.dart';
 
@@ -24,6 +26,8 @@ final class GuyubApp extends StatelessWidget {
     this.proposalReviewController,
     this.emergencyDirectoryController,
     this.weatherSnapshotStore,
+    this.weatherSnapshotSyncController,
+    this.weatherSuggestionBoundary,
     this.proxyResidentController,
     this.assistanceVolunteerController,
     this.taskPushNotificationsController,
@@ -38,6 +42,8 @@ final class GuyubApp extends StatelessWidget {
   final ResidentProposalReviewController? proposalReviewController;
   final EmergencyDirectoryController? emergencyDirectoryController;
   final WeatherSnapshotStore? weatherSnapshotStore;
+  final WeatherSnapshotSyncController? weatherSnapshotSyncController;
+  final WeatherSuggestionBoundary? weatherSuggestionBoundary;
   final ProxyResidentController? proxyResidentController;
   final AssistanceVolunteerController? assistanceVolunteerController;
   final TaskPushNotificationsController? taskPushNotificationsController;
@@ -64,6 +70,8 @@ final class GuyubApp extends StatelessWidget {
         proposalReviewController: proposalReviewController,
         emergencyDirectoryController: emergencyDirectoryController,
         weatherSnapshotStore: weatherSnapshotStore,
+        weatherSnapshotSyncController: weatherSnapshotSyncController,
+        weatherSuggestionBoundary: weatherSuggestionBoundary,
         proxyResidentController: proxyResidentController,
         assistanceVolunteerController: assistanceVolunteerController,
         taskPushNotificationsController: taskPushNotificationsController,
