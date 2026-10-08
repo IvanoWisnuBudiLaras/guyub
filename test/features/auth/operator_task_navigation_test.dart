@@ -27,8 +27,23 @@ class _EmptyTaskBoundary implements TaskCampaignBoundary {
   }) => throw UnimplementedError();
 }
 
-final class _ActiveTaskBoundary extends _EmptyTaskBoundary
+final class _ManagementOnlyBoundary extends _EmptyTaskBoundary
     implements TaskCampaignManagementBoundary {
+  const _ManagementOnlyBoundary();
+
+  @override
+  Future<List<ActiveTaskCampaignRecord>> listActiveTaskCampaigns() async =>
+      const [];
+
+  @override
+  Future<TaskCampaignCancellationRecord> cancelTaskCampaign({
+    required String taskId,
+    required String commandId,
+  }) => throw UnimplementedError();
+}
+
+final class _ActiveTaskBoundary extends _EmptyTaskBoundary
+    implements TaskCampaignManagementBoundary, TaskCampaignHistoryBoundary {
   const _ActiveTaskBoundary();
 
   @override
@@ -40,6 +55,12 @@ final class _ActiveTaskBoundary extends _EmptyTaskBoundary
     required String taskId,
     required String commandId,
   }) => throw UnimplementedError();
+
+  @override
+  Future<RtTaskHistoryPage> listRtTaskHistory({
+    int pageSize = 25,
+    String? cursor,
+  }) async => const RtTaskHistoryPage(tasks: [], nextCursor: null);
 }
 
 void main() {
@@ -67,6 +88,7 @@ void main() {
 
     expect(find.text('Ketua RT/RW'), findsOneWidget);
     expect(find.text('RT rt-01'), findsOneWidget);
+    expect(find.byKey(const Key('operator-task-history')), findsNothing);
     await tester.tap(find.byKey(const Key('operator-task-catalog')));
     await tester.pumpAndSettle();
 
@@ -75,6 +97,62 @@ void main() {
       find.textContaining('Belum ada template yang disetujui'),
       findsOneWidget,
     );
+  });
+
+  testWidgets('history entry is hidden without the history capability', (
+    tester,
+  ) async {
+    const boundary = _ManagementOnlyBoundary();
+    final profile = OperatorProfile(
+      uid: 'operator-a',
+      communityId: 'rt-01',
+      role: OperatorRole.ketuaRtRw,
+      displayName: 'Ketua RT',
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: OperatorHomeScreen(
+          profile: profile,
+          authBoundary: null,
+          taskCampaignBoundary: boundary,
+        ),
+      ),
+    );
+
+    expect(
+      find.byKey(const Key('operator-active-task-campaigns')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('operator-task-history')), findsNothing);
+  });
+
+  testWidgets('operator can open RT task history from the home screen', (
+    tester,
+  ) async {
+    const boundary = _ActiveTaskBoundary();
+    final profile = OperatorProfile(
+      uid: 'operator-a',
+      communityId: 'rt-01',
+      role: OperatorRole.ketuaRtRw,
+      displayName: 'Ketua RT',
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: OperatorHomeScreen(
+          profile: profile,
+          authBoundary: null,
+          taskCampaignBoundary: boundary,
+        ),
+        onGenerateRoute: (settings) =>
+            AppRouter.onGenerateRoute(settings, taskCampaignBoundary: boundary),
+      ),
+    );
+
+    await tester.tap(find.byKey(const Key('operator-task-history')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Riwayat Tugas RT'), findsOneWidget);
+    expect(find.byKey(const Key('task-history-empty')), findsOneWidget);
   });
 
   testWidgets('operator can reach server-scoped active task cancellation', (
