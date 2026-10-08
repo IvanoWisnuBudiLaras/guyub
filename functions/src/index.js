@@ -224,6 +224,14 @@ exports.listWeatherSuggestions = onCall(callableOptions, async (request) => {
   }
 });
 
+exports.ignoreWeatherSuggestion = onCall(callableOptions, async (request) => {
+  try {
+    return await weatherSuggestions.ignoreWeatherSuggestion(operatorAuth(request), request.data);
+  } catch (error) {
+    throw toHttpsError(error);
+  }
+});
+
 exports.closeTaskCampaign = onCall(callableOptions, async (request) => {
   try {
     return await tasks.closeTaskCampaign(operatorAuth(request), request.data);

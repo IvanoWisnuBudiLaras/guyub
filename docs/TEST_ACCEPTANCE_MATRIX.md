@@ -4,7 +4,7 @@ This matrix maps implementation behavior back to the Master PRD. It is intended 
 
 | ID | Requirement | Minimum verification | Layer | Release blocking |
 |---|---|---|---|---|
-| AT-001 | Weather threshold cannot auto-send | Review a scoped suggestion; recommendation opens only the approved catalog; evaluator never creates a DRAFT/ACTIVE campaign | Widget + Functions Emulator | Yes |
+| AT-001 | Weather threshold cannot auto-send | Review a scoped suggestion; action rechecks that its trigger snapshot is current and fresh; stale or superseded suggestions cannot open the catalog; postpone leaves it available, ignore is idempotent and same-RT, and no suggestion action auto-creates a DRAFT/ACTIVE campaign | Widget + Functions Emulator | Yes |
 | AT-002 | Unsafe/free-form task blocked | Attempt activation without safe template | Backend integration | Yes |
 | AT-003 | Safety text immutable | Edit allowed task slots; compare safety snapshot | Unit + widget | Yes |
 | AT-004 | Resident can decline voluntarily | Choose decline; assert valid state and no penalty state | Widget + integration | Yes |
