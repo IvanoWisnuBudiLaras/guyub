@@ -182,6 +182,10 @@ final class _ResidentSessionHomeScreenState
     if (confirmed != true || !context.mounted) return;
     try {
       await controller.deleteOwnResidentData(session);
+      await residentProposalController?.clearPendingForResident(
+        residentId: session.residentId,
+        communityId: session.communityId,
+      );
       await taskResponseController?.clearLocalResidentData(session: session);
       await taskPushNotificationsController?.clearResidentStateAfterDeletion(
         session,
