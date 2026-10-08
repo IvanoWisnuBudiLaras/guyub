@@ -1,6 +1,12 @@
+const crypto = require('node:crypto');
 const {
   OPERATOR_ROLES,
+  TASK_CATEGORIES,
+  TASK_LOCATION_REFERENCES,
   asDate,
+  approvedTemplateFromRecord,
+  publicTemplate,
+  templateDocumentId,
 } = require('./task_campaign_service');
 const { ResidentProposalError, MAX_PENDING_PROPOSALS } = require('./resident_proposal_service');
 
@@ -34,7 +40,8 @@ function requireResidentSession(sessionSnapshot, residentSnapshot, input) {
   if (!sessionSnapshot.exists || session?.active !== true || !expiresAt ||
       expiresAt <= input.now || session.residentId !== input.residentId ||
       session.rtId !== input.rtId || !residentSnapshot.exists ||
-      resident?.rtId !== input.rtId || typeof resident?.nickname !== 'string') {
+      resident?.rtId !== input.rtId || resident?.deletionPending === true ||
+      typeof resident?.nickname !== 'string') {
     throw deny();
   }
 }
@@ -45,7 +52,8 @@ function proposalFromSnapshot(snapshot) {
   if (proposal?.proposalId !== snapshot.id || typeof proposal.rtId !== 'string' ||
       typeof proposal.residentId !== 'string' || typeof proposal.title !== 'string' ||
       typeof proposal.description !== 'string' || typeof proposal.category !== 'string' ||
-      !['SUBMITTED', 'DISMISSED', 'NEEDS_OFFICIAL_REPORT'].includes(proposal.state) || !asDate(proposal.submittedAt)) {
+      !['SUBMITTED', 'DISMISSED', 'NEEDS_OFFICIAL_REPORT', 'MAPPED_TO_SAFE_TEMPLATE'].includes(proposal.state) ||
+      !asDate(proposal.submittedAt)) {
     return null;
   }
   return {
@@ -73,6 +81,87 @@ function auditMatches(audit, input, operator) {
   return audit?.action === expectedAction &&
     audit.proposalId === input.proposalId && audit.rtId === operator.rtId &&
     audit.actorUid === input.operatorUid && audit.commandHash === input.commandHash;
+}
+
+function mappingCampaignId(rtId, proposalId) {
+  return crypto.createHash('sha256')
+    .update(`resident-proposal-campaign\0${rtId}\0${proposalId}`, 'utf8')
+    .digest('hex').slice(0, 40);
+}
+
+function mappingAuditMatches(audit, input, operator, campaignId) {
+  return audit?.auditId === `${input.proposalId}_mapped` &&
+    audit.action === 'RESIDENT_PROPOSAL_MAPPED_TO_SAFE_TEMPLATE' &&
+    audit.proposalId === input.proposalId && audit.rtId === operator.rtId &&
+    audit.actorUid === input.operatorUid && audit.commandHash === input.commandHash &&
+    audit.mappingFingerprint === input.mappingFingerprint && audit.campaignId === campaignId &&
+    audit.templateId === input.templateId && audit.templateVersion === input.version &&
+    asDate(audit.occurredAt) !== null;
+}
+
+function storedTemplateSnapshot(value) {
+  const allowed = new Set([
+    'templateId', 'version', 'title', 'category', 'coreInstruction',
+    'safetyInstruction', 'estimatedDurationMinutes',
+  ]);
+  const validText = (text, limit) => typeof text === 'string' &&
+    text === text.normalize('NFC').trim() && text.length > 0 && [...text].length <= limit;
+  if (!value || typeof value !== 'object' || Array.isArray(value) ||
+      Object.keys(value).some((key) => !allowed.has(key)) ||
+      typeof value.templateId !== 'string' || !/^[a-z][a-z0-9_-]{0,63}$/u.test(value.templateId) ||
+      !Number.isInteger(value.version) || value.version < 1 ||
+      !validText(value.title, 120) || !TASK_CATEGORIES.has(value.category) ||
+      !validText(value.coreInstruction, 3000) || !validText(value.safetyInstruction, 3000) ||
+      (Object.hasOwn(value, 'estimatedDurationMinutes') &&
+        (!Number.isInteger(value.estimatedDurationMinutes) ||
+          value.estimatedDurationMinutes < 1 || value.estimatedDurationMinutes > 480))) {
+    return null;
+  }
+  return {
+    templateId: value.templateId,
+    version: value.version,
+    title: value.title,
+    category: value.category,
+    coreInstruction: value.coreInstruction,
+    safetyInstruction: value.safetyInstruction,
+    ...(Object.hasOwn(value, 'estimatedDurationMinutes') ? {
+      estimatedDurationMinutes: value.estimatedDurationMinutes,
+    } : {}),
+  };
+}
+
+function snapshotFingerprint(template) {
+  return crypto.createHash('sha256').update(JSON.stringify([
+    template.templateId,
+    template.version,
+    template.title,
+    template.category,
+    template.coreInstruction,
+    template.safetyInstruction,
+    template.estimatedDurationMinutes ?? null,
+  ]), 'utf8').digest('hex');
+}
+
+function campaignMatchesMapping(snapshot, input, operator, campaignId) {
+  if (!snapshot.exists) return false;
+  const campaign = snapshot.data();
+  const templateSnapshot = storedTemplateSnapshot(campaign.templateSnapshot);
+  const deadline = asDate(campaign.deadline);
+  const createdAt = asDate(campaign.createdAt);
+  const activatedAt = campaign.activatedAt == null ? null : asDate(campaign.activatedAt);
+  return campaign.campaignId === campaignId && campaign.rtId === operator.rtId &&
+    campaign.sourceProposalId === input.proposalId &&
+    campaign.createdByOperatorUid === input.operatorUid &&
+    campaign.mappedByOperatorUid === input.operatorUid &&
+    campaign.mappingCommandHash === input.commandHash &&
+    campaign.mappingFingerprint === input.mappingFingerprint &&
+    campaign.templateId === input.templateId && campaign.templateVersion === input.version &&
+    campaign.templateFingerprint === (templateSnapshot && snapshotFingerprint(templateSnapshot)) &&
+    templateSnapshot?.templateId === input.templateId && templateSnapshot.version === input.version &&
+    deadline?.toISOString() === input.deadline.toISOString() &&
+    (campaign.locationReference ?? null) === input.locationReference && createdAt !== null &&
+    (campaign.status === 'DRAFT' ? activatedAt === null :
+      campaign.status === 'ACTIVE' && activatedAt !== null);
 }
 
 class FirestoreResidentProposalRepository {
@@ -140,6 +229,7 @@ class FirestoreResidentProposalRepository {
         const residentSnapshot = residents[index];
         if (!proposal || proposal.rtId !== operator.rtId || proposal.state !== 'SUBMITTED' ||
             !residentSnapshot.exists || residentSnapshot.data().rtId !== operator.rtId ||
+            residentSnapshot.data().deletionPending === true ||
             typeof residentSnapshot.data().nickname !== 'string') return null;
         return publicQueueItem(proposal, residentSnapshot.data().nickname);
       }).filter((proposal) => proposal !== null).sort((left, right) => {
@@ -210,6 +300,121 @@ class FirestoreResidentProposalRepository {
         occurredAt: input.now,
       });
       result = { ...proposalSnapshot.data(), ...update };
+    });
+    return result;
+  }
+
+  async mapProposalToDraft(input) {
+    const operatorRef = this.firestore.collection(OPERATOR_COLLECTION).doc(input.operatorUid);
+    const proposalRef = this.firestore.collection(PROPOSAL_COLLECTION).doc(input.proposalId);
+    const templateRef = this.firestore.collection('task_templates')
+      .doc(templateDocumentId(input.templateId, input.version));
+    let result;
+
+    await this.firestore.runTransaction(async (transaction) => {
+      const [operatorSnapshot, proposalSnapshot, templateSnapshot] = await Promise.all([
+        transaction.get(operatorRef),
+        transaction.get(proposalRef),
+        transaction.get(templateRef),
+      ]);
+      const operator = requireOperator(operatorSnapshot);
+      const campaignId = mappingCampaignId(operator.rtId, input.proposalId);
+      const campaignRef = this.firestore.collection('task_campaigns').doc(campaignId);
+      const auditRef = this.firestore.collection(AUDIT_COLLECTION)
+        .doc(`${input.proposalId}_mapped`);
+      const [campaignSnapshot, auditSnapshot] = await Promise.all([
+        transaction.get(campaignRef), transaction.get(auditRef),
+      ]);
+      const proposal = proposalFromSnapshot(proposalSnapshot);
+      if (!proposal) throw deny();
+      if (proposal.rtId !== operator.rtId) throw deny();
+
+      if (proposal.state === 'MAPPED_TO_SAFE_TEMPLATE') {
+        const storedProposal = proposalSnapshot.data();
+        const campaign = campaignSnapshot.data();
+        if (storedProposal.reviewDecision === 'MAPPED_TO_SAFE_TEMPLATE' &&
+            storedProposal.mappingCommandHash === input.commandHash &&
+            storedProposal.mappingFingerprint === input.mappingFingerprint &&
+            storedProposal.reviewedByOperatorUid === input.operatorUid &&
+            storedProposal.mappedCampaignId === campaignId &&
+            asDate(storedProposal.reviewedAt) && auditSnapshot.exists &&
+            mappingAuditMatches(auditSnapshot.data(), input, operator, campaignId) &&
+            campaignMatchesMapping(campaignSnapshot, input, operator, campaignId)) {
+          result = { proposal: storedProposal, campaign };
+          return;
+        }
+        throw fail('failed-precondition', 'Usulan sudah dipetakan ke draf lain.');
+      }
+      if (proposal.state !== 'SUBMITTED') {
+        throw fail('failed-precondition', 'Usulan tidak menunggu peninjauan.');
+      }
+      if (campaignSnapshot.exists || auditSnapshot.exists) {
+        throw fail('failed-precondition', 'Riwayat pemetaan tidak konsisten.');
+      }
+      if (templateSnapshot.id !== templateDocumentId(input.templateId, input.version)) {
+        throw fail('failed-precondition', 'Template belum disetujui atau tidak aktif.');
+      }
+      const template = templateSnapshot.exists
+        ? approvedTemplateFromRecord(templateSnapshot.data(), input.templateId, input.version)
+        : null;
+      if (!template) {
+        throw fail('failed-precondition', 'Template belum disetujui atau tidak aktif.');
+      }
+      if (!(input.deadline instanceof Date) || !(input.now instanceof Date) ||
+          !Number.isFinite(input.deadline.getTime()) || !Number.isFinite(input.now.getTime()) ||
+          input.deadline.getTime() <= input.now.getTime() ||
+          (input.locationReference != null &&
+            !TASK_LOCATION_REFERENCES.has(input.locationReference))) {
+        throw fail('invalid-argument', 'Slot tugas tidak valid.');
+      }
+
+      const proposalUpdate = {
+        state: 'MAPPED_TO_SAFE_TEMPLATE',
+        reviewDecision: 'MAPPED_TO_SAFE_TEMPLATE',
+        reviewCommandHash: input.commandHash,
+        mappingCommandHash: input.commandHash,
+        mappingFingerprint: input.mappingFingerprint,
+        mappedCampaignId: campaignId,
+        reviewedByOperatorUid: input.operatorUid,
+        reviewedAt: input.now,
+      };
+      const campaignRecord = {
+        campaignId,
+        rtId: operator.rtId,
+        templateId: template.templateId,
+        templateVersion: template.version,
+        templateFingerprint: template.fingerprint,
+        templateSnapshot: publicTemplate(template),
+        deadline: input.deadline,
+        locationReference: input.locationReference,
+        status: 'DRAFT',
+        createdByOperatorUid: input.operatorUid,
+        mappedByOperatorUid: input.operatorUid,
+        sourceProposalId: input.proposalId,
+        mappingCommandHash: input.commandHash,
+        mappingFingerprint: input.mappingFingerprint,
+        createdAt: input.now,
+        activatedAt: null,
+      };
+      transaction.update(proposalRef, proposalUpdate);
+      transaction.create(campaignRef, campaignRecord);
+      transaction.create(auditRef, {
+        auditId: `${input.proposalId}_mapped`,
+        proposalId: input.proposalId,
+        rtId: operator.rtId,
+        action: 'RESIDENT_PROPOSAL_MAPPED_TO_SAFE_TEMPLATE',
+        actorUid: input.operatorUid,
+        commandHash: input.commandHash,
+        mappingFingerprint: input.mappingFingerprint,
+        campaignId,
+        templateId: template.templateId,
+        templateVersion: template.version,
+        occurredAt: input.now,
+      });
+      result = {
+        proposal: { ...proposalSnapshot.data(), ...proposalUpdate },
+        campaign: campaignRecord,
+      };
     });
     return result;
   }

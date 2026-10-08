@@ -73,6 +73,22 @@ async function seedCommunity(rtId, joinCode) {
   });
 }
 
+async function seedApprovedTemplate(templateId = 'safe_household_prep', version = 1) {
+  await seedDocument('task_templates', `${templateId}_v${version}`, {
+    templateId,
+    version,
+    title: 'Persiapan rumah tangga',
+    category: 'HOUSEHOLD_PREPARATION',
+    coreInstruction: 'Simpan dokumen penting dalam wadah kedap air.',
+    safetyInstruction: 'Jangan mendekati air banjir atau instalasi listrik basah.',
+    estimatedDurationMinutes: 30,
+    enabled: true,
+    reviewStatus: 'approved',
+    reviewedBy: 'trusted-reviewer',
+    reviewedAt: new Date(),
+  });
+}
+
 async function callFunction(name, data, idToken) {
   const headers = { 'Content-Type': 'application/json' };
   if (idToken) headers.Authorization = `Bearer ${idToken}`;
@@ -307,4 +323,71 @@ test('resident proposal submission, RT queue, safe dismissal, isolation and no d
     });
     assert.equal(directWrite.status, 403, `${collection} direct write was allowed`);
   }
+});
+
+
+test('resident proposal maps only to safe DRAFT and activation remains separate', async () => {
+  const suffix = crypto.randomUUID().replaceAll('-', '');
+  const rtA = `rt-map-a-${suffix}`;
+  const rtB = `rt-map-b-${suffix}`;
+  const codeA = `MA${suffix.slice(0, 14).toUpperCase()}`;
+  const codeB = `MB${suffix.slice(0, 14).toUpperCase()}`;
+  const operatorA = await createAccount();
+  const operatorB = await createAccount();
+  await seedOperator(operatorA.localId, rtA);
+  await seedOperator(operatorB.localId, rtB);
+  await seedCommunity(rtA, codeA);
+  await seedCommunity(rtB, codeB);
+  await seedApprovedTemplate();
+  const resident = await createResident(codeA, 'Rani');
+  const submitted = await callFunction('submitResidentProposal', {
+    sessionToken: resident.sessionToken, requestId: randomRequestId(),
+    title: 'Masuk ke drainase',
+    description: 'Usul agar warga masuk ke drainase dan mengangkat sampah dari dalam.',
+    category: 'ENVIRONMENTAL_CLEANUP', locationReference: 'COMMUNITY_GENERAL_AREA',
+  });
+  assert.equal(submitted.status, 200, JSON.stringify(submitted.body));
+  const proposalId = submitted.body.result.proposalId;
+  const mapPayload = {
+    proposalId, templateId: 'safe_household_prep', version: 1,
+    deadline: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(),
+    locationReference: 'COMMUNITY_GENERAL_AREA', commandId: randomRequestId(),
+  };
+  const results = await Promise.all([
+    callFunction('mapResidentProposalToDraft', mapPayload, operatorA.idToken),
+    callFunction('mapResidentProposalToDraft', mapPayload, operatorA.idToken),
+  ]);
+  assert.ok(results.every((r) => r.status === 200), JSON.stringify(results));
+  const mapped = results[0].body.result;
+  const campaign = mapped.campaign;
+  assert.equal(mapped.proposal.state, 'MAPPED_TO_SAFE_TEMPLATE');
+  assert.equal(campaign.status, 'DRAFT');
+  assert.equal(campaign.activatedAt, null);
+  assert.equal(campaign.templateSnapshot.coreInstruction, 'Simpan dokumen penting dalam wadah kedap air.');
+  assert.equal(JSON.stringify(campaign).includes('Masuk ke drainase'), false);
+  assert.equal(JSON.stringify(campaign).includes('warga masuk ke drainase'), false);
+  assert.equal(results[1].body.result.campaign.campaignId, campaign.campaignId);
+  assert.deepEqual((await callFunction('listResidentProposals', {}, operatorA.idToken)).body.result.items, []);
+  const before = await callFunction('listResidentActiveTasks', { sessionToken: resident.sessionToken });
+  assert.deepEqual(before.body.result.items, []);
+  assertError(await callFunction('mapResidentProposalToDraft', mapPayload, operatorB.idToken), 'PERMISSION_DENIED');
+  assertError(await callFunction('mapResidentProposalToDraft', { ...mapPayload, commandId: randomRequestId() }, operatorA.idToken), 'FAILED_PRECONDITION');
+  assertError(await callFunction('mapResidentProposalToDraft', { ...mapPayload, freeTextInstruction: 'dangerous' }, operatorA.idToken), 'INVALID_ARGUMENT');
+  const audit = await readDocument('resident_proposal_audit_events', `${proposalId}_mapped`);
+  assert.equal(audit.status, 200, JSON.stringify(audit.body));
+  assert.equal(audit.body.fields.action.stringValue, 'RESIDENT_PROPOSAL_MAPPED_TO_SAFE_TEMPLATE');
+  assert.equal(JSON.stringify(audit.body.fields).includes('drainase'), false);
+  assert.equal(JSON.stringify(audit.body.fields).includes(mapPayload.commandId), false);
+  const campaignDoc = await readDocument('task_campaigns', campaign.campaignId);
+  assert.equal(campaignDoc.body.fields.status.stringValue, 'DRAFT');
+  assert.equal(campaignDoc.body.fields.sourceProposalId.stringValue, proposalId);
+  assert.equal(campaignDoc.body.fields.templateSnapshot.mapValue.fields.coreInstruction.stringValue,
+    'Simpan dokumen penting dalam wadah kedap air.');
+  const activation = await callFunction('activateTaskCampaign', {
+    campaignId: campaign.campaignId, commandId: randomRequestId(),
+  }, operatorA.idToken);
+  assert.equal(activation.status, 200, JSON.stringify(activation.body));
+  assert.equal(activation.body.result.status, 'ACTIVE');
+  const after = await callFunction('listResidentActiveTasks', { sessionToken: resident.sessionToken });
+  assert.equal(after.body.result.items.length, 1);
 });
