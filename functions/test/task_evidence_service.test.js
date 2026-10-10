@@ -363,3 +363,39 @@ test('retention cleanup paginates across batches and prevents starvation when it
   assert.equal(repository.records.get('evi-0000').status, 'DELETE_PENDING');
   assert.equal(repository.records.get('evi-0124').status, 'DELETED');
 });
+
+test('retention cleanup continues when beginExpiredDeletion throws on corrupted record', async () => {
+  const repository = new FakeRepository();
+  const storage = new FakeStorage();
+  const { service } = createService(repository, storage);
+
+  const later = new Date('2026-11-05T12:00:00.000Z');
+  const past = new Date('2026-10-01T12:00:00.000Z');
+  for (let i = 0; i < 3; i += 1) {
+    const id = `evi-${String(i).padStart(4, '0')}`;
+    const storagePath = `evidence/test/${id}.jpg`;
+    storage.objects.set(storagePath, Buffer.from('test'));
+    repository.records.set(id, {
+      evidenceId: id,
+      storagePath,
+      status: 'READY',
+      expiresAt: past,
+      uploadLeaseUntil: null,
+    });
+  }
+
+  const originalBegin = repository.beginExpiredDeletion.bind(repository);
+  repository.beginExpiredDeletion = async (input) => {
+    if (input.evidenceId === 'evi-0000') {
+      throw new Error('Corrupted record or invalid storage path');
+    }
+    return originalBegin(input);
+  };
+
+  const cleanup = await service.deleteExpiredEvidence({ now: later, batchSize: 50 });
+  assert.equal(cleanup.examined, 3);
+  assert.equal(cleanup.deleted, 2);
+  assert.equal(cleanup.retryPending, 1);
+  assert.equal(repository.records.get('evi-0001').status, 'DELETED');
+  assert.equal(repository.records.get('evi-0002').status, 'DELETED');
+});
