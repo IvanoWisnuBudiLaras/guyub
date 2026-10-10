@@ -12,6 +12,7 @@ final class TaskTemplate {
     required this.coreInstruction,
     required this.safetyInstruction,
     required this.enabled,
+    this.estimatedDurationMinutes,
   }) {
     _requireText(id, 'id');
     _requireText(title, 'title');
@@ -20,6 +21,14 @@ final class TaskTemplate {
     _requireText(safetyInstruction, 'safetyInstruction');
     if (version < 1) {
       throw ArgumentError.value(version, 'version', 'Must be positive.');
+    }
+    if (estimatedDurationMinutes != null &&
+        (estimatedDurationMinutes! < 1 || estimatedDurationMinutes! > 480)) {
+      throw ArgumentError.value(
+        estimatedDurationMinutes,
+        'estimatedDurationMinutes',
+        'Must be between 1 and 480 minutes when provided.',
+      );
     }
   }
 
@@ -30,6 +39,7 @@ final class TaskTemplate {
   final String coreInstruction;
   final String safetyInstruction;
   final bool enabled;
+  final int? estimatedDurationMinutes;
 
   TaskTemplateSnapshot snapshot() => TaskTemplateSnapshot(
     templateId: id,
@@ -38,6 +48,7 @@ final class TaskTemplate {
     category: category,
     coreInstruction: coreInstruction,
     safetyInstruction: safetyInstruction,
+    estimatedDurationMinutes: estimatedDurationMinutes,
   );
 }
 
@@ -50,6 +61,7 @@ final class TaskTemplateSnapshot {
     required this.category,
     required this.coreInstruction,
     required this.safetyInstruction,
+    this.estimatedDurationMinutes,
   });
 
   final String templateId;
@@ -58,6 +70,7 @@ final class TaskTemplateSnapshot {
   final String category;
   final String coreInstruction;
   final String safetyInstruction;
+  final int? estimatedDurationMinutes;
 }
 
 void _requireText(String value, String name) {

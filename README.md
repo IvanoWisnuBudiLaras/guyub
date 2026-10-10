@@ -166,8 +166,8 @@ Aturan akses Firestore dan sesi warga diuji dengan Auth/Firestore/Functions Emul
 ## 10. Status Backend & Cloud Provider
 
 ### Firebase Cloud Functions
-**Status: callable resident-session slice implemented for Emulator; production deployment deferred.**
-- `functions/` implements opaque resident session issue/validate/revoke callables. Functions, Auth, and Firestore emulators are configured for development and integration tests.
+**Status: resident sessions and RT-scoped task catalog/activation are implemented for Emulator; production deployment deferred.**
+- `functions/` implements opaque resident-session callables and operator-only reviewed-template/draft/activation callables. Functions, Auth, and Firestore emulators are configured for development and integration tests.
 - Production resident callables require Firebase App Check; the Android client uses Play Integrity. App Check is intentionally disabled only in the demo emulator and must be registered for the signed Android app before production use. Enrollment retries reuse a pending secure request ID so one attempt does not create duplicate resident profiles.
 - Protected collections remain client-deny by Firestore rules. No production function is deployed and no scheduled weather, reminder, escalation, or evidence-cleanup job is configured yet.
 - Production deployment and scheduled automation may require a Firebase billing/provider decision. This repository does not enable billing or deploy production infrastructure.

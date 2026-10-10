@@ -1,4 +1,4 @@
-function residentCallableOptions(environment = process.env) {
+function protectedCallableOptions(environment = process.env) {
   const isDemoEmulator = environment.FUNCTIONS_EMULATOR === 'true' &&
     typeof environment.GCLOUD_PROJECT === 'string' &&
     environment.GCLOUD_PROJECT.startsWith('demo-');
@@ -10,4 +10,6 @@ function residentCallableOptions(environment = process.env) {
   };
 }
 
-module.exports = { residentCallableOptions };
+const residentCallableOptions = protectedCallableOptions;
+
+module.exports = { protectedCallableOptions, residentCallableOptions };

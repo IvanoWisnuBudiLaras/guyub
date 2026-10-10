@@ -18,6 +18,7 @@ void main() {
     coreInstruction: 'Amankan barang di dalam rumah.',
     safetyInstruction: safety,
     enabled: enabled,
+    estimatedDurationMinutes: 30,
   );
 
   TaskCampaign draft({String communityId = 'rt-1'}) => TaskCampaign.createDraft(
@@ -27,7 +28,7 @@ void main() {
     createdByOperatorId: 'operator-1',
     createdAt: now,
     deadline: deadline,
-    locationReference: 'Rumah masing-masing',
+    locationReference: 'HOUSEHOLD',
   );
 
   TaskCampaign activeCampaign() => draft().confirmAndActivate(
@@ -44,6 +45,7 @@ void main() {
       expect(campaign.status, TaskCampaignStatus.draft);
       expect(campaign.templateSnapshot.templateId, 'template-household-1');
       expect(campaign.templateSnapshot.version, 3);
+      expect(campaign.templateSnapshot.estimatedDurationMinutes, 30);
       expect(
         campaign.templateSnapshot.coreInstruction,
         'Amankan barang di dalam rumah.',
@@ -52,7 +54,7 @@ void main() {
         campaign.templateSnapshot.safetyInstruction,
         'Tetap di area aman.',
       );
-      expect(campaign.locationReference, 'Rumah masing-masing');
+      expect(campaign.locationReference, 'HOUSEHOLD');
     });
 
     test('template edits cannot rewrite the campaign snapshot', () {
@@ -76,6 +78,22 @@ void main() {
       expect(
         campaign.templateSnapshot.safetyInstruction,
         'Tetap di area aman.',
+      );
+    });
+
+    test('estimated duration is optional but bounded when supplied', () {
+      expect(
+        () => TaskTemplate(
+          id: 'template-household-1',
+          version: 3,
+          title: 'Persiapan rumah tangga',
+          category: 'household_preparation',
+          coreInstruction: 'Amankan barang di dalam rumah.',
+          safetyInstruction: 'Tetap di area aman.',
+          enabled: true,
+          estimatedDurationMinutes: 481,
+        ),
+        throwsArgumentError,
       );
     });
 
@@ -157,8 +175,7 @@ void main() {
           createdByOperatorId: 'operator-1',
           createdAt: now,
           deadline: deadline,
-          locationReference:
-              'x' * (TaskCampaign.maxLocationReferenceLength + 1),
+          locationReference: 'Masuk ke saluran air untuk membersihkan sampah',
         ),
         throwsArgumentError,
       );

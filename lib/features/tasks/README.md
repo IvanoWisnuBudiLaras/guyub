@@ -1,22 +1,24 @@
 # Feature: Tasks (Tugas Kesiapsiagaan)
 
-**Status: PARTIAL.** The application layer now models controlled-template snapshots, draft/activation state, voluntary response, pending RT verification, bounded operator parameters, and retry-safe domain transitions.
+**Status: PARTIAL.** Operator catalog, draft, and explicit RT-scoped activation now use callable Functions. The resident response lifecycle, offline task cache, and distribution are not implemented.
 
 ## Implemented
-- `application/task_template.dart`: immutable versioned template copy and required safety/core text.
-- `application/task_campaign.dart`: draft creation from a template, deadline/location parameters, explicit activation method, same-community guard, and command replay handling. Free-text resident-facing notes are disabled until a reviewed safety mechanism exists.
-- `application/task_response.dart`: JOIN/DECLINE and completion pending until operator verification.
-- Unit tests: `test/features/tasks/task_workflow_test.dart`.
+- `application/task_template.dart`: versioned catalog template, locked core/safety text, and optional estimated duration.
+- `application/task_campaign.dart`: domain draft/activation model and immutable template snapshot.
+- `application/task_campaign_boundary.dart`: application boundary and stable idempotency keys across retry.
+- `data/firebase_task_campaign_boundary.dart`: callable-only adapter; the client cannot write template, campaign, or audit collections.
+- `functions/src/task_campaign_service.js` and `firestore_task_campaign_repository.js`: approved/enabled template validation, password-operator check, RT membership recheck in transactions, RT derived from trusted membership, immutable template fingerprint, deterministic draft id, explicit activation and one deterministic audit record.
+- Operator catalog/editor/confirmation screens show locked instructions and permit only a future deadline and a controlled coarse-location category. The app and server reject free-text task notes and locations, which could introduce unsafe instructions or personal data. Core and safety text remain immutable. Activation clearly states that automatic messages are not available.
+- Unit, widget, Auth/Firestore/Functions Emulator tests cover empty catalog, locked instructions, explicit confirmation, unauthorized/cross-RT activation, review/enabled guards, location privacy, replay, concurrent activation, template mutation, and direct client access denial.
 
 ## Not yet production-operational
-- There is no approved catalog data or catalog backend. A valid Dart object is not proof of human safety review.
-- Campaign and resident response operations are not connected to Firestore. Domain checks are not server authorization.
-- There is no task UI, resident session, RT verification queue, active-task offline cache, audit log, notification, or distribution.
-- Operator/resident writes remain denied by Firestore rules until explicit RT-scoped rules and emulator tests are added.
+- No real task template is seeded or marked approved. A human must review real template content before trusted provisioning; emulator fixtures are test-only. The catalog intentionally displays an empty state until then.
+- There is no trusted admin template provisioning tool, Functions deployment, recipient roster, resident task list/response backend, FCM/WhatsApp path, or offline cache.
+- Firebase App Check registration/signing and production operator/RT provisioning remain external.
 
 ## Invariants
-- Weather suggestions do not activate campaigns (AT-001).
-- Core and safety instructions are snapshotted; arbitrary free-text notes are not accepted (AT-002/003 partial).
-- Participation has no penalty/ranking state (AT-004).
-- Resident completion remains `pendingRtVerification` until a domain verification transition (AT-005).
-- Backend authorization is still required before persistence or distribution.
+- Weather suggestions do not create or activate campaigns (AT-001).
+- Catalog content and safety instructions come only from trusted reviewed versions; campaigns snapshot the exact version (AT-002/003).
+- Only an authorized operator can activate a same-RT draft; no weather path or client Firestore write can do so.
+- Participation is voluntary and has no penalty/ranking state (AT-004).
+- Resident completion remains pending until RT verification (AT-005); the persistent backend/UI flow is still missing.

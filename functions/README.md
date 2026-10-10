@@ -28,6 +28,14 @@ An administrator provisions `/rt_communities/{rtId}` outside the resident app wi
 
 Generate a random 12–32 character uppercase alphanumeric code with a cryptographically secure generator. Store only its SHA-256 hash in Firestore, share the raw code privately with that RT, and revoke by setting `joinCodeActive` to `false`. Do not use a predictable or shared public code. No production community, operator, secret, or real RT code is provisioned by this repository.
 
+## Reviewed task catalog and activation
+
+- `listApprovedTaskTemplates`, `createTaskDraft`, and `activateTaskCampaign` are callable-only operations. Callers must be password-authenticated operators with an active server-provisioned `/operators/{uid}` membership in the supported role set. Every mutation re-reads membership in its Firestore transaction; the stored `rtId` is never accepted from the client.
+- Templates live in `/task_templates/{templateId}_v{version}`. A trusted provisioning path must set matching `templateId`/`version`, a controlled category, title, core and safety instructions, optional `estimatedDurationMinutes`, `enabled: true`, `reviewStatus: "approved"`, `reviewedBy`, and `reviewedAt`. Firestore client access remains denied. This repository does not seed or claim human approval for real template content.
+- Only the approved version is returned. Draft input is limited to template ID/version, future deadline, one controlled coarse-location category, and a random retry request ID. Free-text task notes and locations are rejected to prevent unsafe instructions or personal data. Activation rechecks the approved version and compares an immutable content fingerprint. Caller-supplied core/safety/category/RT/operator fields are rejected; the location category is separate from the immutable template snapshot.
+- Campaign ownership is the server-derived RT. Activation updates the draft and creates one deterministic `/task_audit_events/{campaignId}_activated` record in a transaction. Replays of the same command return the existing activation; a different command cannot reactivate it. No notification is sent by this phase.
+- A pilot administrator must obtain human review before provisioning any usable template. Do not copy test fixture instructions into production.
+
 ## Verification
 
 ```bash

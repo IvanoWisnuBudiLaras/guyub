@@ -151,18 +151,21 @@ class FirestoreRulesTest(unittest.TestCase):
         )
         self.assertEqual(status, 403)
 
-    def test_unconfigured_protected_collections_are_denied(self):
-        task_url = document_url("task_campaigns", "task-1")
+    def test_task_catalog_campaigns_and_audit_are_callable_only(self):
         body = {
             "fields": {
                 "rtId": {"stringValue": "rt-01"},
-                "state": {"stringValue": "ACTIVE"},
-                "instruction": {"stringValue": "untrusted client content"},
+                "status": {"stringValue": "ACTIVE"},
+                "coreInstruction": {"stringValue": "untrusted client content"},
             }
         }
         for token in (self.operator["idToken"], self.resident["idToken"]):
-            status, _ = request("PATCH", task_url, token=token, body=body)
-            self.assertEqual(status, 403)
+            for collection in ("task_templates", "task_campaigns", "task_audit_events"):
+                url = document_url(collection, "task-1")
+                read_status, _ = request("GET", url, token=token)
+                write_status, _ = request("PATCH", url, token=token, body=body)
+                self.assertEqual(read_status, 403, collection)
+                self.assertEqual(write_status, 403, collection)
 
 
 if __name__ == "__main__":
