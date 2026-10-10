@@ -14,7 +14,9 @@ import '../features/auth/data/firebase_operator_auth_boundary.dart';
 import '../features/auth/data/firebase_resident_session_boundary.dart';
 import '../features/auth/data/flutter_secure_resident_session_vault.dart';
 import '../features/tasks/application/task_campaign_boundary.dart';
+import '../features/tasks/application/task_response_boundary.dart';
 import '../features/tasks/data/firebase_task_campaign_boundary.dart';
+import '../features/tasks/data/firebase_task_response_boundary.dart';
 import '../firebase_options.dart';
 import 'app.dart';
 
@@ -24,6 +26,7 @@ Future<Widget> createBootstrapApp(
   OperatorAuthBoundary? operatorAuthBoundary,
   ResidentSessionController? residentSessionController,
   TaskCampaignBoundary? taskCampaignBoundary,
+  TaskResponseController? taskResponseController,
 }) async {
   WidgetsFlutterBinding.ensureInitialized();
   AppConfig.initialize(config);
@@ -31,6 +34,7 @@ Future<Widget> createBootstrapApp(
     operatorAuthBoundary: operatorAuthBoundary,
     residentSessionController: residentSessionController,
     taskCampaignBoundary: taskCampaignBoundary,
+    taskResponseController: taskResponseController,
   );
 }
 
@@ -44,6 +48,7 @@ Future<void> bootstrap(AppConfig config) async {
   OperatorAuthBoundary? operatorAuthBoundary;
   ResidentSessionController? residentSessionController;
   TaskCampaignBoundary? taskCampaignBoundary;
+  TaskResponseController? taskResponseController;
   var callableAppCheckReady = false;
   final useEmulator =
       config.useEmulator || config.environment == AppEnvironment.development;
@@ -67,7 +72,7 @@ Future<void> bootstrap(AppConfig config) async {
           );
           callableAppCheckReady = true;
         } catch (_) {
-          // Resident enrollment stays unavailable without App Check.
+          // Callable features stay unavailable without App Check.
         }
       }
       if (useEmulator) {
@@ -99,11 +104,16 @@ Future<void> bootstrap(AppConfig config) async {
             config.functionsPort,
           );
         }
+        final residentVault = FlutterSecureResidentSessionVault();
         residentSessionController = ResidentSessionController(
           boundary: FirebaseResidentSessionBoundary(functions),
-          vault: FlutterSecureResidentSessionVault(),
+          vault: residentVault,
         );
         taskCampaignBoundary = FirebaseTaskCampaignBoundary(functions);
+        taskResponseController = TaskResponseController(
+          boundary: FirebaseTaskResponseBoundary(functions),
+          vault: residentVault,
+        );
       } catch (_) {
         // Operator sign-in remains available; callable features stay unavailable.
       }
@@ -116,6 +126,7 @@ Future<void> bootstrap(AppConfig config) async {
       operatorAuthBoundary: operatorAuthBoundary,
       residentSessionController: residentSessionController,
       taskCampaignBoundary: taskCampaignBoundary,
+      taskResponseController: taskResponseController,
     ),
   );
 }

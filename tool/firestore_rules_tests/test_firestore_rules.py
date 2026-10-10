@@ -160,7 +160,12 @@ class FirestoreRulesTest(unittest.TestCase):
             }
         }
         for token in (self.operator["idToken"], self.resident["idToken"]):
-            for collection in ("task_templates", "task_campaigns", "task_audit_events"):
+            for collection in (
+                "task_templates",
+                "task_campaigns",
+                "task_responses",
+                "task_audit_events",
+            ):
                 url = document_url(collection, "task-1")
                 read_status, _ = request("GET", url, token=token)
                 write_status, _ = request("PATCH", url, token=token, body=body)
