@@ -236,23 +236,25 @@ AT-006, AT-007, AT-008, AT-018, AT-019 and offline/reconciliation scenarios O-01
 ## Deliverable
 Optional evidence works without expanding permanent resident data.
 
+**Current status: PARTIAL.** Client and server JPEG sanitization, private RT-scoped storage/review, same-device deletion, and 30-day physical cleanup are implemented with unit and emulator coverage. The local Storage/Functions emulator suite still needs Java 21; production bucket, scheduled job, and billing are not configured. RT-assisted deletion remains blocked on the pilot identity-verification policy.
+
 ## Work items
-- strip EXIF/location metadata before upload,
-- compress/resize if needed,
-- store binary in Cloud Storage,
-- store minimal Firestore reference,
-- calculate `expiresAt`,
-- implement scheduled physical deletion,
-- implement retry/observability for deletion failure,
-- implement same-device resident deletion request,
-- implement RT-assisted deletion path.
+- [x] Strip EXIF/location metadata on the client and re-encode again on the server.
+- [x] Resize to at most 1280 px and bound stored JPEGs to 2 MiB.
+- [x] Store bytes in a private Cloud Storage object; deny direct client reads and writes.
+- [x] Store only a scoped, opaque Firestore reference; never return a public or signed URL.
+- [x] Set `expiresAt` to 30 days after upload and implement scheduled physical deletion.
+- [x] Retry failed deletion and log only the opaque evidence ID and generic failure code.
+- [x] Allow the resident session to delete its own evidence; remove the completion reference.
+- [ ] Add RT-assisted deletion after stakeholders define the required offline identity check.
+- [ ] Configure a production bucket and deploy/observe cleanup only after explicit billing and deployment approval.
 
 ## Required tests
-- evidence is optional;
-- location metadata absent after processing;
-- expired object is deleted;
-- deleted object cannot be accessed via stale app state;
-- deletion request cannot delete another resident’s data.
+- Evidence is optional; upload failure does not block completion and image bytes are never queued offline.
+- A synthetic geotagged JPEG has no EXIF/GPS metadata after server processing and storage.
+- Resident and operator direct Storage/Firestore access is denied; only a same-RT authenticated operator can request review bytes.
+- The emulator cleanup physically removes an expired object; a failed delete remains pending for retry.
+- Same-device deletion cannot target another resident’s evidence and clears stale task references.
 
 ## Acceptance linkage
 AT-010, AT-011.

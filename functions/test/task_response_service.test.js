@@ -56,6 +56,7 @@ class FakeRepository {
       completionState: 'PENDING_RT_VERIFICATION',
       completionNote: input.completionNote,
       completionSubmittedAt: input.now,
+      evidenceId: input.evidenceId ?? null,
     };
   }
   async listPendingVerifications(input) {
@@ -211,6 +212,35 @@ test('completion note is optional, bounded, normalized, and excludes common addr
   assert.throws(() => normalizeCompletionNote('x'.repeat(501)), {
     code: 'invalid-argument',
   });
+});
+
+test('completion evidence reference is optional, bounded, and server-scoped', async () => {
+  const { repository, service } = createService();
+  const evidenceId = 'b'.repeat(40);
+  const withEvidence = await service.submitTaskCompletion({
+    sessionToken: SESSION_TOKEN,
+    taskId: TASK_ID,
+    note: null,
+    commandId: COMMAND_ID,
+    evidenceId,
+  });
+  assert.equal(withEvidence.evidenceId, evidenceId);
+  assert.equal(repository.calls[0][1].evidenceId, evidenceId);
+  await assert.rejects(service.submitTaskCompletion({
+    sessionToken: SESSION_TOKEN,
+    taskId: TASK_ID,
+    note: null,
+    commandId: 'c'.repeat(40),
+    evidenceId: 'not-an-evidence-id',
+  }), { code: 'invalid-argument' });
+  await assert.rejects(service.submitTaskCompletion({
+    sessionToken: SESSION_TOKEN,
+    taskId: TASK_ID,
+    note: null,
+    commandId: 'c'.repeat(40),
+    evidenceId,
+    residentId: 'forged-resident',
+  }), { code: 'invalid-argument' });
 });
 
 test('completion submission and verification accept only a password-authenticated operator', async () => {

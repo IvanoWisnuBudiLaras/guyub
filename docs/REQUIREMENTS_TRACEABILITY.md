@@ -30,8 +30,8 @@ This file reports repository evidence. It does not convert a domain unit test in
 | AT-007 | PARTIAL | Session-scoped callable, strict revisioned cache, signed-out Darurat route, RT label, last-sync/verification times, and no-seed state are covered by tests. Verified pilot contacts/assembly points and device testing remain external. |
 | AT-008 | PARTIAL | The resident-home card shows cached BMKG data plus source-update/fetch timestamps and marks it non-live; widget tests pass. No BMKG fetch adapter or device airplane-mode test exists. |
 | AT-009 | VERIFIED | Functions service and emulator tests assert that a resident profile contains only the minimal RT-scoped fields; NIK, full address, and precise GPS fields are absent. |
-| AT-010 | MISSING | No image metadata stripping or storage fixture test. |
-| AT-011 | MISSING | No evidence retention/deletion. |
+| AT-010 | PARTIAL | Client/server sanitizers strip metadata; unit tests inspect a synthetic geotagged JPEG, and the Functions/Storage emulator test verifies private stored bytes and denied direct access. Emulator run awaits Java 21 CI on this host. |
+| AT-011 | PARTIAL | Upload metadata expires after 30 days; same-device deletion and idempotent physical cleanup are implemented. Unit and emulator coverage checks expiry, object deletion, and retry; local emulator run awaits Java 21 CI. Production scheduled job is not deployed. |
 | AT-012 | VERIFIED | Functions unit/emulator and Flutter tests show hazardous proposal text remains review context only; the RT maps a SUBMITTED proposal to an approved-template DRAFT whose immutable instructions exclude that text; resident active-task listing stays empty until a separate authorized activation. |
 | AT-013 | VERIFIED | The RT-scoped emergency directory supplies configured routes; Flutter validates HTTPS (no credentials/non-default ports) or telephone numbers, shows explicit actions only when configured, and handles unavailable/unconfigured/failed handoff states. Widget and Functions service tests pass. Pilot owners must still verify and provision real official channels. |
 | AT-014 | MISSING | No proxy update path. |
