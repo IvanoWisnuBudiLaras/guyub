@@ -1,17 +1,20 @@
 # Feature: Weather (BMKG Open Data)
 
-Integrasi data cuaca terbuka BMKG dan evaluasi threshold peringatan dini lokal.
+**Status: PARTIAL.** The feature contains a normalized BMKG snapshot, timestamp/staleness calculation, a last-valid local cache, configurable rainfall rules, and deterministic suggestion generation.
 
-**Status:** Belum diimplementasikan pada Phase 0 (Direncanakan pada Phase 4).
+## Implemented
+- `application/weather_snapshot.dart`: source attribution, update/fetch timestamps, validation, and stale calculation.
+- `application/weather_rule.dart` and `weather_suggestion.dart`: configuration-only thresholds and suggestion-only evaluation.
+- `data/weather_snapshot_cache.dart`: persisted last valid snapshot; older/equal and concurrent stale writes do not replace newer data.
+- Unit tests: `test/features/weather/weather_suggestion_test.dart`.
 
-## Rencana Layer
-- `presentation/`: Screen, widget cuaca, banner indikator status siaga.
-- `application/`: Rule evaluation service, BMKG polling workflow, task suggestion generator.
-- `data/`: BMKG remote client, local weather cache adapter.
+## Not yet production-operational
+- No BMKG HTTP adapter, source response normalization, scheduled refresh, production weather rules, or operator review UI exists.
+- Staleness is computed in the model but is not presented by a weather screen.
+- Suggestions are not persisted or connected to a human confirmation and task catalog flow.
+- A cache test does not prove a live BMKG fetch failure path.
 
-## Invariant Penting (PRD & Acceptance Matrix)
-- Evaluasi cuaca hanya menghasilkan Task Suggestion, bukan task aktif otomatis (AT-001).
-- Kegagalan koneksi BMKG tidak boleh menghapus snapshot cuaca valid terakhir (ERR-01, O-05).
-- Data cuaca cache saat offline wajib menampilkan penanda stale/timestamp (AT-008).
-
-*Perhatian: Jangan mengimplementasikan invariant di atas pada Phase 0; implementasikan saat Phase 4.*
+## Invariants
+- Thresholds have no hidden defaults; they must be configured (FR-WTH-003).
+- Stale snapshots do not produce suggestions (AT-008 support).
+- Evaluation returns `WeatherSuggestion` values only; it has no campaign activation/distribution operation (AT-001 support).

@@ -66,3 +66,14 @@ Perintah ini memvalidasi:
 2. `flutter analyze` (nol warning/error analisa statis).
 3. `flutter test` (seluruh unit dan widget tests lulus).
 4. `flutter build apk --debug` (memastikan kode dapat dikompilasi menjadi APK Android).
+
+
+## Pengujian aturan keamanan Firebase Emulator
+
+Sebelum membuka PR, jalankan juga pengujian aturan Firestore:
+
+```bash
+./tool/test_firestore_rules.sh
+```
+
+Perintah ini memakai project demo dan emulator Auth/Firestore saja. Dibutuhkan Node.js dan Java 17+. Tidak ada data atau layanan Firebase produksi yang digunakan. CI menjalankan perintah ini setelah `./tool/verify.sh`.

@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:guyub/app/app.dart';
 import 'package:guyub/core/config/app_config.dart';
@@ -7,48 +8,39 @@ void main() {
     AppConfig.resetForTesting();
   });
 
-  group('GuyubApp & FoundationScreen Baseline Widget Tests', () {
-    testWidgets(
-      'GuyubApp dapat di-pump tanpa crash, menampilkan judul dan theme Material 3',
-      (WidgetTester tester) async {
-        AppConfig.initialize(AppConfig.test());
+  testWidgets('GuyubApp starts at the distinct role selection screen', (
+    WidgetTester tester,
+  ) async {
+    AppConfig.initialize(AppConfig.test());
 
-        await tester.pumpWidget(const GuyubApp());
+    await tester.pumpWidget(const GuyubApp());
 
-        // Verifikasi MaterialApp dan judul
-        expect(find.text('Guyub [TEST]'), findsOneWidget);
-        expect(find.text('Guyub.id'), findsOneWidget);
-        expect(find.text('Foundation Ready'), findsOneWidget);
-        expect(
-          find.text('Sistem Kesiapsiagaan Banjir Komunitas RT/RW'),
-          findsOneWidget,
-        );
-        expect(find.text('Environment: TEST'), findsOneWidget);
-      },
+    expect(
+      find.byWidgetPredicate(
+        (widget) => widget is MaterialApp && widget.title == 'Guyub [TEST]',
+      ),
+      findsOneWidget,
     );
+    expect(find.text('Saya Ketua RT/RW atau Pendamping'), findsOneWidget);
+    expect(find.text('Saya Warga'), findsOneWidget);
+    expect(find.text('Foundation Ready'), findsNothing);
+  });
 
-    testWidgets(
-      'FoundationButton dapat menerima interaksi tap dan memicu callback',
-      (WidgetTester tester) async {
-        AppConfig.initialize(AppConfig.test());
+  testWidgets('role selection routes each role to its entry path', (
+    WidgetTester tester,
+  ) async {
+    AppConfig.initialize(AppConfig.test());
+    await tester.pumpWidget(const GuyubApp());
 
-        await tester.pumpWidget(const GuyubApp());
+    await tester.tap(find.text('Saya Ketua RT/RW atau Pendamping'));
+    await tester.pumpAndSettle();
+    expect(find.text('Masuk Operator RT/RW'), findsOneWidget);
+    expect(find.byKey(const Key('operator-password')), findsOneWidget);
 
-        // Verifikasi state awal tombol interaksi
-        expect(find.text('Verifikasi Interaksi (0)'), findsOneWidget);
-
-        // Lakukan tap pada tombol primitive
-        await tester.tap(find.byType(FoundationButton));
-        await tester.pump();
-
-        // Verifikasi callback berjalan dan state bertambah
-        expect(find.text('Verifikasi Interaksi (1)'), findsOneWidget);
-
-        await tester.tap(find.byType(FoundationButton));
-        await tester.pump();
-
-        expect(find.text('Verifikasi Interaksi (2)'), findsOneWidget);
-      },
-    );
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Saya Warga'));
+    await tester.pumpAndSettle();
+    expect(find.text('Akses warga belum tersedia'), findsOneWidget);
   });
 }

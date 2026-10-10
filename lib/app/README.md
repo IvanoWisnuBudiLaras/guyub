@@ -1,13 +1,9 @@
 # App Layer — Guyub.id
 
-Layer ini bertanggung jawab atas perakitan awal (orchestration) dan daur hidup level teratas aplikasi Flutter.
+This layer assembles the `MaterialApp`, runtime configuration, role-aware routing, and Firebase boundaries.
 
-## Komponen
-1. **`app.dart`**: Mendefinisikan root widget `GuyubApp`, konfigurasi Material 3 Theme, dan `FoundationScreen` (smoke screen baseline Phase 0).
-2. **`bootstrap.dart`**: Mengorkestrasi startup aplikasi: menginisialisasi Flutter framework binding, menyuntikkan `AppConfig`, dan bootstrap Firebase emulator.
-3. **`router.dart`**: Mendefinisikan rute dan routing table aplikasi.
+- `app.dart` is the presentation root and injects the operator auth boundary.
+- `router.dart` routes to role selection, operator login, and the fail-closed resident entry placeholder.
+- `bootstrap.dart` initializes Firebase and connects Auth/Firestore to emulators for development. If setup fails, it does not inject an operator backend and does not fall back from emulator to production.
 
-## Larangan Ketat
-- **DILARANG** menulis business logic atau state management domain di layer ini.
-- **DILARANG** melakukan query data langsung ke database atau API di dalam widget `app.dart`.
-- Layer ini hanya berperan sebagai perekat (wiring) antara konfigurasi, navigasi, dan tema global.
+Firebase SDK access stays in data/infrastructure adapters; feature screens depend on application contracts.

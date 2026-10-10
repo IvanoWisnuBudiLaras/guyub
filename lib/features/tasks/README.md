@@ -1,15 +1,22 @@
 # Feature: Tasks (Tugas Kesiapsiagaan)
 
-Lifecycle penugasan gotong royong kesiapsiagaan banjir warga RT/RW.
+**Status: PARTIAL.** The application layer now models controlled-template snapshots, draft/activation state, voluntary response, pending RT verification, bounded operator parameters, and retry-safe domain transitions.
 
-**Status:** Belum diimplementasikan pada Phase 0 (Phase 2).
+## Implemented
+- `application/task_template.dart`: immutable versioned template copy and required safety/core text.
+- `application/task_campaign.dart`: draft creation from a template, deadline/location parameters, explicit activation method, same-community guard, and command replay handling. Free-text resident-facing notes are disabled until a reviewed safety mechanism exists.
+- `application/task_response.dart`: JOIN/DECLINE and completion pending until operator verification.
+- Unit tests: `test/features/tasks/task_workflow_test.dart`.
 
-## Rencana Layer
-- `presentation/`: Screen, form dialog, widget tampilan.
-- `application/`: State controller/notifier dan alur interaksi.
-- `data/`: Repositori dan data source adapter.
+## Not yet production-operational
+- There is no approved catalog data or catalog backend. A valid Dart object is not proof of human safety review.
+- Campaign and resident response operations are not connected to Firestore. Domain checks are not server authorization.
+- There is no task UI, resident session, RT verification queue, active-task offline cache, audit log, notification, or distribution.
+- Operator/resident writes remain denied by Firestore rules until explicit RT-scoped rules and emulator tests are added.
 
-## Invariant Penting (PRD & Acceptance Matrix)
-- Weather suggestion dari BMKG TIDAK BOLEH otomatis menjadi ACTIVE task (AT-001). Wajib persetujuan operator RT.\n- Tugas warga harus berasal dari safe catalog yang terkontrol (AT-002).\n- Instruksi keselamatan inti bersifat immutable dan tidak boleh diubah operator (AT-003).\n- Partisipasi warga bersifat sukarela; aksi Decline ('Tidak Ikut') tersedia tanpa penalti (AT-004).\n- Tugas tersinkronisasi wajib dapat dibaca saat offline (AT-006, O-01).
-
-*Perhatian: Jangan mengimplementasikan invariant di atas pada Phase 0; implementasikan saat fase terkait.*
+## Invariants
+- Weather suggestions do not activate campaigns (AT-001).
+- Core and safety instructions are snapshotted; arbitrary free-text notes are not accepted (AT-002/003 partial).
+- Participation has no penalty/ranking state (AT-004).
+- Resident completion remains `pendingRtVerification` until a domain verification transition (AT-005).
+- Backend authorization is still required before persistence or distribution.
