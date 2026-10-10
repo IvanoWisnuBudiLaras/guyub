@@ -1,12 +1,18 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_app_check/firebase_app_check.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../core/config/app_config.dart';
 import '../core/config/app_environment.dart';
 import '../features/auth/application/operator_auth_boundary.dart';
+import '../features/auth/application/resident_session_controller.dart';
 import '../features/auth/data/firebase_operator_auth_boundary.dart';
+import '../features/auth/data/firebase_resident_session_boundary.dart';
+import '../features/auth/data/flutter_secure_resident_session_vault.dart';
 import '../firebase_options.dart';
 import 'app.dart';
 
@@ -14,20 +20,26 @@ import 'app.dart';
 Future<Widget> createBootstrapApp(
   AppConfig config, {
   OperatorAuthBoundary? operatorAuthBoundary,
+  ResidentSessionController? residentSessionController,
 }) async {
   WidgetsFlutterBinding.ensureInitialized();
   AppConfig.initialize(config);
-  return GuyubApp(operatorAuthBoundary: operatorAuthBoundary);
+  return GuyubApp(
+    operatorAuthBoundary: operatorAuthBoundary,
+    residentSessionController: residentSessionController,
+  );
 }
 
 /// Initializes Firebase and connects development builds to local emulators.
 ///
-/// If Firebase or the emulator is unavailable, the app still opens to role
-/// selection, but operator sign-in remains unavailable. It never falls back
-/// from a failed emulator connection to the configured production project.
+/// If Firebase or an emulator is unavailable, the app still opens to role
+/// selection, but protected operator/resident operations fail closed. Emulator
+/// failures never fall back to the configured production project.
 Future<void> bootstrap(AppConfig config) async {
   WidgetsFlutterBinding.ensureInitialized();
   OperatorAuthBoundary? operatorAuthBoundary;
+  ResidentSessionController? residentSessionController;
+  var residentAppCheckReady = false;
   final useEmulator =
       config.useEmulator || config.environment == AppEnvironment.development;
 
@@ -38,6 +50,21 @@ Future<void> bootstrap(AppConfig config) async {
             ? _developmentEmulatorOptions()
             : DefaultFirebaseOptions.currentPlatform,
       );
+      if (useEmulator) {
+        residentAppCheckReady = true;
+      } else {
+        try {
+          // [app-check:debug-provider]: Pakai debug provider saat kDebugMode agar build APK debug pilot tidak ditolak callable.
+          await FirebaseAppCheck.instance.activate(
+            providerAndroid: kDebugMode
+                ? const AndroidDebugProvider()
+                : const AndroidPlayIntegrityProvider(),
+          );
+          residentAppCheckReady = true;
+        } catch (_) {
+          // Resident enrollment stays unavailable without App Check.
+        }
+      }
       if (useEmulator) {
         await FirebaseAuth.instance.useAuthEmulator(
           config.emulatorHost,
@@ -54,7 +81,26 @@ Future<void> bootstrap(AppConfig config) async {
       );
     } catch (_) {
       // Fail closed: no Firebase boundary is injected when setup is incomplete.
-      operatorAuthBoundary = null;
+    }
+
+    if (operatorAuthBoundary != null && residentAppCheckReady) {
+      try {
+        final functions = FirebaseFunctions.instanceFor(
+          region: 'asia-southeast2',
+        );
+        if (useEmulator) {
+          functions.useFunctionsEmulator(
+            config.emulatorHost,
+            config.functionsPort,
+          );
+        }
+        residentSessionController = ResidentSessionController(
+          boundary: FirebaseResidentSessionBoundary(functions),
+          vault: FlutterSecureResidentSessionVault(),
+        );
+      } catch (_) {
+        // Operator sign-in remains available; resident access stays unavailable.
+      }
     }
   }
 
@@ -62,6 +108,7 @@ Future<void> bootstrap(AppConfig config) async {
     await createBootstrapApp(
       config,
       operatorAuthBoundary: operatorAuthBoundary,
+      residentSessionController: residentSessionController,
     ),
   );
 }

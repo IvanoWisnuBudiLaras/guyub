@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 
 import '../features/auth/application/operator_auth_boundary.dart';
 import '../features/auth/application/operator_profile.dart';
+import '../features/auth/application/resident_session.dart';
+import '../features/auth/application/resident_session_controller.dart';
 import '../features/auth/presentation/screens/operator_home_screen.dart';
 import '../features/auth/presentation/screens/operator_login_screen.dart';
 import '../features/auth/presentation/screens/resident_entry_screen.dart';
+import '../features/auth/presentation/screens/resident_session_home_screen.dart';
 import '../features/auth/presentation/screens/role_selection_screen.dart';
 
 /// Role-aware routes for the Android MVP.
@@ -13,10 +16,12 @@ final class AppRouter {
   static const String operatorLogin = '/operator/login';
   static const String operatorHome = '/operator/home';
   static const String residentEntry = '/resident/entry';
+  static const String residentHome = '/resident/home';
 
   static Route<dynamic> onGenerateRoute(
     RouteSettings settings, {
     OperatorAuthBoundary? operatorAuthBoundary,
+    ResidentSessionController? residentSessionController,
   }) {
     switch (settings.name) {
       case initial:
@@ -46,7 +51,24 @@ final class AppRouter {
         );
       case residentEntry:
         return MaterialPageRoute<void>(
-          builder: (_) => const ResidentEntryScreen(),
+          builder: (context) => ResidentEntryScreen(
+            controller: residentSessionController,
+            onAuthenticated: (session) =>
+                Navigator.of(context)
+                    .pushReplacementNamed(residentHome, arguments: session),
+          ),
+          settings: settings,
+        );
+      case residentHome:
+        final session = settings.arguments;
+        if (session is! ResidentSession || residentSessionController == null) {
+          return _roleSelection(settings);
+        }
+        return MaterialPageRoute<void>(
+          builder: (_) => ResidentSessionHomeScreen(
+            session: session,
+            controller: residentSessionController,
+          ),
           settings: settings,
         );
       default:

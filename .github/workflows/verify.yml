@@ -16,10 +16,10 @@ jobs:
       - uses: actions/setup-java@v6
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: '21'
       - uses: actions/setup-node@v7
         with:
-          node-version: '20'
+          node-version: '22'
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.47.3'
@@ -28,3 +28,4 @@ jobs:
       - run: flutter pub get
       - run: ./tool/verify.sh
       - run: ./tool/test_firestore_rules.sh
+      - run: ./tool/test_functions.sh
