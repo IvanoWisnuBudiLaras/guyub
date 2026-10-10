@@ -183,6 +183,21 @@ test('completion note is optional, bounded, normalized, and excludes common addr
     code: 'invalid-argument',
   });
   for (const coordinate of [
+    '-6,2088, 106,8456',
+    '-6,2088 106,8456',
+    '6.2088 S, 106.8456 E',
+    '6,2088 LS, 106,8456 BT',
+    'S 6.2088, E 106.8456',
+    'LS 6,2088, BT 106,8456',
+    '6.2088° S, 106.8456° E',
+    'S 6.2088°, E 106.8456°',
+    'GPS: -6.2',
+    'GPS: -6,2',
+    'lat: -6.2088',
+    'latitude: 6.2088 S',
+    'lon: 106.8456',
+    'koordinat: -6.2088, 106.8456',
+    'koordinat: -6,2088, 106,8456',
     String.raw`7°45'22"S, 110°22'05"E`,
     String.raw`7° 45′ 22″ S; 110° 22′ 05″ E`,
     String.raw`S 7° 45′ 22″; E 110° 22′ 05″`,
@@ -224,6 +239,21 @@ test('completion note is optional, bounded, normalized, and excludes common addr
     code: 'invalid-argument',
   });
   assert.throws(() => normalizeCompletionNote('NIK (1234)/(5678)/(9012)/(3456)'), {
+    code: 'invalid-argument',
+  });
+  assert.throws(() => normalizeCompletionNote('NIK 3175-0101-0190-0001'), {
+    code: 'invalid-argument',
+  });
+  assert.throws(() => normalizeCompletionNote('NIK 3175.0101.0190.0001'), {
+    code: 'invalid-argument',
+  });
+  assert.throws(() => normalizeCompletionNote('NIK 3175_0101_0190_0001'), {
+    code: 'invalid-argument',
+  });
+  assert.throws(() => normalizeCompletionNote('3175  0101  0190  0001'), {
+    code: 'invalid-argument',
+  });
+  assert.throws(() => normalizeCompletionNote('3175,0101,0190,0001'), {
     code: 'invalid-argument',
   });
   assert.throws(() => normalizeCompletionNote('Hubungi (0812) 3456 (7890)'), {
