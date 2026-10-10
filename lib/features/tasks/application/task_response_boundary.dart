@@ -595,6 +595,7 @@ final class TaskResponseController {
   final Map<String, String?> _completionNotes = {};
   final Map<String, String?> _completionEvidenceIds = {};
   final Map<String, String> _evidenceDeleteCommands = {};
+  final Map<String, String> _evidenceUploadRequests = {};
   final Map<String, String> _verificationCommands = {};
 
   Future<ResidentTaskList> listResidentActiveTasks({
@@ -942,12 +943,22 @@ final class TaskResponseController {
     if (evidenceBoundary == null) {
       throw StateError('Evidence upload is not configured.');
     }
-    return evidenceBoundary.uploadResidentTaskEvidence(
-      sessionToken: await _sessionToken(),
-      taskId: taskId,
-      requestId: _commandIdFactory(),
-      sanitizedJpegBytes: sanitizedJpegBytes,
+    final requestId = _evidenceUploadRequests.putIfAbsent(
+      taskId,
+      _commandIdFactory,
     );
+    try {
+      final evidenceId = await evidenceBoundary.uploadResidentTaskEvidence(
+        sessionToken: await _sessionToken(),
+        taskId: taskId,
+        requestId: requestId,
+        sanitizedJpegBytes: sanitizedJpegBytes,
+      );
+      _evidenceUploadRequests.remove(taskId);
+      return evidenceId;
+    } catch (_) {
+      rethrow;
+    }
   }
 
   Future<void> deleteEvidence({required String evidenceId}) async {

@@ -287,24 +287,32 @@ class TaskEvidenceService {
 
       for (const candidate of records) {
         lastRecord = candidate;
-        const record = await this.repository.beginExpiredDeletion({
-          evidenceId: candidate.evidenceId,
-          now,
-        });
-        if (!record) continue;
         try {
-          await this.storage.delete(record.storagePath);
-          await this.repository.markDeleted({ evidenceId: record.evidenceId, now });
-          deleted += 1;
-        } catch (_) {
-          await this.repository.markDeleteFailed({
-            evidenceId: record.evidenceId,
+          const record = await this.repository.beginExpiredDeletion({
+            evidenceId: candidate.evidenceId,
             now,
-            errorCode: 'storage-delete-failed',
           });
-          console.warn('Task evidence deletion remains pending.', {
-            evidenceId: record.evidenceId,
-            errorCode: 'storage-delete-failed',
+          if (!record) continue;
+          try {
+            await this.storage.delete(record.storagePath);
+            await this.repository.markDeleted({ evidenceId: record.evidenceId, now });
+            deleted += 1;
+          } catch (_) {
+            await this.repository.markDeleteFailed({
+              evidenceId: record.evidenceId,
+              now,
+              errorCode: 'storage-delete-failed',
+            });
+            console.warn('Task evidence deletion remains pending.', {
+              evidenceId: record.evidenceId,
+              errorCode: 'storage-delete-failed',
+            });
+            retryPending += 1;
+          }
+        } catch (itemErr) {
+          console.warn('Task evidence beginExpiredDeletion failed.', {
+            evidenceId: candidate.evidenceId,
+            error: itemErr?.message,
           });
           retryPending += 1;
         }
