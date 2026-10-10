@@ -1,6 +1,13 @@
 const crypto = require('node:crypto');
 const { hashSessionToken } = require('./resident_session_service');
-const { containsDmsCoordinates } = require('./precise_coordinate_detector');
+const {
+  containsDmsCoordinates,
+  containsPreciseCoordinates,
+  containsNik,
+  NIK_PATTERN,
+  DECIMAL_COORDINATE_PAIR: COORDINATE_PAIR_PATTERN,
+  LABELED_COORDINATE: LABELED_COORDINATE_PATTERN,
+} = require('./precise_coordinate_detector');
 const { TASK_CATEGORIES, TASK_LOCATION_REFERENCES, OPERATOR_ROLES, asDate } =
   require('./task_campaign_service');
 
@@ -9,10 +16,7 @@ const PROPOSAL_ID_PATTERN = /^[a-f0-9]{40}$/;
 const PROPOSAL_TITLE_LIMIT = 100;
 const PROPOSAL_DESCRIPTION_LIMIT = 1000;
 const MAX_PENDING_PROPOSALS = 100;
-const NIK_PATTERN = /(?<!\d)(?:\d[\s()./-]?){15}\d(?!\d)/u;
 const MOBILE_PATTERN = /(?<!\d)(?:(?:\+?62|0)[\s()./-]*)8(?:[\s()./-]*\d){8,11}(?!\d)/u;
-const COORDINATE_PAIR_PATTERN = /(?<![\d.])\(?[+-]?\d{1,3}\.\d+\)?\s*(?:,|;|\/|\s)\s*\(?[+-]?\d{1,3}\.\d+\)?(?![\d.])/u;
-const LABELED_COORDINATE_PATTERN = /\b(?:lat(?:itude)?|lon(?:gitude)?|gps|koordinat(?:e)?)\s*[:=]?\s*[+-]?\d{1,3}(?:\.\d+)?\b/iu;
 const EXPLICIT_ADDRESS_PATTERN = /\balamat(?:\s+lengkap)?\b/iu;
 const STREET_ADDRESS_PATTERN = /\b(?:jalan|jl\.?|gang|gg\.?|blok|perumahan)\s+[\p{L}\p{N}'’.,/-]{1,40}\s+(?:no\.?|nomor|#)?\s*\d{1,4}\b/iu;
 const HOUSE_NUMBER_PATTERN = /\brumah\s*(?:#|:)?\s*\d{1,4}\b/iu;
@@ -79,9 +83,8 @@ function containsForbiddenPersonalData(value) {
   // Parentheses are common formatting around phone/NIK digit groups. Strip them
   // before matching so punctuation cannot hide a number sequence.
   const normalized = value.replace(/[()]/gu, '');
-  return NIK_PATTERN.test(normalized) || MOBILE_PATTERN.test(normalized) ||
-    COORDINATE_PAIR_PATTERN.test(normalized) || containsDmsCoordinates(normalized) ||
-    LABELED_COORDINATE_PATTERN.test(normalized) ||
+  return containsNik(value) || MOBILE_PATTERN.test(normalized) ||
+    containsPreciseCoordinates(value) ||
     EXPLICIT_ADDRESS_PATTERN.test(normalized) || STREET_ADDRESS_PATTERN.test(normalized) ||
     HOUSE_NUMBER_PATTERN.test(normalized);
 }
