@@ -62,7 +62,9 @@ final class ResidentSessionHomeScreen extends StatelessWidget {
     try {
       await controller.deleteOwnResidentData(session);
       await taskResponseController?.clearLocalResidentData(session: session);
-      await taskPushNotificationsController?.clearResidentStateAfterDeletion();
+      await taskPushNotificationsController?.clearResidentStateAfterDeletion(
+        session,
+      );
       await controller.signOut();
       if (context.mounted) {
         Navigator.of(context).pushNamedAndRemoveUntil('/', (_) => false);
@@ -92,6 +94,8 @@ final class ResidentSessionHomeScreen extends StatelessWidget {
           key: const Key('resident-sign-out'),
           tooltip: 'Keluar',
           onPressed: () async {
+            await taskPushNotificationsController
+                ?.unregisterResidentBeforeSignOut(session);
             taskPushNotificationsController?.clearActiveTarget();
             await controller.signOut();
             if (context.mounted) {
