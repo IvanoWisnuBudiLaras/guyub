@@ -189,6 +189,10 @@ final class OfficialReportChannel {
   final String? url;
   final String? phone;
 
+  /// Only these validated URIs may be handed to the operating system.
+  Uri? get safeUrlUri => _safeHttpsUri(url);
+  Uri? get safePhoneUri => _safePhoneUri(phone);
+
   factory OfficialReportChannel.fromWire(Object? raw) {
     final wire = _wireMap(raw, 'official report channel');
     _expectKeys(wire, const {'label'}, const {'url', 'phone'});
@@ -200,14 +204,8 @@ final class OfficialReportChannel {
     }
     final url = hasUrl ? _cleanText(wire['url'], 'channel url', 2048) : null;
     final phone = hasPhone ? _validPhone(wire['phone'], 'channel phone') : null;
-    if (url != null) {
-      final parsed = Uri.tryParse(url);
-      if (parsed == null ||
-          parsed.scheme != 'https' ||
-          parsed.host.isEmpty ||
-          parsed.userInfo.isNotEmpty) {
-        throw const FormatException('An official channel URL must use HTTPS.');
-      }
+    if (url != null && _safeHttpsUri(url) == null) {
+      throw const FormatException('An official channel URL must use HTTPS.');
     }
     return OfficialReportChannel(label: label, url: url, phone: phone);
   }
@@ -332,6 +330,34 @@ String _validPhone(Object? value, String name) {
     throw FormatException('Invalid $name.');
   }
   return phone;
+}
+
+Uri? _safeHttpsUri(String? value) {
+  if (value == null ||
+      value.isEmpty ||
+      value != value.trim() ||
+      RegExp(r'[\x00-\x20\x7F]').hasMatch(value)) {
+    return null;
+  }
+  final uri = Uri.tryParse(value);
+  if (uri == null ||
+      uri.scheme.toLowerCase() != 'https' ||
+      uri.host.isEmpty ||
+      uri.userInfo.isNotEmpty ||
+      (uri.hasPort && uri.port != 443)) {
+    return null;
+  }
+  return uri;
+}
+
+Uri? _safePhoneUri(String? value) {
+  if (value == null || !RegExp(r'^\+?[0-9][0-9 ()./-]*$').hasMatch(value)) {
+    return null;
+  }
+  final digits = value.replaceAll(RegExp(r'\D'), '');
+  if (digits.length < 3 || digits.length > 15) return null;
+  final dialString = '${value.startsWith('+') ? '+' : ''}$digits';
+  return Uri(scheme: 'tel', path: dialString);
 }
 
 bool _sameList<T>(List<T> first, List<T> second) {

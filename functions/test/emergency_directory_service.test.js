@@ -149,6 +149,8 @@ test('rejects malformed, unsupported, or cross-RT stored directory schemas', asy
     { ...structuredClone(DIRECTORY_FIXTURE), emergencyContacts: [{ label: 'Posko', phone: 'not-phone' }] },
     { ...structuredClone(DIRECTORY_FIXTURE), assemblyPoints: [{ label: 'Titik', publicLocation: '' }] },
     { ...structuredClone(DIRECTORY_FIXTURE), officialReportChannels: [{ label: 'Laporan', url: 'http://example.gov.id' }] },
+    { ...structuredClone(DIRECTORY_FIXTURE), officialReportChannels: [{ label: 'Laporan', url: 'https://user@example.gov.id' }] },
+    { ...structuredClone(DIRECTORY_FIXTURE), officialReportChannels: [{ label: 'Laporan', url: 'https://example.gov.id:444' }] },
     { ...structuredClone(DIRECTORY_FIXTURE), officialReportChannels: [{ label: 'Laporan' }] },
     { ...structuredClone(DIRECTORY_FIXTURE), officialReportChannels: [{ label: 'Laporan', url: 'http://example.gov.id', phone: '112' }] },
     { ...structuredClone(DIRECTORY_FIXTURE), emergencyContacts: [] },

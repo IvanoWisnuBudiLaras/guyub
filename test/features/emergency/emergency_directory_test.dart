@@ -513,6 +513,205 @@ void main() {
       },
     );
   });
+
+  group('official reporting routes', () {
+    test('creates only safe HTTPS and telephone launch URIs', () {
+      final channel = OfficialReportChannel.fromWire({
+        'label': 'Layanan uji',
+        'url': 'https://lapor.example.id/request',
+        'phone': '+62 21 555-0101',
+      });
+
+      expect(channel.safeUrlUri, Uri.parse('https://lapor.example.id/request'));
+      expect(channel.safePhoneUri, Uri.parse('tel:+62215550101'));
+    });
+
+    test('rejects unsafe official route schemes, credentials, and ports', () {
+      for (final url in [
+        'http://lapor.example.id/request',
+        'javascript:alert(1)',
+        'https://user@lapor.example.id/request',
+        'https://lapor.example.id:444/request',
+        'https:///request',
+      ]) {
+        expect(
+          () => OfficialReportChannel.fromWire({
+            'label': 'Layanan uji',
+            'url': url,
+          }),
+          throwsFormatException,
+          reason: url,
+        );
+      }
+    });
+  });
+
+  group('official reporting route UI', () {
+    testWidgets('configured per-RT routes open only after explicit tap', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(800, 1400);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final user = session();
+      final cache = EmergencyDirectoryCache(InspectableLocalStore());
+      final controller = EmergencyDirectoryController(
+        boundary: FakeEmergencyBoundary(
+          (_) async => EmergencyDirectoryResponse.fromWire(
+            activeWire(
+              officialChannels: [
+                {
+                  'label': 'Portal resmi uji',
+                  'url': 'https://lapor.example.id/request',
+                },
+                {'label': 'Telepon resmi uji', 'phone': '+62 21 555-0101'},
+              ],
+            ),
+          ),
+        ),
+        cache: cache,
+        vault: FakeResidentSessionVault('secret-session-token'),
+      );
+      final opened = <Uri>[];
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: EmergencyDirectoryScreen(
+            controller: controller,
+            session: user,
+            onLaunchUri: (uri) async {
+              opened.add(uri);
+              return true;
+            },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text(
+          'Masalah di luar kapasitas warga? Gunakan salah satu kanal resmi yang dikonfigurasi untuk RT ini.',
+        ),
+        findsOneWidget,
+      );
+      expect(opened, isEmpty);
+
+      await tester.tap(find.byKey(const Key('official-report-url-0')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('official-report-phone-1')));
+      await tester.pumpAndSettle();
+      expect(opened, [
+        Uri.parse('https://lapor.example.id/request'),
+        Uri.parse('tel:+62215550101'),
+      ]);
+      controller.dispose();
+    });
+
+    testWidgets('unconfigured directory shows no official action', (
+      tester,
+    ) async {
+      final controller = EmergencyDirectoryController(
+        boundary: FakeEmergencyBoundary(
+          (_) async =>
+              EmergencyDirectoryResponse.fromWire({'state': 'UNCONFIGURED'}),
+        ),
+        cache: EmergencyDirectoryCache(InspectableLocalStore()),
+        vault: FakeResidentSessionVault('secret-session-token'),
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: EmergencyDirectoryScreen(
+            controller: controller,
+            session: session(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('Informasi darurat belum dikonfigurasi untuk RT ini.'),
+        findsOneWidget,
+      );
+      expect(find.byKey(const Key('official-report-url-0')), findsNothing);
+      expect(find.byKey(const Key('official-report-phone-0')), findsNothing);
+      controller.dispose();
+    });
+
+    testWidgets('directory load error does not expose an unverified action', (
+      tester,
+    ) async {
+      final controller = EmergencyDirectoryController(
+        boundary: FakeEmergencyBoundary(
+          (_) async => throw StateError('network unavailable'),
+        ),
+        cache: EmergencyDirectoryCache(InspectableLocalStore()),
+        vault: FakeResidentSessionVault('secret-session-token'),
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: EmergencyDirectoryScreen(
+            controller: controller,
+            session: session(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text(
+          'Informasi darurat belum dapat dimuat. Coba lagi saat tersambung.',
+        ),
+        findsOneWidget,
+      );
+      expect(find.byKey(const Key('official-report-url-0')), findsNothing);
+      expect(find.byKey(const Key('official-report-phone-0')), findsNothing);
+      controller.dispose();
+    });
+
+    testWidgets('failed system handoff shows a clear error', (tester) async {
+      tester.view.physicalSize = const Size(800, 1400);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final controller = EmergencyDirectoryController(
+        boundary: FakeEmergencyBoundary(
+          (_) async => EmergencyDirectoryResponse.fromWire(
+            activeWire(
+              officialChannels: [
+                {
+                  'label': 'Portal resmi uji',
+                  'url': 'https://lapor.example.id/request',
+                },
+              ],
+            ),
+          ),
+        ),
+        cache: EmergencyDirectoryCache(InspectableLocalStore()),
+        vault: FakeResidentSessionVault('secret-session-token'),
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: EmergencyDirectoryScreen(
+            controller: controller,
+            session: session(),
+            onLaunchUri: (_) async => false,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('official-report-url-0')));
+      await tester.pumpAndSettle();
+      expect(
+        find.text(
+          'Kanal resmi tidak dapat dibuka. Periksa koneksi atau gunakan kanal lain yang tercantum.',
+        ),
+        findsOneWidget,
+      );
+      controller.dispose();
+    });
+  });
 }
 
 final class FakeEmergencyBoundary implements EmergencyDirectoryBoundary {

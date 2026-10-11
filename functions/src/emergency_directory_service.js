@@ -66,10 +66,11 @@ function validPhone(value) {
 
 function validHttpsUrl(value) {
   const text = cleanText(value, 2048);
-  if (!text) return null;
+  if (!text || /[\u0000-\u0020\u007F]/u.test(text)) return null;
   try {
     const url = new URL(text);
-    if (url.protocol !== 'https:' || !url.hostname || url.username || url.password) return null;
+    if (url.protocol !== 'https:' || !url.hostname || url.username || url.password ||
+        (url.port && url.port !== '443')) return null;
     return url.toString();
   } catch (_) {
     return null;

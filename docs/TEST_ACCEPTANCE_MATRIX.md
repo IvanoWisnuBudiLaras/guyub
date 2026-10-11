@@ -16,7 +16,7 @@ This matrix maps implementation behavior back to the Master PRD. It is intended 
 | AT-010 | Evidence location metadata stripped | Upload geotagged fixture, inspect stored file metadata | Integration | Yes |
 | AT-011 | Evidence expires after 30 days | Seed expired evidence; run cleanup; assert object deleted | Backend integration | Yes |
 | AT-012 | Proposal maps only to a reviewed-template DRAFT | Submit hazardous proposal; RT selects an approved template and explicit slots; assert draft snapshot contains only template instructions, remains absent from resident active tasks, and requires a separate authorized activation | Functions emulator + Flutter | Yes |
-| AT-013 | Official escalation route exists | Classify outside-capacity problem; assert configured official action | Widget/integration | Yes |
+| AT-013 | Official escalation route exists | Configured per-RT HTTPS/telephone routes launch only after a tap; unconfigured, load-error, invalid-URI, and failed-handoff states expose no unsafe action | Flutter widget + Functions validation | Yes |
 | AT-014 | Proxy status supported | Authorized operator updates non-app resident status | Integration | Yes |
 | AT-015 | RT history survives operator change | Create history, replace operator, verify history | Integration/E2E | Yes |
 | AT-016 | WhatsApp summary is copy-only and active-only | Draft has no copy action; active copy contains locked safety/voluntary text and sends no message | Unit + widget | Yes |
