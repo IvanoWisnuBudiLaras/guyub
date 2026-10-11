@@ -8,6 +8,9 @@ import '../features/tasks/application/task_campaign_boundary.dart';
 import '../features/tasks/application/task_response_boundary.dart';
 import '../features/tasks/presentation/screens/task_catalog_screen.dart';
 import '../features/tasks/presentation/screens/task_response_screens.dart';
+import '../features/proposals/application/resident_proposal_boundary.dart';
+import '../features/proposals/presentation/resident_proposal_screen.dart';
+import '../features/proposals/presentation/resident_proposal_review_screen.dart';
 import '../features/auth/presentation/screens/operator_home_screen.dart';
 import '../features/auth/presentation/screens/operator_login_screen.dart';
 import '../features/auth/presentation/screens/resident_entry_screen.dart';
@@ -24,6 +27,8 @@ final class AppRouter {
   static const String residentEntry = '/resident/entry';
   static const String residentHome = '/resident/home';
   static const String residentTaskList = '/resident/tasks';
+  static const String residentProposals = '/resident/proposals';
+  static const String operatorProposals = '/operator/proposals';
 
   static Route<dynamic> onGenerateRoute(
     RouteSettings settings, {
@@ -31,6 +36,8 @@ final class AppRouter {
     ResidentSessionController? residentSessionController,
     TaskCampaignBoundary? taskCampaignBoundary,
     TaskResponseController? taskResponseController,
+    ResidentProposalController? residentProposalController,
+    ResidentProposalReviewController? proposalReviewController,
   }) {
     switch (settings.name) {
       case initial:
@@ -57,6 +64,7 @@ final class AppRouter {
             authBoundary: operatorAuthBoundary,
             taskCampaignBoundary: taskCampaignBoundary,
             taskResponseController: taskResponseController,
+            proposalReviewController: proposalReviewController,
           ),
           settings: settings,
         );
@@ -84,6 +92,18 @@ final class AppRouter {
           ),
           settings: settings,
         );
+      case operatorProposals:
+        final profile = settings.arguments;
+        if (profile is! OperatorProfile || proposalReviewController == null) {
+          return _roleSelection(settings);
+        }
+        return MaterialPageRoute<void>(
+          builder: (_) => ResidentProposalReviewScreen(
+            profile: profile,
+            controller: proposalReviewController,
+          ),
+          settings: settings,
+        );
       case residentEntry:
         return MaterialPageRoute<void>(
           builder: (context) => ResidentEntryScreen(
@@ -104,6 +124,7 @@ final class AppRouter {
             session: session,
             controller: residentSessionController,
             taskResponseController: taskResponseController,
+            residentProposalController: residentProposalController,
           ),
           settings: settings,
         );
@@ -116,6 +137,18 @@ final class AppRouter {
           builder: (_) => ResidentTaskListScreen(
             session: session,
             controller: taskResponseController,
+          ),
+          settings: settings,
+        );
+      case residentProposals:
+        final session = settings.arguments;
+        if (session is! ResidentSession || residentProposalController == null) {
+          return _roleSelection(settings);
+        }
+        return MaterialPageRoute<void>(
+          builder: (_) => ResidentProposalScreen(
+            session: session,
+            controller: residentProposalController,
           ),
           settings: settings,
         );

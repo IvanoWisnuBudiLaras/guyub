@@ -17,6 +17,8 @@ import '../features/tasks/application/task_campaign_boundary.dart';
 import '../features/tasks/application/task_response_boundary.dart';
 import '../features/tasks/data/firebase_task_campaign_boundary.dart';
 import '../features/tasks/data/firebase_task_response_boundary.dart';
+import '../features/proposals/application/resident_proposal_boundary.dart';
+import '../features/proposals/data/firebase_resident_proposal_boundary.dart';
 import '../firebase_options.dart';
 import 'app.dart';
 
@@ -27,6 +29,8 @@ Future<Widget> createBootstrapApp(
   ResidentSessionController? residentSessionController,
   TaskCampaignBoundary? taskCampaignBoundary,
   TaskResponseController? taskResponseController,
+  ResidentProposalController? residentProposalController,
+  ResidentProposalReviewController? proposalReviewController,
 }) async {
   WidgetsFlutterBinding.ensureInitialized();
   AppConfig.initialize(config);
@@ -35,6 +39,8 @@ Future<Widget> createBootstrapApp(
     residentSessionController: residentSessionController,
     taskCampaignBoundary: taskCampaignBoundary,
     taskResponseController: taskResponseController,
+    residentProposalController: residentProposalController,
+    proposalReviewController: proposalReviewController,
   );
 }
 
@@ -49,6 +55,8 @@ Future<void> bootstrap(AppConfig config) async {
   ResidentSessionController? residentSessionController;
   TaskCampaignBoundary? taskCampaignBoundary;
   TaskResponseController? taskResponseController;
+  ResidentProposalController? residentProposalController;
+  ResidentProposalReviewController? proposalReviewController;
   var callableAppCheckReady = false;
   final useEmulator =
       config.useEmulator || config.environment == AppEnvironment.development;
@@ -114,6 +122,14 @@ Future<void> bootstrap(AppConfig config) async {
           boundary: FirebaseTaskResponseBoundary(functions),
           vault: residentVault,
         );
+        final proposalBoundary = FirebaseResidentProposalBoundary(functions);
+        residentProposalController = ResidentProposalController(
+          boundary: proposalBoundary,
+          vault: residentVault,
+        );
+        proposalReviewController = ResidentProposalReviewController(
+          boundary: proposalBoundary,
+        );
       } catch (_) {
         // Operator sign-in remains available; callable features stay unavailable.
       }
@@ -127,6 +143,8 @@ Future<void> bootstrap(AppConfig config) async {
       residentSessionController: residentSessionController,
       taskCampaignBoundary: taskCampaignBoundary,
       taskResponseController: taskResponseController,
+      residentProposalController: residentProposalController,
+      proposalReviewController: proposalReviewController,
     ),
   );
 }

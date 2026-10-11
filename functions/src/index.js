@@ -4,9 +4,11 @@ const { getFirestore } = require('firebase-admin/firestore');
 const { FirestoreResidentSessionRepository } = require('./firestore_resident_session_repository');
 const { FirestoreTaskCampaignRepository } = require('./firestore_task_campaign_repository');
 const { FirestoreTaskResponseRepository } = require('./firestore_task_response_repository');
+const { FirestoreResidentProposalRepository } = require('./firestore_resident_proposal_repository');
 const { ResidentSessionService, SessionServiceError } = require('./resident_session_service');
 const { TaskCampaignService, TaskCampaignError } = require('./task_campaign_service');
 const { TaskResponseService } = require('./task_response_service');
+const { ResidentProposalService, ResidentProposalError } = require('./resident_proposal_service');
 const { protectedCallableOptions } = require('./callable_options');
 
 if (getApps().length === 0) initializeApp();
@@ -20,6 +22,10 @@ const tasks = new TaskCampaignService(
 );
 const taskResponses = new TaskResponseService(
   new FirestoreTaskResponseRepository(firestore),
+  sessions,
+);
+const residentProposals = new ResidentProposalService(
+  new FirestoreResidentProposalRepository(firestore),
   sessions,
 );
 const callableOptions = protectedCallableOptions();
@@ -127,6 +133,30 @@ exports.getTaskResponseRecap = onCall(callableOptions, async (request) => {
   }
 });
 
+exports.submitResidentProposal = onCall(callableOptions, async (request) => {
+  try {
+    return await residentProposals.submitResidentProposal(request.data);
+  } catch (error) {
+    throw toHttpsError(error);
+  }
+});
+
+exports.listResidentProposals = onCall(callableOptions, async (request) => {
+  try {
+    return await residentProposals.listResidentProposals(operatorAuth(request), request.data);
+  } catch (error) {
+    throw toHttpsError(error);
+  }
+});
+
+exports.reviewResidentProposal = onCall(callableOptions, async (request) => {
+  try {
+    return await residentProposals.reviewResidentProposal(operatorAuth(request), request.data);
+  } catch (error) {
+    throw toHttpsError(error);
+  }
+});
+
 function operatorAuth(request) {
   return {
     operatorUid: request.auth?.uid,
@@ -135,7 +165,8 @@ function operatorAuth(request) {
 }
 
 function toHttpsError(error) {
-  if (error instanceof SessionServiceError || error instanceof TaskCampaignError) {
+  if (error instanceof SessionServiceError || error instanceof TaskCampaignError ||
+      error instanceof ResidentProposalError) {
     return new HttpsError(error.code, error.message);
   }
   // Never return Firestore paths, RT existence, or internal error details.

@@ -4,6 +4,7 @@ import '../../application/operator_auth_boundary.dart';
 import '../../application/operator_profile.dart';
 import '../../../tasks/application/task_campaign_boundary.dart';
 import '../../../tasks/application/task_response_boundary.dart';
+import '../../../proposals/application/resident_proposal_boundary.dart';
 
 /// Authenticated operator landing page with access to server-reviewed tasks.
 final class OperatorHomeScreen extends StatelessWidget {
@@ -12,6 +13,7 @@ final class OperatorHomeScreen extends StatelessWidget {
     required this.authBoundary,
     this.taskCampaignBoundary,
     this.taskResponseController,
+    this.proposalReviewController,
     super.key,
   });
 
@@ -19,6 +21,7 @@ final class OperatorHomeScreen extends StatelessWidget {
   final OperatorAuthBoundary? authBoundary;
   final TaskCampaignBoundary? taskCampaignBoundary;
   final TaskResponseController? taskResponseController;
+  final ResidentProposalReviewController? proposalReviewController;
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -82,6 +85,17 @@ final class OperatorHomeScreen extends StatelessWidget {
                   label: const Text('Tinjau Penyelesaian Warga'),
                 ),
               ],
+            ],
+            if (proposalReviewController != null) ...[
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                key: const Key('operator-proposal-review'),
+                onPressed: () =>
+                    Navigator.of(context)
+                        .pushNamed('/operator/proposals', arguments: profile),
+                icon: const Icon(Icons.rate_review_outlined),
+                label: const Text('Tinjau Usulan Warga'),
+              ),
             ],
           ],
         ),

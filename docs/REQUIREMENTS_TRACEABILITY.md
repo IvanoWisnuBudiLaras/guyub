@@ -12,7 +12,7 @@ This file reports repository evidence. It does not convert a domain unit test in
 | 3 — Resident task loop/RT verification | PARTIAL | Pull-based active task list, locked safety detail, voluntary JOIN/DECLINE, optional bounded completion note, `PENDING_RT_VERIFICATION`, same-RT operator queue/verification, deterministic audit, and response-only recap; Functions/Firestore Emulator and widget/domain tests. | Online-only; no durable offline outbox/cache/reconciliation, proxy update, campaign cancellation/history, recipient snapshot, or device-level validation. |
 | 4 — BMKG weather/suggestions | PARTIAL | Normalized timestamped BMKG snapshot, local last-valid cache, configurable threshold model, stale-data exclusion, deterministic suggestion-only evaluator. | No BMKG adapter/fetch schedule, production rules, persisted suggestion, review UI, or human-confirmed task connection. |
 | 5 — Distribution/FCM/reminders/escalation | PARTIAL | Active campaigns provide a copy-only, human-readable WhatsApp summary with locked safety text and voluntary-participation copy; no message is sent. | No FCM, scheduler, reminder/escalation policy or audit delivery path. |
-| 6 — Proposals/assistance | MISSING | — | No proposal review/catalog mapping, vulnerable-resident/helper flow, or proxy status. |
+| 6 — Proposals/assistance | PARTIAL | Callable resident proposal submission, same-RT operator queue, idempotent dismissal/audit, resident form, and review UI; dangerous wording remains proposal-only. | No safe-template draft mapping, official-report route, evidence, assistance/proxy status, or helper assignment. |
 | 7 — Offline/emergency mode | PARTIAL | Local weather snapshot cache survives refresh failures by not overwriting on older/equal input; stale timestamp calculation is tested. | No active-task cache/queue/reconciliation, emergency directory, assembly-point UI, offline UI state or official route. |
 | 8 — Evidence/data lifecycle | MISSING | — | No image processing, EXIF stripping, storage, expiry/delete job, or data deletion workflow. |
 | 9 — History/pilot hardening | MISSING | — | No RT-owned campaign history/handover, pilot configuration, accessibility or stakeholder validation. |
@@ -32,7 +32,7 @@ This file reports repository evidence. It does not convert a domain unit test in
 | AT-009 | VERIFIED | Functions service and emulator tests assert that a resident profile contains only the minimal RT-scoped fields; NIK, full address, and precise GPS fields are absent. |
 | AT-010 | MISSING | No image metadata stripping or storage fixture test. |
 | AT-011 | MISSING | No evidence retention/deletion. |
-| AT-012 | MISSING | Proposal workflow is absent. |
+| AT-012 | VERIFIED | Functions unit/emulator tests and Flutter form tests show resident submission stays `SUBMITTED`, a risky proposal creates no campaign/ACTIVE task, and RT review can only dismiss. |
 | AT-013 | MISSING | No configured official reporting route. |
 | AT-014 | MISSING | No proxy update path. |
 | AT-015 | MISSING | No RT-owned persistent history/handover path. |
@@ -42,14 +42,14 @@ This file reports repository evidence. It does not convert a domain unit test in
 
 | ID | Status | Evidence / gap |
 |---|---|---|
-| S-01 | PARTIAL | Client reads/writes for templates, campaigns, responses, and audit remain denied. Emulator tests cover callable-only resident responses, password Auth/active membership for operator verification, session tokens, and direct task-response access denial. Other future workflows remain unimplemented. |
-| S-02 | PARTIAL | Campaign activation and response verification derive RT from trusted membership; resident task list/response and operator verification reject cross-RT access in Functions Emulator tests. Proposal, proxy, and future task endpoints remain unimplemented. |
-| S-03 | PARTIAL | Resident enrollment, campaign draft/activation, participation, completion submission, and verification use hashed IDs/state guards; emulator tests cover concurrent choice/completion/verification and one audit. Offline outbox, reminders, and delivery idempotency remain unimplemented. |
+| S-01 | PARTIAL | Client reads/writes for templates, campaigns, responses, proposals, and audit remain denied. Emulator tests cover callable-only proposal/review, resident responses, operator membership, and direct proposal/task-response access denial. Other future workflows remain unimplemented. |
+| S-02 | PARTIAL | Campaign activation, response verification, and proposal review derive RT from trusted membership; cross-RT proposal review and task access are denied in Functions Emulator tests. Proxy and future workflows remain unimplemented. |
+| S-03 | PARTIAL | Resident enrollment, campaign mutations, task responses, verification, proposal submission, and proposal dismissal use deterministic IDs/state guards; emulator tests cover replay and one audit. Offline outbox, reminders, and delivery idempotency remain unimplemented. |
 | S-04 | MISSING | No reminders/escalation scheduler. |
 | S-05 | VERIFIED | Functions emulator tests show malformed and unknown RT codes return the same generic permission error with no RT/resident disclosure. |
-| S-06 | PARTIAL | Resident task reads/writes derive resident and RT from validated session records and recheck scope in transactions; activation/verification derive RT from trusted operator membership. Other future task/proposal flows remain unimplemented. |
+| S-06 | PARTIAL | Resident task/proposal writes derive resident and RT from validated sessions and recheck scope in transactions; operator proposal review derives RT from trusted membership. Proxy and future workflows remain unimplemented. |
 | S-07 | PARTIAL | Task responses and completion verification are callable-only; residents cannot set verified state, and same-RT operator verification writes one deterministic audit record. Other future state transitions remain out of scope. |
-| S-08 | MISSING | Proposal workflow is absent. |
+| S-08 | VERIFIED | Emulator test submits a hazardous proposal and confirms it stays `SUBMITTED`, creates no campaign, and cannot be mapped/activated by proposal review. |
 
 ## Offline and privacy matrix
 

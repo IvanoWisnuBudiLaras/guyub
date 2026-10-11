@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../application/resident_session.dart';
 import '../../application/resident_session_controller.dart';
 import '../../../tasks/application/task_response_boundary.dart';
+import '../../../proposals/application/resident_proposal_boundary.dart';
 
 /// Initial resident destination after backend validation of the RT join code.
 final class ResidentSessionHomeScreen extends StatelessWidget {
@@ -10,12 +11,14 @@ final class ResidentSessionHomeScreen extends StatelessWidget {
     required this.session,
     required this.controller,
     this.taskResponseController,
+    this.residentProposalController,
     super.key,
   });
 
   final ResidentSession session;
   final ResidentSessionController controller;
   final TaskResponseController? taskResponseController;
+  final ResidentProposalController? residentProposalController;
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -68,6 +71,17 @@ final class ResidentSessionHomeScreen extends StatelessWidget {
                         .pushNamed('/resident/tasks', arguments: session),
                 icon: const Icon(Icons.checklist),
                 label: const Text('Lihat Tugas Kesiapsiagaan'),
+              ),
+            ],
+            if (residentProposalController != null) ...[
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                key: const Key('resident-propose-task'),
+                onPressed: () =>
+                    Navigator.of(context)
+                        .pushNamed('/resident/proposals', arguments: session),
+                icon: const Icon(Icons.lightbulb_outline),
+                label: const Text('Usulkan Persiapan Warga'),
               ),
             ],
           ],
