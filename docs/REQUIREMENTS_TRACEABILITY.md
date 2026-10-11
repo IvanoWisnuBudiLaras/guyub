@@ -110,17 +110,21 @@ The following cross-PR findings and architectural blockers must be resolved or f
    - Status: RESOLVED in #31 (commit `8ff7d0c`) and #47 via candidate-level `try/catch` isolation in `task_evidence_service.js` and `_evidenceUploadRequests` command ID caching in `task_response_boundary.dart`.
 
 3. **#34 / #35 (INV-03 — Voluntary participation and proxy operator override):**
-   - Operators can invoke `updateProxyTaskStatus` and `updateProxyAssistance` on resident profiles where `createdBy === 'self'`, which freezes or overwrites the voluntary choice of self-enrolled residents without allowing them to override the operator's recording.
-   - Status: Product decision required: restrict proxy mutations to `createdBy === 'proxy'` only, or define explicit priority/overwrite policy for self-enrolled resident submissions.
+   - Operators can invoke `updateProxyTaskStatus` on resident profiles, which previously froze voluntary choice if `proxyRecordedBy: true` responses could not be overwritten by residents in the application.
+   - Status: RESOLVED in #34 (commit `1cab24a`), #35 (commit `4e7e040`), and #47 via Option B implementation in `FirestoreTaskResponseRepository.recordParticipation`. Residents can overwrite proxy-recorded responses to their own voluntary choice (including `DECLINED`), claiming the response (`proxyRecordedBy: false`) and locking out subsequent operator overrides.
 
-4. **#37 (Participation aggregate recount after resident deletion):**
+4. **#36 (Task notification scheduler error isolation and retry backoff):**
+   - `resolveDeliveryTargets` in `TaskNotificationService._dispatchDue` previously ran outside a `try/catch` block, causing transient/quota errors to abort the batch loop and prevent `markEventAttemptFailed` from advancing retry backoff.
+   - Status: RESOLVED in #36 (commit `c6e60f3`) and #47 via per-event `try/catch` wrapping that invokes `markEventAttemptFailed` with policy-configured delay backoff while allowing subsequent batch candidates to continue.
+
+5. **#37 (Participation aggregate recount after resident deletion):**
    - Deletion of a resident physically removes their `task_responses` record, causing subsequent participation recount aggregates (`recordedResponseCount`, `joinedCount`, `completionCount`) to shrink dynamically.
    - Status: Backlog item before pilot: clarify UI copy to distinguish historical participation from active participating resident count, or retain privacy-safe anonymous counters.
 
-5. **#41 (Queued offline completion conflict recovery sequence):**
+6. **#41 (Queued offline completion conflict recovery sequence):**
    - A queued offline completion replay fails with a conflict error if its prerequisite `JOIN` command is still pending or failed, permanently jamming the completion in a conflict state.
    - Status: Backlog item before pilot: gate completion dispatch on server-confirmed JOIN state in client outbox orchestration.
 
-6. **FR-TWO-003 / P-05 (RT-assisted resident deletion verification procedure):**
+7. **FR-TWO-003 / P-05 (RT-assisted resident deletion verification procedure):**
    - RT operator deletion fallback requires offline identity verification before execution to prevent unauthorized operator-initiated deletions.
    - Status: Pilot operational protocol must be defined by community stakeholders.
