@@ -257,11 +257,40 @@ test('rejects coordinate, NIK, mobile, and address data from title or descriptio
   const forbiddenValues = [
     '-6.200123, 106.816456',
     '-6.2, 106.8',
+    '-6,2088, 106,8456',
+    '-6,2088 106,8456',
+    '6.2088 S, 106.8456 E',
+    '6,2088 LS, 106,8456 BT',
+    'S 6.2088, E 106.8456',
+    'LS 6,2088, BT 106,8456',
+    '6.2088° S, 106.8456° E',
+    'S 6.2088°, E 106.8456°',
     'GPS: -6.2',
+    'GPS: -6,2',
+    'lat: -6.2088',
+    'latitude: 6.2088 S',
+    'lon: 106.8456',
+    'koordinat: -6.2088, 106.8456',
+    'koordinat: -6,2088, 106,8456',
+    String.raw`7°45'22"S, 110°22'05"E`,
+    String.raw`7° 45′ 22″ S; 110° 22′ 05″ E`,
+    String.raw`S 7° 45′ 22″; E 110° 22′ 05″`,
+    String.raw`LS 7° 45′ 22″, BT 110° 22′ 05″`,
+    String.raw`7 45 22 S, 110 22 05 E`,
+    String.raw`S 7 45 22, E 110 22 05`,
+    String.raw`S 7° 45.5', E 110° 22.5'`,
+    String.raw`N 0° 45′ 22″, W 100° 22′ 05″`,
+    String.raw`7°45.366′S 110°22.083′E`,
+    String.raw`Koordinat: 7°45′22″, 110°22′05″`,
     'NIK 3175010101900001',
     'NIK 3175 0101 0190 0001',
     'NIK 1234/5678/9012/3456',
     'NIK (1234)/(5678)/(9012)/(3456)',
+    'NIK 3175-0101-0190-0001',
+    'NIK 3175.0101.0190.0001',
+    'NIK 3175_0101_0190_0001',
+    '3175  0101  0190  0001',
+    '3175,0101,0190,0001',
     'Hubungi 0812-3456-7890',
     'Hubungi 0812/3456/7890',
     'Hubungi (0812) 3456 (7890)',
@@ -275,6 +304,10 @@ test('rejects coordinate, NIK, mobile, and address data from title or descriptio
       description,
     );
   }
+  const ordinaryText = await service.submitResidentProposal(payload({
+    description: 'Curah hujan 7,5 mm; dokumen penting sudah disiapkan.',
+  }));
+  assert.equal(ordinaryText.state, 'SUBMITTED');
 });
 
 test('enforces bounded text and only exposes pending same-RT operator queue', async () => {
