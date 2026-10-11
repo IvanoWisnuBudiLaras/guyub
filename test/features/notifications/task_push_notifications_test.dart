@@ -7,6 +7,7 @@ import 'package:guyub/features/auth/application/resident_session_vault.dart';
 import 'package:guyub/features/tasks/application/task_response.dart';
 import 'package:guyub/features/tasks/application/task_response_boundary.dart';
 import 'package:guyub/features/tasks/application/task_template.dart';
+import 'package:guyub/features/tasks/data/resident_task_offline_store.dart';
 import 'package:guyub/features/notifications/presentation/resident_task_notification_screen.dart';
 import 'package:guyub/features/notifications/presentation/task_push_notification_listener.dart';
 import 'package:guyub/features/tasks/presentation/screens/task_response_screens.dart';
@@ -94,11 +95,19 @@ final class _FakeTaskResponseBoundary implements TaskResponseBoundary {
 
   final ResidentTaskList taskList;
   final TaskVerificationQueue verificationQueue;
+  Object? nextListError;
+  int activeTaskListCalls = 0;
 
   @override
   Future<ResidentTaskList> listResidentActiveTasks({
     required String sessionToken,
-  }) async => taskList;
+  }) async {
+    activeTaskListCalls += 1;
+    final error = nextListError;
+    nextListError = null;
+    if (error != null) throw error;
+    return taskList;
+  }
 
   @override
   Future<TaskVerificationQueue> listPendingVerifications() async =>
@@ -722,6 +731,66 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Siapkan perlengkapan keluarga'), findsOneWidget);
       expect(find.text('Detail Tugas'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'terminal task notifications do not open stale cached ACTIVE tasks offline',
+    (tester) async {
+      final localStore = InMemoryLocalStore();
+      final offlineStore = LocalResidentTaskOfflineStore(
+        localStore: localStore,
+      );
+      final staleList = _activeTaskList(_taskId);
+      await offlineStore.cacheAuthorizedActiveTasks(
+        session: _session,
+        taskList: staleList,
+        syncedAt: DateTime.utc(2026, 10, 5, 10),
+      );
+      expect(
+        (await offlineStore.readCachedActiveTasks(session: _session))!
+            .taskList
+            .items
+            .single
+            .status,
+        'ACTIVE',
+      );
+
+      for (final (eventType, message) in [
+        ('TASK_CANCELLED', 'Tugas dari notifikasi ini sudah dibatalkan.'),
+        ('TASK_CLOSED', 'Tugas dari notifikasi ini sudah ditutup.'),
+      ]) {
+        final boundary = _FakeTaskResponseBoundary(staleList)
+          ..nextListError = const TransientTaskNetworkUnavailableException();
+        final controller = TaskResponseController(
+          boundary: boundary,
+          vault: _FakeVault(),
+          offlineStore: offlineStore,
+        );
+        await tester.pumpWidget(
+          MaterialApp(
+            home: ResidentTaskNotificationScreen(
+              session: _session,
+              controller: controller,
+              notification: TaskPushNotification(
+                eventType: eventType,
+                taskId: _taskId,
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text(message), findsOneWidget);
+        expect(find.text('Detail Tugas'), findsNothing);
+        expect(find.byKey(const Key('resident-join-task')), findsNothing);
+        expect(find.byKey(const Key('resident-decline-task')), findsNothing);
+        expect(
+          find.byKey(const Key('resident-submit-completion')),
+          findsNothing,
+        );
+        expect(boundary.activeTaskListCalls, 0);
+      }
     },
   );
 
