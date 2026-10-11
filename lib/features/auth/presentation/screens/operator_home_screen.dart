@@ -6,6 +6,8 @@ import '../../../tasks/application/task_campaign_boundary.dart';
 import '../../../tasks/application/task_response_boundary.dart';
 import '../../../proposals/application/resident_proposal_boundary.dart';
 import '../../../assistance/application/proxy_resident_boundary.dart';
+import '../../../notifications/application/task_push_notifications.dart';
+import '../../../notifications/presentation/task_push_opt_in_card.dart';
 
 /// Authenticated operator landing page with access to server-reviewed tasks.
 final class OperatorHomeScreen extends StatelessWidget {
@@ -16,6 +18,7 @@ final class OperatorHomeScreen extends StatelessWidget {
     this.taskResponseController,
     this.proposalReviewController,
     this.proxyResidentController,
+    this.taskPushNotificationsController,
     super.key,
   });
 
@@ -25,6 +28,7 @@ final class OperatorHomeScreen extends StatelessWidget {
   final TaskResponseController? taskResponseController;
   final ResidentProposalReviewController? proposalReviewController;
   final ProxyResidentController? proxyResidentController;
+  final TaskPushNotificationsController? taskPushNotificationsController;
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -35,6 +39,9 @@ final class OperatorHomeScreen extends StatelessWidget {
           key: const Key('operator-sign-out'),
           tooltip: 'Keluar',
           onPressed: () async {
+            await taskPushNotificationsController
+                ?.unregisterPendampingBeforeSignOut(profile);
+            taskPushNotificationsController?.clearActiveTarget();
             await authBoundary?.signOut();
             if (context.mounted) {
               Navigator.of(context).pushNamedAndRemoveUntil('/', (_) => false);
@@ -56,6 +63,14 @@ final class OperatorHomeScreen extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text('RT ${profile.communityId}'),
+            if (profile.role == OperatorRole.pendampingRt &&
+                taskPushNotificationsController != null) ...[
+              const SizedBox(height: 12),
+              TaskPushOptInCard.forPendamping(
+                controller: taskPushNotificationsController!,
+                profile: profile,
+              ),
+            ],
             const SizedBox(height: 24),
             if (taskCampaignBoundary == null)
               const Text(

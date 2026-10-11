@@ -11,6 +11,81 @@ const {
   templateFingerprint,
 } = require('./task_campaign_service');
 const { validateTaskNotificationPolicy } = require('./task_notification_policy');
+const { notificationEventId, residentRtRecipientHash } = require('./task_notification_id');
+
+const TRANSITION_NOTIFICATION_WINDOW = 'campaign-transition';
+
+function transitionNotificationReferences(firestore, rtId, campaignId, eventType) {
+  const recipientHash = residentRtRecipientHash(rtId);
+  const eventId = notificationEventId({
+    rtId, campaignId, eventType, windowId: TRANSITION_NOTIFICATION_WINDOW, recipientHash,
+  });
+  return {
+    eventId,
+    eventRef: firestore.collection('task_notification_events').doc(eventId),
+    auditRef: firestore.collection('task_notification_audit_events').doc(eventId),
+    recipientHash,
+  };
+}
+
+function transitionNotificationRecord({ eventId, rtId, campaignId, eventType, recipientHash, now }) {
+  return {
+    eventId,
+    rtId,
+    campaignId,
+    eventType,
+    policyDocumentId: null,
+    policyVersion: null,
+    policyFingerprint: null,
+    windowId: TRANSITION_NOTIFICATION_WINDOW,
+    recipientKind: 'RESIDENTS_RT',
+    recipientHash,
+    deliveryRetrySeconds: [],
+    status: 'PENDING',
+    attemptCount: 0,
+    nextAttemptAt: now,
+    createdAt: now,
+  };
+}
+
+function assertTransitionNotificationPair(eventSnapshot, auditSnapshot, expected) {
+  if (!eventSnapshot.exists && !auditSnapshot.exists) return false;
+  if (!eventSnapshot.exists || !auditSnapshot.exists) {
+    throw new TaskCampaignError('failed-precondition', 'Riwayat notifikasi tidak konsisten.');
+  }
+  const event = eventSnapshot.data();
+  const audit = auditSnapshot.data();
+  const auditExpected = {
+    eventId: expected.eventId,
+    rtId: expected.rtId,
+    campaignId: expected.campaignId,
+    eventType: expected.eventType,
+    policyDocumentId: null,
+    policyVersion: null,
+    windowId: TRANSITION_NOTIFICATION_WINDOW,
+    action: `${expected.eventType}_SCHEDULED`,
+  };
+  if (Object.entries(expected).some(([key, value]) => event[key] !== value) ||
+      Object.entries(auditExpected).some(([key, value]) => audit[key] !== value)) {
+    throw new TaskCampaignError('failed-precondition', 'Riwayat notifikasi tidak konsisten.');
+  }
+  return true;
+}
+
+function transitionNotificationAuditRecord(event) {
+  return {
+    eventId: event.eventId,
+    rtId: event.rtId,
+    campaignId: event.campaignId,
+    eventType: event.eventType,
+    policyDocumentId: null,
+    policyVersion: null,
+    windowId: TRANSITION_NOTIFICATION_WINDOW,
+    action: `${event.eventType}_SCHEDULED`,
+    actor: 'SYSTEM_TASK_LIFECYCLE',
+    occurredAt: event.createdAt,
+  };
+}
 
 function denyOperator() {
   return new TaskCampaignError('permission-denied', 'Akses operator tidak valid.');
@@ -317,7 +392,30 @@ class FirestoreTaskCampaignRepository {
       }
       const campaign = campaignSnapshot.data();
       if (campaign.rtId !== operator.rtId) throw denyOperator();
-      const auditSnapshot = await transaction.get(auditRef);
+      const notificationRefs = transitionNotificationReferences(
+        this.firestore, operator.rtId, input.campaignId, 'TASK_ACTIVATED',
+      );
+      const [auditSnapshot, notificationEventSnapshot, notificationAuditSnapshot] =
+        await Promise.all([
+          transaction.get(auditRef),
+          transaction.get(notificationRefs.eventRef),
+          transaction.get(notificationRefs.auditRef),
+        ]);
+      const notificationExpected = {
+        eventId: notificationRefs.eventId,
+        rtId: operator.rtId,
+        campaignId: input.campaignId,
+        eventType: 'TASK_ACTIVATED',
+        policyDocumentId: null,
+        policyVersion: null,
+        policyFingerprint: null,
+        windowId: TRANSITION_NOTIFICATION_WINDOW,
+        recipientKind: 'RESIDENTS_RT',
+        recipientHash: notificationRefs.recipientHash,
+      };
+      const notificationPairExists = assertTransitionNotificationPair(
+        notificationEventSnapshot, notificationAuditSnapshot, notificationExpected,
+      );
 
       if (campaign.status === 'ACTIVE') {
         if (campaign.activationCommandHash === input.commandHash &&
@@ -333,7 +431,7 @@ class FirestoreTaskCampaignRepository {
       if (campaign.status !== 'DRAFT') {
         throw new TaskCampaignError('failed-precondition', 'Hanya draf yang dapat diaktifkan.');
       }
-      if (auditSnapshot.exists) {
+      if (auditSnapshot.exists || notificationPairExists) {
         throw new TaskCampaignError('failed-precondition', 'Riwayat aktivasi tidak konsisten.');
       }
       const deadline = asDate(campaign.deadline);
@@ -404,6 +502,15 @@ class FirestoreTaskCampaignRepository {
         templateVersion: campaign.templateVersion,
         occurredAt: input.now,
       });
+      const notificationEvent = transitionNotificationRecord({
+        ...notificationExpected,
+        recipientHash: notificationRefs.recipientHash,
+        now: input.now,
+      });
+      transaction.create(notificationRefs.eventRef, notificationEvent);
+      transaction.create(
+        notificationRefs.auditRef, transitionNotificationAuditRecord(notificationEvent),
+      );
       result = activated;
     });
     return result;
@@ -429,6 +536,28 @@ class FirestoreTaskCampaignRepository {
       if (campaign.campaignId !== input.taskId) {
         throw new TaskCampaignError('failed-precondition', 'Data tugas tidak konsisten.');
       }
+      const notificationRefs = transitionNotificationReferences(
+        this.firestore, operator.rtId, input.taskId, 'TASK_CLOSED',
+      );
+      const [notificationEventSnapshot, notificationAuditSnapshot] = await Promise.all([
+        transaction.get(notificationRefs.eventRef),
+        transaction.get(notificationRefs.auditRef),
+      ]);
+      const notificationExpected = {
+        eventId: notificationRefs.eventId,
+        rtId: operator.rtId,
+        campaignId: input.taskId,
+        eventType: 'TASK_CLOSED',
+        policyDocumentId: null,
+        policyVersion: null,
+        policyFingerprint: null,
+        windowId: TRANSITION_NOTIFICATION_WINDOW,
+        recipientKind: 'RESIDENTS_RT',
+        recipientHash: notificationRefs.recipientHash,
+      };
+      const notificationPairExists = assertTransitionNotificationPair(
+        notificationEventSnapshot, notificationAuditSnapshot, notificationExpected,
+      );
       const audit = auditSnapshot.exists ? auditSnapshot.data() : null;
       if (campaign.status === 'CLOSED') {
         const closedAt = asDate(campaign.closedAt);
@@ -451,7 +580,7 @@ class FirestoreTaskCampaignRepository {
       if (!activatedAt || input.now < activatedAt) {
         throw new TaskCampaignError('failed-precondition', 'Waktu penutupan tidak konsisten.');
       }
-      if (auditSnapshot.exists) {
+      if (auditSnapshot.exists || notificationPairExists) {
         throw new TaskCampaignError('failed-precondition', 'Riwayat penutupan tidak konsisten.');
       }
 
@@ -476,6 +605,15 @@ class FirestoreTaskCampaignRepository {
         commandHash: input.commandHash,
         occurredAt: input.now,
       });
+      const notificationEvent = transitionNotificationRecord({
+        ...notificationExpected,
+        recipientHash: notificationRefs.recipientHash,
+        now: input.now,
+      });
+      transaction.create(notificationRefs.eventRef, notificationEvent);
+      transaction.create(
+        notificationRefs.auditRef, transitionNotificationAuditRecord(notificationEvent),
+      );
       result = closed;
     });
     return result;
@@ -555,6 +693,28 @@ class FirestoreTaskCampaignRepository {
       if (campaign.campaignId !== input.taskId) {
         throw new TaskCampaignError('failed-precondition', 'Data tugas tidak konsisten.');
       }
+      const notificationRefs = transitionNotificationReferences(
+        this.firestore, operator.rtId, input.taskId, 'TASK_CANCELLED',
+      );
+      const [notificationEventSnapshot, notificationAuditSnapshot] = await Promise.all([
+        transaction.get(notificationRefs.eventRef),
+        transaction.get(notificationRefs.auditRef),
+      ]);
+      const notificationExpected = {
+        eventId: notificationRefs.eventId,
+        rtId: operator.rtId,
+        campaignId: input.taskId,
+        eventType: 'TASK_CANCELLED',
+        policyDocumentId: null,
+        policyVersion: null,
+        policyFingerprint: null,
+        windowId: TRANSITION_NOTIFICATION_WINDOW,
+        recipientKind: 'RESIDENTS_RT',
+        recipientHash: notificationRefs.recipientHash,
+      };
+      const notificationPairExists = assertTransitionNotificationPair(
+        notificationEventSnapshot, notificationAuditSnapshot, notificationExpected,
+      );
       const audit = auditSnapshot.exists ? auditSnapshot.data() : null;
 
       if (campaign.status === 'CANCELLED') {
@@ -572,7 +732,7 @@ class FirestoreTaskCampaignRepository {
       if (campaign.status !== 'ACTIVE') {
         throw new TaskCampaignError('failed-precondition', 'Hanya tugas aktif yang dapat dibatalkan.');
       }
-      if (auditSnapshot.exists) {
+      if (auditSnapshot.exists || notificationPairExists) {
         throw new TaskCampaignError('failed-precondition', 'Riwayat pembatalan tidak konsisten.');
       }
 
@@ -597,6 +757,15 @@ class FirestoreTaskCampaignRepository {
         commandHash: input.commandHash,
         occurredAt: input.now,
       });
+      const notificationEvent = transitionNotificationRecord({
+        ...notificationExpected,
+        recipientHash: notificationRefs.recipientHash,
+        now: input.now,
+      });
+      transaction.create(notificationRefs.eventRef, notificationEvent);
+      transaction.create(
+        notificationRefs.auditRef, transitionNotificationAuditRecord(notificationEvent),
+      );
       result = cancelled;
     });
     return result;

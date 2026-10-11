@@ -12,6 +12,10 @@ function pendampingRecipientHash(rtId) {
   return sha256(`task-notification-role\0${rtId}\0PENDAMPING_RT`);
 }
 
+function residentRtRecipientHash(rtId) {
+  return sha256(`task-notification-role\0${rtId}\0RESIDENTS_RT`);
+}
+
 function notificationEventId({ rtId, campaignId, eventType, windowId, recipientHash }) {
   return sha256([
     'task-notification-event', rtId, campaignId, eventType, windowId, recipientHash,
@@ -25,6 +29,7 @@ function tokenDocumentId(token) {
 module.exports = {
   notificationEventId,
   pendampingRecipientHash,
+  residentRtRecipientHash,
   residentNotificationRecipientHash,
   tokenDocumentId,
 };

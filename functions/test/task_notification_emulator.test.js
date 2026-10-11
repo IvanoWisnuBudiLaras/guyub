@@ -8,6 +8,7 @@ const { validateTaskNotificationPolicy } = require('../src/task_notification_pol
 const { FirestoreTaskNotificationRepository } = require('../src/firestore_task_notification_repository');
 const { TaskNotificationService } = require('../src/task_notification_service');
 const { FirebaseMessagingDeliveryAdapter } = require('../src/task_notification_delivery');
+const { notificationEventId, residentRtRecipientHash } = require('../src/task_notification_id');
 const { FirestoreTaskResponseRepository } = require('../src/firestore_task_response_repository');
 const { TaskResponseService } = require('../src/task_response_service');
 
@@ -88,6 +89,16 @@ function token() { return `fcm-test-token-${crypto.randomUUID()}-abcdefghijklmno
 
 test('notification outbox retries, isolates same-RT escalation recipients, and never blocks active task access', async (t) => {
   t.after(async () => app.delete());
+  // Emulator tests share one Firestore instance. Remove only stale pending
+  // lifecycle events left by earlier campaign fixtures so this test measures
+  // the three events it creates below.
+  for (const eventType of ['TASK_ACTIVATED', 'TASK_CANCELLED', 'TASK_CLOSED', 'TASK_VERIFICATION_NEEDED']) {
+    const existing = await firestore.collection('task_notification_events')
+      .where('eventType', '==', eventType).get();
+    await Promise.all(existing.docs
+      .filter((document) => document.data().status === 'PENDING')
+      .map((document) => document.ref.delete()));
+  }
   const suffix = crypto.randomUUID().replaceAll('-', '');
   const rtA = `notify-rt-a-${suffix}`;
   const rtB = `notify-rt-b-${suffix}`;
@@ -138,6 +149,19 @@ test('notification outbox retries, isolates same-RT escalation recipients, and n
     sessionToken, token: residentPushToken, platform: 'ANDROID',
   });
   assert.equal(registeredResidentToken.status, 200, JSON.stringify(registeredResidentToken.body));
+  const createdResidentB = await callFunction('createResidentSession', {
+    joinCode: joinCodeB,
+    nickname: 'Warga RT lain',
+    requestId: crypto.randomBytes(32).toString('base64url'),
+  });
+  assert.equal(createdResidentB.status, 200, JSON.stringify(createdResidentB.body));
+  const residentPushTokenB = token();
+  const registeredResidentTokenB = await callFunction('registerResidentPushToken', {
+    sessionToken: createdResidentB.body.result.sessionToken,
+    token: residentPushTokenB,
+    platform: 'ANDROID',
+  });
+  assert.equal(registeredResidentTokenB.status, 200, JSON.stringify(registeredResidentTokenB.body));
 
   const operatorPushTokenA = token();
   const operatorPushTokenB = token();
@@ -154,6 +178,7 @@ test('notification outbox retries, isolates same-RT escalation recipients, and n
     campaignId,
     rtId: rtA,
     status: 'ACTIVE',
+    activatedAt: now,
     deadline,
     locationReference: 'Titik kumpul RT',
     templateSnapshot: taskTemplateSnapshot(),
@@ -168,7 +193,10 @@ test('notification outbox retries, isolates same-RT escalation recipients, and n
     async send(message) {
       assert.ok(message.notification.title);
       assert.ok(message.notification.body);
-      assert.equal(message.data.taskId, campaignId);
+      assert.match(message.data.taskId, /^[a-f0-9]{40}$/u);
+      if (!['TASK_ACTIVATED', 'TASK_CANCELLED', 'TASK_CLOSED'].includes(message.data.eventType)) {
+        assert.equal(message.data.taskId, campaignId);
+      }
       assert.equal(message.notification.body.includes('resmi'), false);
       if (failedTokens.has(message.token)) throw new Error('transient delivery failure');
       sentMessages.push(message);
@@ -231,16 +259,134 @@ test('notification outbox retries, isolates same-RT escalation recipients, and n
   assert.notEqual(sentMessages[1].token, operatorPushTokenB);
   assert.equal(sentMessages[1].data.eventType, 'TASK_ESCALATION');
 
+  const joined = await callFunction('recordResidentTaskResponse', {
+    sessionToken,
+    taskId: campaignId,
+    choice: 'JOINED',
+    commandId: crypto.randomBytes(32).toString('base64url'),
+  });
+  assert.equal(joined.status, 200, JSON.stringify(joined.body));
+  const verificationCommandId = crypto.randomBytes(32).toString('base64url');
+  const completionPayload = {
+    sessionToken,
+    taskId: campaignId,
+    note: null,
+    commandId: verificationCommandId,
+  };
+  const completion = await callFunction('submitTaskCompletion', completionPayload);
+  assert.equal(completion.status, 200, JSON.stringify(completion.body));
+  assert.equal(completion.body.result.completionState, 'PENDING_RT_VERIFICATION');
+  const completionReplay = await callFunction('submitTaskCompletion', completionPayload);
+  assert.equal(completionReplay.status, 200, JSON.stringify(completionReplay.body));
+  const verificationEvents = await firestore.collection('task_notification_events')
+    .where('campaignId', '==', campaignId)
+    .where('eventType', '==', 'TASK_VERIFICATION_NEEDED').get();
+  assert.equal(verificationEvents.size, 1);
+  const verificationEvent = verificationEvents.docs[0].data();
+  assert.equal(verificationEvent.recipientKind, 'PENDAMPING_RT');
+  assert.equal(verificationEvent.status, 'PENDING');
+  assert.equal(Object.hasOwn(verificationEvent, 'residentId'), false);
+  assert.equal(Object.hasOwn(verificationEvent, 'completionNote'), false);
+  assert.equal(Object.hasOwn(verificationEvent, 'responseId'), false);
+  assert.equal(JSON.stringify(verificationEvent).includes(verificationCommandId), false);
+  const verificationAudit = await firestore.collection('task_notification_audit_events')
+    .doc(verificationEvents.docs[0].id).get();
+  assert.equal(Object.hasOwn(verificationAudit.data(), 'residentId'), false);
+  const verificationDelivery = await service.sendCampaignTransitionNotifications({ now: new Date() });
+  assert.deepEqual(verificationDelivery, { delivered: 1, failed: 0, skipped: 0 });
+  assert.equal(sentMessages[2].token, operatorPushTokenA);
+  assert.equal(sentMessages[2].data.eventType, 'TASK_VERIFICATION_NEEDED');
+  assert.equal(sentMessages[2].data.taskId, campaignId);
+  assert.notEqual(sentMessages[2].token, operatorPushTokenB);
+
+  const lifecycleNotices = [
+    { eventType: 'TASK_ACTIVATED', taskId: campaignId, status: 'ACTIVE', timeField: 'activatedAt' },
+    { eventType: 'TASK_CANCELLED', taskId: crypto.randomBytes(20).toString('hex'),
+      status: 'CANCELLED', timeField: 'cancelledAt' },
+    { eventType: 'TASK_CLOSED', taskId: crypto.randomBytes(20).toString('hex'),
+      status: 'CLOSED', timeField: 'closedAt' },
+  ];
+  for (const notice of lifecycleNotices) {
+    const transitionAt = new Date(now.getTime() + 1000);
+    if (notice.taskId !== campaignId) {
+      await firestore.collection('task_campaigns').doc(notice.taskId).set({
+        campaignId: notice.taskId,
+        rtId: rtA,
+        status: notice.status,
+        activatedAt: now,
+        [notice.timeField]: transitionAt,
+        deadline,
+        templateSnapshot: taskTemplateSnapshot(),
+      });
+    }
+    const recipientHash = residentRtRecipientHash(rtA);
+    const eventId = notificationEventId({
+      rtId: rtA,
+      campaignId: notice.taskId,
+      eventType: notice.eventType,
+      windowId: 'campaign-transition',
+      recipientHash,
+    });
+    await firestore.collection('task_notification_events').doc(eventId).set({
+      eventId,
+      rtId: rtA,
+      campaignId: notice.taskId,
+      eventType: notice.eventType,
+      policyDocumentId: null,
+      policyVersion: null,
+      policyFingerprint: null,
+      windowId: 'campaign-transition',
+      recipientKind: 'RESIDENTS_RT',
+      recipientHash,
+      deliveryRetrySeconds: [],
+      status: 'PENDING',
+      attemptCount: 0,
+      nextAttemptAt: now,
+      createdAt: now,
+    });
+  }
+  const transitionDelivery = await service.sendCampaignTransitionNotifications({ now });
+  assert.deepEqual(transitionDelivery, { delivered: 3, failed: 0, skipped: 0 });
+  const transitionMessages = sentMessages.slice(-3);
+  assert.deepEqual(transitionMessages.map((message) => message.data.eventType).sort(), [
+    'TASK_ACTIVATED', 'TASK_CANCELLED', 'TASK_CLOSED',
+  ]);
+  assert.deepEqual(
+    Object.fromEntries(transitionMessages.map((message) => [
+      message.data.eventType, message.data.taskId,
+    ])),
+    Object.fromEntries(lifecycleNotices.map((notice) => [notice.eventType, notice.taskId])),
+  );
+  assert.ok(transitionMessages.every((message) => message.token === residentPushToken));
+  assert.equal(transitionMessages.some((message) => message.token === residentPushTokenB), false);
+  assert.ok(transitionMessages.every((message) =>
+    !/peringatan banjir resmi|official flood warning/i.test(message.notification.body)));
+  for (const notice of lifecycleNotices) {
+    const eventId = notificationEventId({
+      rtId: rtA,
+      campaignId: notice.taskId,
+      eventType: notice.eventType,
+      windowId: 'campaign-transition',
+      recipientHash: residentRtRecipientHash(rtA),
+    });
+    const storedEvent = await firestore.collection('task_notification_events').doc(eventId).get();
+    assert.equal(storedEvent.data().status, 'SENT');
+    assert.equal(Object.hasOwn(storedEvent.data(), 'residentId'), false);
+    assert.equal(Object.hasOwn(storedEvent.data(), 'token'), false);
+  }
+
   const responseId = require('../src/task_response_service')
     .responseDocumentId(rtA, campaignId, residentId);
   const responseSnapshot = await firestore.collection('task_responses').doc(responseId).get();
-  assert.equal(responseSnapshot.exists, false);
+  assert.equal(responseSnapshot.exists, true);
+  assert.equal(responseSnapshot.data().participationState, 'JOINED');
+  assert.equal(responseSnapshot.data().completionState, 'PENDING_RT_VERIFICATION');
   const campaignSnapshot = await firestore.collection('task_campaigns').doc(campaignId).get();
   assert.equal(campaignSnapshot.data().status, 'ACTIVE');
 
   const auditSnapshot = await firestore.collection('task_notification_audit_events')
     .where('campaignId', '==', campaignId).get();
-  assert.equal(auditSnapshot.size, 2);
+  assert.equal(auditSnapshot.size, 3);
   for (const auditDoc of auditSnapshot.docs) {
     const audit = auditDoc.data();
     assert.equal(audit.rtId, rtA);
@@ -253,12 +399,13 @@ test('notification outbox retries, isolates same-RT escalation recipients, and n
     'listTaskNotificationAudit', { campaignId }, operatorA.idToken,
   );
   assert.equal(auditAccessA.status, 200, JSON.stringify(auditAccessA.body));
-  assert.equal(auditAccessA.body.result.events.length, 2);
+  assert.equal(auditAccessA.body.result.events.length, 3);
   const auditAccessB = await callFunction(
     'listTaskNotificationAudit', { campaignId }, operatorB.idToken,
   );
   assertError(auditAccessB, 'PERMISSION_DENIED');
 
+  const sentBeforeDeclinedReplay = sentMessages.length;
   const declinedCampaignId = crypto.randomBytes(20).toString('hex');
   await firestore.collection('task_campaigns').doc(declinedCampaignId).set({
     campaignId: declinedCampaignId,
@@ -295,7 +442,7 @@ test('notification outbox retries, isolates same-RT escalation recipients, and n
   const declinedReplay = await service.sendTaskReminders({ now: reminderTime });
   assert.equal(declinedReplay.scheduled, 0);
   assert.equal(declinedReplay.skipped, 1);
-  assert.equal(sentMessages.length, 2);
+  assert.equal(sentMessages.length, sentBeforeDeclinedReplay);
   const declinedOutboxEvent = await firestore.collection('task_notification_events')
     .doc(declinedEvent.eventId).get();
   assert.equal(declinedOutboxEvent.data().status, 'SKIPPED');
@@ -313,4 +460,12 @@ test('notification outbox retries, isolates same-RT escalation recipients, and n
   assert.equal(revoked.status, 200, JSON.stringify(revoked.body));
   const clearedToken = await firestore.collection('resident_push_tokens').doc(residentTokenDocId).get();
   assert.equal(clearedToken.exists, false);
+  const residentTokenDocIdB = require('../src/task_notification_id')
+    .tokenDocumentId(residentPushTokenB);
+  const revokedResidentB = await callFunction('revokeResidentSession', {
+    sessionToken: createdResidentB.body.result.sessionToken,
+  });
+  assert.equal(revokedResidentB.status, 200, JSON.stringify(revokedResidentB.body));
+  assert.equal((await firestore.collection('resident_push_tokens')
+    .doc(residentTokenDocIdB).get()).exists, false);
 });

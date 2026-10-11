@@ -131,6 +131,20 @@ class TaskNotificationService {
     return { scheduled, ...delivery };
   }
 
+  async sendCampaignTransitionNotifications(options = {}) {
+    const now = options.now ?? this.clock();
+    const totals = { delivered: 0, failed: 0, skipped: 0 };
+    for (const eventType of [
+      'TASK_ACTIVATED', 'TASK_CANCELLED', 'TASK_CLOSED', 'TASK_VERIFICATION_NEEDED',
+    ]) {
+      const result = await this._dispatchDue(eventType, now);
+      totals.delivered += result.delivered;
+      totals.failed += result.failed;
+      totals.skipped += result.skipped;
+    }
+    return totals;
+  }
+
   async registerResidentPushToken(data) {
     onlyKeys(data, ['sessionToken', 'token', 'platform']);
     const session = await this.sessions.validateSession(data.sessionToken);

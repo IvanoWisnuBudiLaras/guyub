@@ -112,7 +112,7 @@ final class _ResidentTaskListScreenState extends State<ResidentTaskListScreen> {
                 const SizedBox(height: 8),
                 const Text(
                   'Tugas tampil setelah diaktifkan oleh operator RT. '
-                  'Notifikasi belum tersedia.',
+                  'Periksa kembali aplikasi untuk tugas terbaru.',
                   textAlign: TextAlign.center,
                 ),
               ],
@@ -721,11 +721,13 @@ final class TaskVerificationQueueScreen extends StatefulWidget {
   const TaskVerificationQueueScreen({
     required this.profile,
     required this.controller,
+    this.initialTaskId,
     super.key,
   });
 
   final OperatorProfile profile;
   final TaskResponseController controller;
+  final String? initialTaskId;
 
   @override
   State<TaskVerificationQueueScreen> createState() =>
@@ -884,11 +886,21 @@ final class _TaskVerificationQueueScreenState
               const SizedBox(height: 12),
               for (final record in pending)
                 Card(
+                  key: record.taskId == widget.initialTaskId
+                      ? Key('verification-notification-${record.taskId}')
+                      : null,
+                  color: record.taskId == widget.initialTaskId
+                      ? Theme.of(context).colorScheme.tertiaryContainer
+                      : null,
                   child: Padding(
                     padding: const EdgeInsets.all(16),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        if (record.taskId == widget.initialTaskId) ...[
+                          const Text('Dibuka dari notifikasi'),
+                          const SizedBox(height: 6),
+                        ],
                         Text(
                           record.taskTitle,
                           style: Theme.of(context).textTheme.titleMedium,

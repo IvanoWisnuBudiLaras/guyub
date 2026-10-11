@@ -10,6 +10,7 @@ const {
   notificationEventId,
   pendampingRecipientHash,
   residentNotificationRecipientHash,
+  residentRtRecipientHash,
   tokenDocumentId,
 } = require('./task_notification_id');
 
@@ -21,12 +22,25 @@ const OPERATOR_TOKEN_COLLECTION = 'operator_push_tokens';
 const MAX_POLICIES = 500;
 const MAX_CAMPAIGNS_PER_RT = 200;
 const MAX_RESIDENTS_PER_RT = 500;
+const MAX_RESIDENT_TOKENS_PER_RT = 500;
 const MAX_DUE_EVENTS = 250;
 const DELIVERY_LEASE_MS = 2 * 60 * 1000;
 const TASK_ID_PATTERN = /^[a-f0-9]{40}$/u;
 const POLICY_DOCUMENT_ID_PATTERN = /^[A-Za-z0-9_-]{1,120}$/u;
 const HASH_PATTERN = /^[a-f0-9]{64}$/u;
 const WINDOW_ID_PATTERN = /^[a-z][a-z0-9_-]{0,63}$/u;
+const TRANSITION_NOTIFICATION_WINDOW = 'campaign-transition';
+const CAMPAIGN_TRANSITION_EVENT_TYPES = new Set([
+  'TASK_ACTIVATED', 'TASK_CANCELLED', 'TASK_CLOSED', 'TASK_VERIFICATION_NEEDED',
+]);
+const EVENT_AUDIT_ACTIONS = Object.freeze({
+  TASK_REMINDER: 'TASK_REMINDER_SCHEDULED',
+  TASK_ESCALATION: 'TASK_ESCALATION_SCHEDULED',
+  TASK_ACTIVATED: 'TASK_ACTIVATED_SCHEDULED',
+  TASK_CANCELLED: 'TASK_CANCELLED_SCHEDULED',
+  TASK_CLOSED: 'TASK_CLOSED_SCHEDULED',
+  TASK_VERIFICATION_NEEDED: 'TASK_VERIFICATION_NEEDED_SCHEDULED',
+});
 
 class TaskNotificationError extends Error {
   constructor(code, message = 'Notifikasi tugas tidak dapat diproses.') {
@@ -86,6 +100,8 @@ function readPolicy(snapshot, docId, rtId, expectedFingerprint = null) {
   }
 }
 function expectedAudit(event) {
+  const action = EVENT_AUDIT_ACTIONS[event.eventType];
+  if (!action) invalidData();
   return {
     eventId: event.eventId,
     rtId: event.rtId,
@@ -94,8 +110,7 @@ function expectedAudit(event) {
     policyDocumentId: event.policyDocumentId,
     policyVersion: event.policyVersion,
     windowId: event.windowId,
-    action: event.eventType === 'TASK_REMINDER'
-      ? 'TASK_REMINDER_SCHEDULED' : 'TASK_ESCALATION_SCHEDULED',
+    action,
   };
 }
 function assertExistingEvent(eventSnapshot, auditSnapshot, expected) {
@@ -373,6 +388,9 @@ class FirestoreTaskNotificationRepository {
   }
 
   async resolveDeliveryTargets(event, now) {
+    if (CAMPAIGN_TRANSITION_EVENT_TYPES.has(event.eventType)) {
+      return this._resolveCampaignTransitionTargets(event, now);
+    }
     const campaignRef = this.firestore.collection('task_campaigns').doc(event.campaignId);
     const policyRef = this.firestore.collection(POLICY_COLLECTION).doc(event.policyDocumentId);
     const communityRef = this.firestore.collection('rt_communities').doc(event.rtId);
@@ -447,6 +465,121 @@ class FirestoreTaskNotificationRepository {
     const candidates = tokenSnapshot.docs.map((document) => ({ id: document.id, ...document.data() }))
       .filter((token) => token.rtId === event.rtId && token.role === 'PENDAMPING_RT' &&
         typeof token.operatorUid === 'string' && typeof token.token === 'string');
+    const operatorSnapshots = candidates.length === 0 ? [] : await this.firestore.getAll(
+      ...candidates.map((candidate) => this.firestore.collection('operators').doc(candidate.operatorUid)),
+    );
+    const operatorByUid = new Map(operatorSnapshots.map((snapshot) => [snapshot.id, snapshot.data()]));
+    const targets = candidates.filter((candidate) => {
+      const operator = operatorByUid.get(candidate.operatorUid);
+      return operator?.active === true && operator.role === 'PENDAMPING_RT' &&
+        operator.rtId === event.rtId;
+    }).map((candidate) => ({
+      token: candidate.token,
+      tokenId: candidate.id,
+      tokenKind: 'OPERATOR',
+    }));
+    return { valid: true, targets };
+  }
+
+  async _resolveCampaignTransitionTargets(event, now) {
+    if (event.eventType === 'TASK_VERIFICATION_NEEDED') {
+      return this._resolveVerificationNotificationTargets(event);
+    }
+    const expectedStatus = {
+      TASK_ACTIVATED: 'ACTIVE',
+      TASK_CANCELLED: 'CANCELLED',
+      TASK_CLOSED: 'CLOSED',
+    }[event.eventType];
+    if (!expectedStatus || event.recipientKind !== 'RESIDENTS_RT' ||
+        event.recipientHash !== residentRtRecipientHash(event.rtId) ||
+        event.policyDocumentId !== null || event.policyVersion !== null ||
+        event.policyFingerprint !== null || event.windowId !== TRANSITION_NOTIFICATION_WINDOW ||
+        !TASK_ID_PATTERN.test(event.campaignId || '') || typeof event.rtId !== 'string') {
+      return { valid: false, targets: [] };
+    }
+    const campaignSnapshot = await this.firestore.collection('task_campaigns')
+      .doc(event.campaignId).get();
+    const campaign = campaignSnapshot.data();
+    const transitionAt = toDate(campaign?.[
+      event.eventType === 'TASK_ACTIVATED' ? 'activatedAt' :
+        event.eventType === 'TASK_CANCELLED' ? 'cancelledAt' : 'closedAt'
+    ]);
+    if (!campaignSnapshot.exists || campaign?.campaignId !== event.campaignId ||
+        campaign.rtId !== event.rtId || campaign.status !== expectedStatus || !transitionAt) {
+      return { valid: false, targets: [] };
+    }
+
+    const tokenSnapshot = await this.firestore.collection(RESIDENT_TOKEN_COLLECTION)
+      .where('rtId', '==', event.rtId)
+      .where('active', '==', true)
+      .limit(MAX_RESIDENT_TOKENS_PER_RT + 1).get();
+    if (tokenSnapshot.size > MAX_RESIDENT_TOKENS_PER_RT) {
+      return { valid: false, targets: [] };
+    }
+    const candidates = tokenSnapshot.docs.map((document) => ({
+      id: document.id,
+      ...document.data(),
+    })).filter((token) => token.rtId === event.rtId && token.active === true &&
+      token.platform === 'ANDROID' && typeof token.token === 'string' &&
+      token.id === tokenDocumentId(token.token) && typeof token.residentId === 'string' &&
+      HASH_PATTERN.test(token.sessionIdHash || '') &&
+      token.recipientHash === residentNotificationRecipientHash(event.rtId, token.residentId));
+    if (candidates.length === 0) return { valid: true, targets: [] };
+
+    const sessionRefs = candidates.map((candidate) =>
+      this.firestore.collection('resident_sessions').doc(candidate.sessionIdHash));
+    const residentRefs = candidates.map((candidate) =>
+      this.firestore.collection('resident_profiles').doc(candidate.residentId));
+    const [sessions, residents] = await Promise.all([
+      this.firestore.getAll(...sessionRefs),
+      this.firestore.getAll(...residentRefs),
+    ]);
+    const targets = [];
+    for (let index = 0; index < candidates.length; index += 1) {
+      const candidate = candidates[index];
+      const session = sessions[index].data();
+      const resident = residents[index].data();
+      const expiresAt = toDate(session?.expiresAt);
+      if (!sessions[index].exists || session.active !== true ||
+          session.rtId !== event.rtId || session.residentId !== candidate.residentId ||
+          !expiresAt || expiresAt <= now || !residents[index].exists ||
+          resident.rtId !== event.rtId || resident.deletionPending === true) continue;
+      targets.push({ token: candidate.token, tokenId: candidate.id, tokenKind: 'RESIDENT' });
+    }
+    return { valid: true, targets };
+  }
+
+  async _resolveVerificationNotificationTargets(event) {
+    if (event.recipientKind !== 'PENDAMPING_RT' ||
+        event.recipientHash !== pendampingRecipientHash(event.rtId) ||
+        event.policyDocumentId !== null || event.policyVersion !== null ||
+        event.policyFingerprint !== null ||
+        !/^completion-[a-f0-9]{32}$/u.test(event.windowId || '') ||
+        !TASK_ID_PATTERN.test(event.campaignId || '') || typeof event.rtId !== 'string') {
+      return { valid: false, targets: [] };
+    }
+    const campaignSnapshot = await this.firestore.collection('task_campaigns')
+      .doc(event.campaignId).get();
+    const campaign = campaignSnapshot.data();
+    if (!campaignSnapshot.exists || campaign?.campaignId !== event.campaignId ||
+        campaign.rtId !== event.rtId || !['ACTIVE', 'CANCELLED', 'CLOSED'].includes(campaign.status)) {
+      return { valid: false, targets: [] };
+    }
+    const pendingSnapshot = await this.firestore.collection('task_responses')
+      .where('rtId', '==', event.rtId)
+      .where('taskId', '==', event.campaignId)
+      .where('completionState', '==', 'PENDING_RT_VERIFICATION')
+      .limit(1).get();
+    if (pendingSnapshot.empty) return { valid: false, targets: [] };
+
+    const tokenSnapshot = await this.firestore.collection(OPERATOR_TOKEN_COLLECTION)
+      .where('rtId', '==', event.rtId)
+      .where('role', '==', 'PENDAMPING_RT')
+      .where('active', '==', true).limit(100).get();
+    const candidates = tokenSnapshot.docs.map((document) => ({ id: document.id, ...document.data() }))
+      .filter((token) => token.rtId === event.rtId && token.role === 'PENDAMPING_RT' &&
+        token.active === true && typeof token.token === 'string' &&
+        token.id === tokenDocumentId(token.token) && typeof token.operatorUid === 'string');
     const operatorSnapshots = candidates.length === 0 ? [] : await this.firestore.getAll(
       ...candidates.map((candidate) => this.firestore.collection('operators').doc(candidate.operatorUid)),
     );
@@ -648,7 +781,8 @@ class FirestoreTaskNotificationRepository {
         const event = snapshot.data();
         if (event.eventId !== snapshot.id || event.rtId !== operator.rtId ||
             event.campaignId !== input.campaignId ||
-            !['TASK_REMINDER', 'TASK_ESCALATION'].includes(event.eventType) ||
+            !['TASK_REMINDER', 'TASK_ESCALATION', 'TASK_ACTIVATED',
+              'TASK_CANCELLED', 'TASK_CLOSED', 'TASK_VERIFICATION_NEEDED'].includes(event.eventType) ||
             typeof event.windowId !== 'string' || !toDate(event.occurredAt)) return null;
         return {
           eventType: event.eventType,
