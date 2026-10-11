@@ -271,7 +271,7 @@ class FirestoreProxyResidentRepository {
           }
           throw fail('already-exists', 'ID permintaan sudah digunakan.');
         }
-        if (current.participationState !== input.participationState) {
+        if (current.proxyRecordedBy !== true || current.participationState !== input.participationState) {
           throw fail('failed-precondition', 'Pilihan sukarela yang tercatat tidak dapat diubah.');
         }
         if (input.completionReported && current.completionState === 'NOT_SUBMITTED') {
