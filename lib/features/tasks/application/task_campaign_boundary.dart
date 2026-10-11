@@ -125,6 +125,44 @@ extension TaskCampaignHistoryManagement on TaskCampaignManagementBoundary {
   }
 }
 
+/// Separate capability for explicit close commands and privacy-safe event reads.
+/// Keeping it optional preserves older test boundaries and implementations.
+abstract interface class TaskCampaignLifecycleBoundary {
+  Future<TaskCampaignClosureRecord> closeTaskCampaign({
+    required String taskId,
+    required String commandId,
+  });
+
+  Future<List<RtTaskLifecycleEvent>> listTaskLifecycleEvents({
+    required String taskId,
+  });
+}
+
+extension TaskCampaignLifecycleManagement on TaskCampaignManagementBoundary {
+  Future<TaskCampaignClosureRecord> closeTaskCampaign({
+    required String taskId,
+    required String commandId,
+  }) {
+    final lifecycleBoundary = this;
+    if (lifecycleBoundary is! TaskCampaignLifecycleBoundary) {
+      throw StateError('Task lifecycle commands are not available.');
+    }
+    return (lifecycleBoundary as TaskCampaignLifecycleBoundary)
+        .closeTaskCampaign(taskId: taskId, commandId: commandId);
+  }
+
+  Future<List<RtTaskLifecycleEvent>> listTaskLifecycleEvents({
+    required String taskId,
+  }) {
+    final lifecycleBoundary = this;
+    if (lifecycleBoundary is! TaskCampaignLifecycleBoundary) {
+      throw StateError('Task lifecycle history is not available.');
+    }
+    return (lifecycleBoundary as TaskCampaignLifecycleBoundary)
+        .listTaskLifecycleEvents(taskId: taskId);
+  }
+}
+
 /// An active task returned only by the RT-scoped callable endpoint.
 final class ActiveTaskCampaignRecord {
   const ActiveTaskCampaignRecord({
@@ -243,6 +281,7 @@ final class RtTaskHistoryRecord {
     required this.status,
     required this.activatedAt,
     required this.cancelledAt,
+    required this.closedAt,
     required this.locationReference,
   });
 
@@ -253,6 +292,7 @@ final class RtTaskHistoryRecord {
   final String status;
   final DateTime activatedAt;
   final DateTime? cancelledAt;
+  final DateTime? closedAt;
 
   factory RtTaskHistoryRecord.fromWire(Object? value) {
     final wire = _strictMap(value, 'history task');
@@ -264,6 +304,7 @@ final class RtTaskHistoryRecord {
       'status',
       'activatedAt',
       'cancelledAt',
+      'closedAt',
     });
     final taskId = _requiredString(wire['taskId'], 'taskId');
     if (!_taskIdPattern.hasMatch(taskId)) {
@@ -323,15 +364,19 @@ final class RtTaskHistoryRecord {
       throw const FormatException('Invalid history task location.');
     }
     final status = _requiredString(wire['status'], 'status');
-    if (status != 'ACTIVE' && status != 'CANCELLED') {
+    if (status != 'ACTIVE' && status != 'CLOSED' && status != 'CANCELLED') {
       throw const FormatException('Invalid history task status.');
     }
     final activatedAt = _requiredUtcDate(wire['activatedAt'], 'activatedAt');
     final cancelledAt = wire['cancelledAt'] == null
         ? null
         : _requiredUtcDate(wire['cancelledAt'], 'cancelledAt');
-    if ((status == 'ACTIVE' && cancelledAt != null) ||
-        (status == 'CANCELLED' && cancelledAt == null)) {
+    final closedAt = wire['closedAt'] == null
+        ? null
+        : _requiredUtcDate(wire['closedAt'], 'closedAt');
+    if ((status == 'ACTIVE' && (cancelledAt != null || closedAt != null)) ||
+        (status == 'CLOSED' && (cancelledAt != null || closedAt == null)) ||
+        (status == 'CANCELLED' && (cancelledAt == null || closedAt != null))) {
       throw const FormatException('Invalid history task status dates.');
     }
 
@@ -343,6 +388,7 @@ final class RtTaskHistoryRecord {
       status: status,
       activatedAt: activatedAt,
       cancelledAt: cancelledAt,
+      closedAt: closedAt,
     );
   }
 }
@@ -411,8 +457,82 @@ final class TaskCampaignCancellationRecord {
   }
 }
 
+/// The only accepted successful response to an explicit close command.
+final class TaskCampaignClosureRecord {
+  const TaskCampaignClosureRecord({required this.taskId, required this.status});
+
+  final String taskId;
+  final String status;
+
+  factory TaskCampaignClosureRecord.fromWire(
+    Object? value, {
+    required String expectedTaskId,
+  }) {
+    final wire = _strictMap(value, 'closure response');
+    _requireOnlyKeys(wire, const {'taskId', 'status'});
+    final taskId = _requiredString(wire['taskId'], 'taskId');
+    final status = _requiredString(wire['status'], 'status');
+    if (!_taskIdPattern.hasMatch(taskId) ||
+        taskId != expectedTaskId ||
+        status != 'CLOSED') {
+      throw const FormatException('Invalid closure response.');
+    }
+    return TaskCampaignClosureRecord(taskId: taskId, status: status);
+  }
+}
+
+/// A lifecycle-only history projection. It intentionally contains no actor,
+/// campaign, response, or resident identifiers.
+final class RtTaskLifecycleEvent {
+  const RtTaskLifecycleEvent({
+    required this.eventType,
+    required this.occurredAt,
+  });
+
+  final String eventType;
+  final DateTime occurredAt;
+
+  factory RtTaskLifecycleEvent.fromWire(Object? value) {
+    final wire = _strictMap(value, 'lifecycle event');
+    _requireOnlyKeys(wire, const {'eventType', 'occurredAt'});
+    final eventType = _requiredString(wire['eventType'], 'eventType');
+    if (!const {'ACTIVATED', 'CLOSED', 'CANCELLED'}.contains(eventType)) {
+      throw const FormatException('Invalid lifecycle event.');
+    }
+    return RtTaskLifecycleEvent(
+      eventType: eventType,
+      occurredAt: _requiredUtcDate(wire['occurredAt'], 'occurredAt'),
+    );
+  }
+
+  static List<RtTaskLifecycleEvent> listFromWire(Object? value) {
+    final wire = _strictMap(value, 'lifecycle event response');
+    _requireOnlyKeys(wire, const {'events'});
+    final rawEvents = wire['events'];
+    if (rawEvents is! List || rawEvents.isEmpty || rawEvents.length > 3) {
+      throw const FormatException('Invalid lifecycle event response.');
+    }
+    final events = rawEvents.map(RtTaskLifecycleEvent.fromWire).toList();
+    final validSequence =
+        events.first.eventType == 'ACTIVATED' &&
+        (events.length == 1 ||
+            (events.length == 2 &&
+                (events.last.eventType == 'CLOSED' ||
+                    events.last.eventType == 'CANCELLED')));
+    for (var index = 1; index < events.length; index++) {
+      if (events[index].occurredAt.isBefore(events[index - 1].occurredAt)) {
+        throw const FormatException('Invalid lifecycle event order.');
+      }
+    }
+    if (!validSequence) {
+      throw const FormatException('Invalid lifecycle event sequence.');
+    }
+    return List<RtTaskLifecycleEvent>.unmodifiable(events);
+  }
+}
+
 /// Keeps request IDs stable across network retries for one draft/activation or
-/// task cancellation.
+/// task cancellation/closure.
 final class TaskCampaignController {
   TaskCampaignController(this.boundary, {String Function()? idFactory})
     : _idFactory = idFactory ?? _newOpaqueId;
@@ -422,6 +542,7 @@ final class TaskCampaignController {
   String? _draftRequestId;
   String? _activationCommandId;
   final Map<String, String> _cancellationCommandIds = {};
+  final Map<String, String> _closureCommandIds = {};
 
   Future<List<TaskTemplate>> listApprovedTemplates() =>
       boundary.listApprovedTemplates();
@@ -440,6 +561,15 @@ final class TaskCampaignController {
     );
   }
 
+  Future<List<RtTaskLifecycleEvent>> listTaskLifecycleEvents({
+    required String taskId,
+  }) async {
+    if (!_taskIdPattern.hasMatch(taskId)) {
+      throw ArgumentError.value(taskId, 'taskId', 'Invalid task ID.');
+    }
+    return _managementBoundary.listTaskLifecycleEvents(taskId: taskId);
+  }
+
   Future<TaskCampaignCancellationRecord> cancelTaskCampaign({
     required String taskId,
   }) async {
@@ -456,6 +586,26 @@ final class TaskCampaignController {
     );
     if (result.taskId != taskId || result.status != 'CANCELLED') {
       throw const FormatException('Invalid cancellation response.');
+    }
+    return result;
+  }
+
+  Future<TaskCampaignClosureRecord> closeTaskCampaign({
+    required String taskId,
+  }) async {
+    if (!_taskIdPattern.hasMatch(taskId)) {
+      throw ArgumentError.value(taskId, 'taskId', 'Invalid task ID.');
+    }
+    final commandId = _closureCommandIds.putIfAbsent(taskId, _idFactory);
+    if (!_commandIdPattern.hasMatch(commandId)) {
+      throw StateError('The closure command ID is invalid.');
+    }
+    final result = await _managementBoundary.closeTaskCampaign(
+      taskId: taskId,
+      commandId: commandId,
+    );
+    if (result.taskId != taskId || result.status != 'CLOSED') {
+      throw const FormatException('Invalid closure response.');
     }
     return result;
   }

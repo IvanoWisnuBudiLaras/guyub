@@ -92,14 +92,21 @@ function historyCampaignFromSnapshot(snapshot, rtId) {
   const deadline = historyTimestampParts(campaign.deadline);
   const cancelledAt = campaign.cancelledAt == null
     ? null : historyTimestampParts(campaign.cancelledAt);
+  const closedAt = campaign.closedAt == null
+    ? null : historyTimestampParts(campaign.closedAt);
   const templateSnapshot = campaignTemplateSnapshot(campaign.templateSnapshot);
   if (snapshot.id !== campaign.campaignId || !/^[a-f0-9]{40}$/u.test(snapshot.id) ||
-      campaign.rtId !== rtId || !['ACTIVE', 'CANCELLED'].includes(campaign.status) ||
+      campaign.rtId !== rtId || !['ACTIVE', 'CLOSED', 'CANCELLED'].includes(campaign.status) ||
       !activatedAt || !deadline ||
+      (campaign.cancelledAt != null && !cancelledAt) ||
+      (campaign.closedAt != null && !closedAt) ||
       (campaign.locationReference != null &&
         !TASK_LOCATION_REFERENCES.has(campaign.locationReference)) ||
-      (campaign.status === 'ACTIVE' && cancelledAt !== null) ||
-      (campaign.status === 'CANCELLED' && !cancelledAt) ||
+      (campaign.status === 'ACTIVE' && (cancelledAt !== null || closedAt !== null)) ||
+      (campaign.status === 'CLOSED' &&
+        (!closedAt || closedAt.date < activatedAt.date || cancelledAt !== null)) ||
+      (campaign.status === 'CANCELLED' &&
+        (!cancelledAt || cancelledAt.date < activatedAt.date || closedAt !== null)) ||
       campaign.templateId !== templateSnapshot.templateId ||
       campaign.templateVersion !== templateSnapshot.version ||
       campaign.templateFingerprint !== templateFingerprint(templateSnapshot)) {
@@ -113,6 +120,7 @@ function historyCampaignFromSnapshot(snapshot, rtId) {
     status: campaign.status,
     activatedAt: activatedAt.date,
     cancelledAt: cancelledAt?.date ?? null,
+    closedAt: closedAt?.date ?? null,
     cursor: {
       seconds: activatedAt.seconds,
       nanoseconds: activatedAt.nanoseconds,
@@ -175,7 +183,7 @@ class FirestoreTaskCampaignRepository {
       const operator = requireOperator(operatorSnapshot);
       let query = this.firestore.collection('task_campaigns')
         .where('rtId', '==', operator.rtId)
-        .where('status', 'in', ['ACTIVE', 'CANCELLED'])
+        .where('status', 'in', ['ACTIVE', 'CLOSED', 'CANCELLED'])
         .orderBy('activatedAt', 'desc')
         .orderBy('campaignId', 'desc');
       if (cursor) {
@@ -373,6 +381,131 @@ class FirestoreTaskCampaignRepository {
       result = activated;
     });
     return result;
+  }
+
+  async closeCampaign(input) {
+    const operatorRef = this.firestore.collection('operators').doc(input.operatorUid);
+    const campaignRef = this.firestore.collection('task_campaigns').doc(input.taskId);
+    const auditRef = this.firestore.collection('task_audit_events')
+      .doc(`${input.taskId}_closed`);
+    let result;
+
+    await this.firestore.runTransaction(async (transaction) => {
+      const [operatorSnapshot, campaignSnapshot, auditSnapshot] = await Promise.all([
+        transaction.get(operatorRef),
+        transaction.get(campaignRef),
+        transaction.get(auditRef),
+      ]);
+      const operator = requireOperator(operatorSnapshot);
+      if (!campaignSnapshot.exists) throw denyOperator();
+      const campaign = campaignSnapshot.data();
+      if (campaign.rtId !== operator.rtId) throw denyOperator();
+      if (campaign.campaignId !== input.taskId) {
+        throw new TaskCampaignError('failed-precondition', 'Data tugas tidak konsisten.');
+      }
+      const audit = auditSnapshot.exists ? auditSnapshot.data() : null;
+      if (campaign.status === 'CLOSED') {
+        const closedAt = asDate(campaign.closedAt);
+        const auditAt = asDate(audit?.occurredAt);
+        if (campaign.closureCommandHash === input.commandHash &&
+            campaign.closedByOperatorUid === input.operatorUid &&
+            audit?.campaignId === input.taskId && audit.rtId === operator.rtId &&
+            audit.action === 'CAMPAIGN_CLOSED' &&
+            audit.actorUid === input.operatorUid && audit.commandHash === input.commandHash &&
+            closedAt && auditAt && closedAt.getTime() === auditAt.getTime()) {
+          result = campaign;
+          return;
+        }
+        throw new TaskCampaignError('failed-precondition', 'Tugas sudah ditutup.');
+      }
+      if (campaign.status !== 'ACTIVE') {
+        throw new TaskCampaignError('failed-precondition', 'Hanya tugas aktif yang dapat ditutup.');
+      }
+      const activatedAt = asDate(campaign.activatedAt);
+      if (!activatedAt || input.now < activatedAt) {
+        throw new TaskCampaignError('failed-precondition', 'Waktu penutupan tidak konsisten.');
+      }
+      if (auditSnapshot.exists) {
+        throw new TaskCampaignError('failed-precondition', 'Riwayat penutupan tidak konsisten.');
+      }
+
+      const closed = {
+        ...campaign,
+        status: 'CLOSED',
+        closedAt: input.now,
+        closedByOperatorUid: input.operatorUid,
+        closureCommandHash: input.commandHash,
+      };
+      transaction.update(campaignRef, {
+        status: closed.status,
+        closedAt: closed.closedAt,
+        closedByOperatorUid: closed.closedByOperatorUid,
+        closureCommandHash: closed.closureCommandHash,
+      });
+      transaction.create(auditRef, {
+        campaignId: input.taskId,
+        rtId: operator.rtId,
+        action: 'CAMPAIGN_CLOSED',
+        actorUid: input.operatorUid,
+        commandHash: input.commandHash,
+        occurredAt: input.now,
+      });
+      result = closed;
+    });
+    return result;
+  }
+
+  async listTaskLifecycleEvents(operatorUid, taskId) {
+    const operatorRef = this.firestore.collection('operators').doc(operatorUid);
+    const campaignRef = this.firestore.collection('task_campaigns').doc(taskId);
+    const lifecycle = [
+      { suffix: 'activated', action: 'CAMPAIGN_ACTIVATED', eventType: 'ACTIVATED', field: 'activatedAt', actorField: 'activatedByOperatorUid', commandField: 'activationCommandHash' },
+      { suffix: 'closed', action: 'CAMPAIGN_CLOSED', eventType: 'CLOSED', field: 'closedAt', actorField: 'closedByOperatorUid', commandField: 'closureCommandHash' },
+      { suffix: 'cancelled', action: 'CAMPAIGN_CANCELLED', eventType: 'CANCELLED', field: 'cancelledAt', actorField: 'cancelledByOperatorUid', commandField: 'cancellationCommandHash' },
+    ];
+    return this.firestore.runTransaction(async (transaction) => {
+      const [operatorSnapshot, campaignSnapshot] = await Promise.all([
+        transaction.get(operatorRef),
+        transaction.get(campaignRef),
+      ]);
+      const operator = requireOperator(operatorSnapshot);
+      if (!campaignSnapshot.exists || campaignSnapshot.data()?.rtId !== operator.rtId) {
+        throw denyOperator();
+      }
+      const history = historyCampaignFromSnapshot(campaignSnapshot, operator.rtId);
+      const auditRefs = lifecycle.map(({ suffix }) =>
+        this.firestore.collection('task_audit_events').doc(`${taskId}_${suffix}`));
+      const auditSnapshots = await Promise.all(auditRefs.map((reference) =>
+        transaction.get(reference)));
+      const events = [];
+      for (let index = 0; index < lifecycle.length; index += 1) {
+        const snapshot = auditSnapshots[index];
+        if (!snapshot.exists) continue;
+        const definition = lifecycle[index];
+        const audit = snapshot.data();
+        const occurredAt = asDate(audit?.occurredAt);
+        const campaignEventAt = asDate(campaignSnapshot.data()?.[definition.field]);
+        if (audit?.campaignId !== taskId || audit.rtId !== operator.rtId ||
+            audit.action !== definition.action ||
+            audit.actorUid !== campaignSnapshot.data()?.[definition.actorField] ||
+            !/^[a-f0-9]{64}$/u.test(audit.commandHash || '') ||
+            audit.commandHash !== campaignSnapshot.data()?.[definition.commandField] ||
+            !occurredAt || !campaignEventAt ||
+            occurredAt.getTime() !== campaignEventAt.getTime()) {
+          throw new TaskCampaignError('failed-precondition', 'Riwayat perubahan tugas tidak konsisten.');
+        }
+        events.push({ eventType: definition.eventType, occurredAt });
+      }
+      const expectedTypes = history.status === 'ACTIVE' ? ['ACTIVATED']
+        : history.status === 'CLOSED' ? ['ACTIVATED', 'CLOSED']
+          : ['ACTIVATED', 'CANCELLED'];
+      events.sort((left, right) => left.occurredAt - right.occurredAt);
+      if (JSON.stringify(events.map((event) => event.eventType)) !==
+          JSON.stringify(expectedTypes)) {
+        throw new TaskCampaignError('failed-precondition', 'Riwayat perubahan tugas tidak konsisten.');
+      }
+      return events;
+    });
   }
 
   async cancelCampaign(input) {

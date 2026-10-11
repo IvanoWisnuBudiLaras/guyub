@@ -18,7 +18,7 @@ This matrix maps implementation behavior back to the Master PRD. It is intended 
 | AT-012 | Proposal maps only to a reviewed-template DRAFT | Submit hazardous proposal; RT selects an approved template and explicit slots; assert draft snapshot contains only template instructions, remains absent from resident active tasks, and requires a separate authorized activation | Functions emulator + Flutter | Yes |
 | AT-013 | Official escalation route exists | Configured per-RT HTTPS/telephone routes launch only after a tap; unconfigured, load-error, invalid-URI, and failed-handoff states expose no unsafe action | Flutter widget + Functions validation | Yes |
 | AT-014 | Proxy status supported | Authorized operator updates non-app resident status | Integration | Yes |
-| AT-015 | RT history survives operator change | Create history, replace operator, verify history | Integration/E2E | Yes |
+| AT-015 | RT history and lifecycle events survive operator change | Create, activate, then explicitly close a task; replace the operator; verify CLOSED history and only event types/timestamps; confirm closure does not verify completion | Functions Emulator + Flutter | Yes |
 | AT-016 | WhatsApp summary is copy-only and active-only | Draft has no copy action; active copy contains locked safety/voluntary text and sends no message | Unit + widget | Yes |
 | AT-017 | Active campaign cancellation is authorized and audited | Same-RT operator cancels; exactly one audit event; replay is idempotent; resident list excludes it | Functions Emulator + widget | Yes |
 | AT-018 | Offline completion replays without a note | No-note completion is queued once, replayed idempotently, and remains pending RT verification | Unit + Functions Emulator | Yes |
@@ -31,7 +31,7 @@ This matrix maps implementation behavior back to the Master PRD. It is intended 
 | SEC | Scenario | Expected |
 |---|---|---|
 | S-01 | Resident attempts direct protected Firestore write | Denied |
-| S-02 | Operator A tries RT B task activation | Denied |
+| S-02 | Operator A tries RT B task activation, close, or lifecycle-event read | Denied |
 | S-03 | Replayed task activation command | No duplicate task |
 | S-04 | Replayed reminder scheduler run | No duplicate reminder for same policy window |
 | S-05 | Invalid RT code enumeration attempt | Generic failure; no RT/resident disclosure |
@@ -48,7 +48,7 @@ This matrix maps implementation behavior back to the Master PRD. It is intended 
 | O-01 | App offline after task was synchronized | Task + safety instruction visible |
 | O-02 | Resident joins task offline | Local pending state; single server transition after reconnect |
 | O-03 | Resident declines offline | Local pending state; single server transition after reconnect |
-| O-04 | Server task cancelled before queued completion sync | Client surfaces conflict; does not silently restore task |
+| O-04 | Server task cancelled or closed before queued participation/completion sync | Client surfaces conflict; does not silently restore task or completion state |
 | O-05 | BMKG fetch fails | Last valid snapshot retained with timestamp |
 | O-06 | FCM fails | Task remains available through app/WhatsApp copy path |
 | O-07 | Resident submits completion offline without a note | One durable idempotent command replays after reconnect; server still requires RT verification |

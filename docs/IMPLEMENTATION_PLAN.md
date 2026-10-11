@@ -266,10 +266,10 @@ AT-010, AT-011.
 ## Deliverable
 RT history survives operator changes and the app is ready for controlled pilot.
 
-**Current status: PARTIAL.** The read-only RT-scoped history list, aggregate completion recap, and same-RT operator replacement emulator test are implemented. Operator membership provisioning remains trusted-admin work; no self-service transfer flow is added. Pilot configuration, accessibility, usability, and release validation remain open.
+**Current status: PARTIAL.** The RT-scoped paginated history, aggregate completion recap, explicit audited ACTIVE → CLOSED transition, privacy-safe lifecycle event timeline, and same-RT operator replacement emulator coverage are implemented. Closure never implies resident completion or RT verification. Operator membership provisioning remains trusted-admin work; no self-service transfer flow is added. Pilot configuration, device accessibility/usability, and release validation remain open.
 
 ## Work items
-- historical task/event view,
+- [x] historical task/event view with audited explicit close;
 - confirm RT-owned persistence,
 - operator replacement/handover test,
 - [x] add safe explicit HTTPS/telephone actions for trusted RT-configured official channels; pilot route provisioning and verification remain external,

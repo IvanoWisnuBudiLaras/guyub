@@ -23,6 +23,9 @@ final class TaskCampaign {
     this.approvedByOperatorId,
     this.activatedAt,
     this.activationCommandId,
+    this.closedByOperatorId,
+    this.closedAt,
+    this.closureCommandId,
   });
 
   final String id;
@@ -36,6 +39,9 @@ final class TaskCampaign {
   final String? approvedByOperatorId;
   final DateTime? activatedAt;
   final String? activationCommandId;
+  final String? closedByOperatorId;
+  final DateTime? closedAt;
+  final String? closureCommandId;
 
   factory TaskCampaign.createDraft({
     required String id,
@@ -122,6 +128,52 @@ final class TaskCampaign {
       approvedByOperatorId: operatorId,
       activatedAt: confirmedAt,
       activationCommandId: commandId,
+    );
+  }
+
+  /// Applies an explicit same-community operator close command.
+  ///
+  /// Closing archives the active campaign; it does not verify resident
+  /// completion. The server must independently authorize and audit the command.
+  TaskCampaign close({
+    required String operatorId,
+    required String operatorCommunityId,
+    required DateTime closedAt,
+    required String commandId,
+  }) {
+    _requireText(operatorId, 'operatorId');
+    _requireText(commandId, 'commandId');
+    if (operatorCommunityId != communityId) {
+      throw StateError('Operator community does not match the campaign.');
+    }
+    if (status == TaskCampaignStatus.closed &&
+        closedByOperatorId == operatorId &&
+        closureCommandId == commandId) {
+      return this;
+    }
+    if (status != TaskCampaignStatus.active) {
+      throw StateError('Only an active campaign can be closed.');
+    }
+    final activationTime = activatedAt;
+    if (activationTime == null || closedAt.isBefore(activationTime)) {
+      throw StateError('A campaign cannot close before activation.');
+    }
+
+    return TaskCampaign._(
+      id: id,
+      communityId: communityId,
+      templateSnapshot: templateSnapshot,
+      createdByOperatorId: createdByOperatorId,
+      createdAt: createdAt,
+      deadline: deadline,
+      locationReference: locationReference,
+      status: TaskCampaignStatus.closed,
+      approvedByOperatorId: approvedByOperatorId,
+      activatedAt: activatedAt,
+      activationCommandId: activationCommandId,
+      closedByOperatorId: operatorId,
+      closedAt: closedAt,
+      closureCommandId: commandId,
     );
   }
 }

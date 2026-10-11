@@ -15,11 +15,15 @@ const _cursor = 'bmV4dF9wYWdl';
 const _activated = '2026-10-04T10:00:00.000Z';
 const _deadline = '2026-10-05T10:00:00.000Z';
 const _cancelled = '2026-10-04T11:00:00.000Z';
+const _closed = '2026-10-04T12:00:00.000Z';
+final _thirdTaskId = 'c' * 40;
+const _secondCursor = 'dGhpcmRfcGFnZQ';
 
 Map<String, Object?> _wire({
   String? taskId,
   String status = 'ACTIVE',
   Object? cancelledAt,
+  Object? closedAt,
 }) => {
   'taskId': taskId ?? _taskId,
   'templateSnapshot': {
@@ -36,6 +40,7 @@ Map<String, Object?> _wire({
   'status': status,
   'activatedAt': _activated,
   'cancelledAt': cancelledAt,
+  'closedAt': closedAt,
 };
 
 final _profile = OperatorProfile(
@@ -49,11 +54,14 @@ final class _HistoryBoundary
     implements
         TaskCampaignBoundary,
         TaskCampaignManagementBoundary,
-        TaskCampaignHistoryBoundary {
+        TaskCampaignHistoryBoundary,
+        TaskCampaignLifecycleBoundary {
   _HistoryBoundary({this.failFirstPage = false});
 
   final bool failFirstPage;
   final List<(int, String?)> requests = [];
+  final List<String> lifecycleRequests = [];
+  final List<(String, String)> closureRequests = [];
 
   @override
   Future<RtTaskHistoryPage> listRtTaskHistory({
@@ -68,18 +76,66 @@ final class _HistoryBoundary
         nextCursor: _cursor,
       );
     }
+    if (cursor == _cursor) {
+      return RtTaskHistoryPage(
+        tasks: [
+          RtTaskHistoryRecord.fromWire(
+            _wire(
+              taskId: _secondTaskId,
+              status: 'CANCELLED',
+              cancelledAt: _cancelled,
+            ),
+          ),
+        ],
+        nextCursor: _secondCursor,
+      );
+    }
     return RtTaskHistoryPage(
       tasks: [
         RtTaskHistoryRecord.fromWire(
-          _wire(
-            taskId: _secondTaskId,
-            status: 'CANCELLED',
-            cancelledAt: _cancelled,
-          ),
+          _wire(taskId: _thirdTaskId, status: 'CLOSED', closedAt: _closed),
         ),
       ],
       nextCursor: null,
     );
+  }
+
+  @override
+  Future<TaskCampaignClosureRecord> closeTaskCampaign({
+    required String taskId,
+    required String commandId,
+  }) async {
+    closureRequests.add((taskId, commandId));
+    return TaskCampaignClosureRecord(taskId: taskId, status: 'CLOSED');
+  }
+
+  @override
+  Future<List<RtTaskLifecycleEvent>> listTaskLifecycleEvents({
+    required String taskId,
+  }) async {
+    lifecycleRequests.add(taskId);
+    final events = <RtTaskLifecycleEvent>[
+      RtTaskLifecycleEvent(
+        eventType: 'ACTIVATED',
+        occurredAt: DateTime.utc(2026, 10, 4, 10),
+      ),
+    ];
+    if (taskId == _secondTaskId) {
+      events.add(
+        RtTaskLifecycleEvent(
+          eventType: 'CANCELLED',
+          occurredAt: DateTime.utc(2026, 10, 4, 11),
+        ),
+      );
+    } else if (taskId == _thirdTaskId) {
+      events.add(
+        RtTaskLifecycleEvent(
+          eventType: 'CLOSED',
+          occurredAt: DateTime.utc(2026, 10, 4, 12),
+        ),
+      );
+    }
+    return events;
   }
 
   @override
@@ -183,7 +239,7 @@ TaskResponseController _responseController() =>
 
 void main() {
   group('RT task history parsing', () {
-    test('parses active and cancelled history rows and an opaque cursor', () {
+    test('parses active, cancelled, and closed rows with exclusive dates', () {
       final page = RtTaskHistoryPage.fromWire({
         'tasks': [
           _wire(),
@@ -192,16 +248,20 @@ void main() {
             status: 'CANCELLED',
             cancelledAt: _cancelled,
           ),
+          _wire(taskId: _thirdTaskId, status: 'CLOSED', closedAt: _closed),
         ],
         'nextCursor': _cursor,
-      }, pageSize: 2);
+      }, pageSize: 3);
 
-      expect(page.tasks, hasLength(2));
+      expect(page.tasks, hasLength(3));
       expect(page.tasks.first.status, 'ACTIVE');
       expect(page.tasks.first.cancelledAt, isNull);
+      expect(page.tasks.first.closedAt, isNull);
       expect(page.tasks.first.activatedAt, DateTime.utc(2026, 10, 4, 10));
-      expect(page.tasks.last.status, 'CANCELLED');
-      expect(page.tasks.last.cancelledAt, DateTime.utc(2026, 10, 4, 11));
+      expect(page.tasks[1].status, 'CANCELLED');
+      expect(page.tasks[1].cancelledAt, DateTime.utc(2026, 10, 4, 11));
+      expect(page.tasks.last.status, 'CLOSED');
+      expect(page.tasks.last.closedAt, DateTime.utc(2026, 10, 4, 12));
       expect(page.tasks.first.templateSnapshot.title, 'Persiapan rumah tangga');
       expect(page.nextCursor, _cursor);
     });
@@ -302,6 +362,86 @@ void main() {
     );
   });
 
+  test(
+    'lifecycle wire models reject extra identifiers and invalid sequences',
+    () {
+      expect(
+        () => RtTaskLifecycleEvent.fromWire({
+          'eventType': 'ACTIVATED',
+          'occurredAt': _activated,
+          'actorUid': 'private-operator',
+        }),
+        throwsFormatException,
+      );
+      expect(
+        () => RtTaskLifecycleEvent.listFromWire({
+          'events': [
+            {'eventType': 'CLOSED', 'occurredAt': _closed},
+          ],
+        }),
+        throwsFormatException,
+      );
+      expect(
+        () => RtTaskHistoryRecord.fromWire(
+          _wire(status: 'CLOSED', closedAt: null),
+        ),
+        throwsFormatException,
+      );
+    },
+  );
+
+  test(
+    'Firebase adapter calls close and reads lifecycle-only events',
+    () async {
+      final calls = <(String, Map<String, Object?>)>[];
+      final boundary = FirebaseTaskCampaignBoundary.withInvoker((
+        name,
+        data,
+      ) async {
+        calls.add((name, data));
+        if (name == 'closeTaskCampaign') {
+          return {'taskId': _taskId, 'status': 'CLOSED'};
+        }
+        return {
+          'events': [
+            {'eventType': 'ACTIVATED', 'occurredAt': _activated},
+            {'eventType': 'CLOSED', 'occurredAt': _closed},
+          ],
+        };
+      });
+      final closed = await boundary.closeTaskCampaign(
+        taskId: _taskId,
+        commandId: 'c' * 40,
+      );
+      final events = await boundary.listTaskLifecycleEvents(taskId: _taskId);
+      expect(closed.status, 'CLOSED');
+      expect(events.map((event) => event.eventType), ['ACTIVATED', 'CLOSED']);
+      expect(calls.map((call) => call.$1), [
+        'closeTaskCampaign',
+        'listTaskLifecycleEvents',
+      ]);
+      expect(calls[0].$2, {'taskId': _taskId, 'commandId': 'c' * 40});
+      expect(calls[1].$2, {'taskId': _taskId});
+    },
+  );
+
+  test(
+    'controller reuses its closure command after an uncertain response',
+    () async {
+      final boundary = _HistoryBoundary();
+      final controller = TaskCampaignController(
+        boundary,
+        idFactory: () => 'c' * 40,
+      );
+      await controller.closeTaskCampaign(taskId: _taskId);
+      await controller.closeTaskCampaign(taskId: _taskId);
+      expect(boundary.closureRequests, [
+        (_taskId, 'c' * 40),
+        (_taskId, 'c' * 40),
+      ]);
+    },
+  );
+
   test('management history method forwards through the controller', () async {
     final boundary = _HistoryBoundary();
     final page = await TaskCampaignController(boundary).listRtTaskHistory();
@@ -336,6 +476,14 @@ void main() {
     expect(find.text('resident-secret-id'), findsNothing);
     expect(find.byKey(Key('history-recap-$_taskId')), findsOneWidget);
 
+    await tester.tap(find.byKey(Key('history-events-toggle-$_taskId')));
+    await tester.pumpAndSettle();
+    expect(boundary.lifecycleRequests, [_taskId]);
+    expect(find.text('Perubahan yang dicatat server:'), findsOneWidget);
+    expect(find.textContaining('Diaktifkan:'), findsNWidgets(2));
+    await tester.tap(find.byKey(Key('history-events-toggle-$_taskId')));
+    await tester.pumpAndSettle();
+
     await tester.tap(find.byKey(Key('history-recap-$_taskId')));
     await tester.pumpAndSettle();
     expect(find.text('Terverifikasi selesai'), findsOneWidget);
@@ -352,17 +500,19 @@ void main() {
     await tester.pumpAndSettle();
     expect(boundary.requests, [(25, null), (25, _cursor)]);
     expect(find.text('Status: Dibatalkan'), findsOneWidget);
+    await tester.drag(find.byType(ListView), const Offset(0, -600));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('task-history-load-more')), findsOneWidget);
+
+    await tester.ensureVisible(find.byKey(const Key('task-history-load-more')));
+    await tester.tap(find.byKey(const Key('task-history-load-more')));
+    await tester.pumpAndSettle();
+    expect(boundary.requests, [(25, null), (25, _cursor), (25, _secondCursor)]);
+    expect(find.text('Status: Ditutup'), findsOneWidget);
     expect(
       find.byWidgetPredicate(
         (widget) =>
-            widget is Text && widget.data?.startsWith('Diaktifkan: ') == true,
-      ),
-      findsNWidgets(2),
-    );
-    expect(
-      find.byWidgetPredicate(
-        (widget) =>
-            widget is Text && widget.data?.startsWith('Dibatalkan: ') == true,
+            widget is Text && widget.data?.startsWith('Ditutup: ') == true,
       ),
       findsOneWidget,
     );
