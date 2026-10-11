@@ -611,6 +611,7 @@ final class TaskResponseController {
     _completionNotes.clear();
     _completionEvidenceIds.clear();
     _evidenceDeleteCommands.clear();
+    _evidenceUploadRequests.clear();
     _verificationCommands.clear();
   }
 

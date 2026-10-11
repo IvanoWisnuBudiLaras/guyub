@@ -11,9 +11,9 @@ Bukti foto bersifat opsional. Foto tidak boleh menggagalkan penyelesaian tugas.
 - Warga dapat menghapus bukti miliknya melalui sesi pada perangkat yang sama. Cleanup idempotent menghapus objek berumur lebih dari 30 hari dan dapat mencoba ulang kegagalan.
 - Unit dan Functions/Storage Emulator CI menguji sanitasi, batas akses, penghapusan, dan retry.
 
-## Belum tersedia / manual-eksternal
-- Penghapusan seluruh profil, proposal, dan respons warga belum tersedia.
-- Proses penghapusan warga melalui RT untuk perangkat hilang menunggu prosedur verifikasi identitas yang disetujui.
+## Remaining constraints / manual-external setup
+- Penghapusan data warga pada perangkat yang sama (profil, respons, proposal, dan bukti) tersedia melalui callable yang terotorisasi dan diuji emulator; cache/outbox lokal dibersihkan setelah konfirmasi server.
+- Callable penghapusan warga melalui RT untuk perangkat hilang tersedia, tetapi menerima attestation operator sebagai boolean yang tidak diverifikasi secara independen. Jangan gunakan pada pilot sampai prosedur identitas yang disetujui atau artefak persetujuan yang dapat diverifikasi server tersedia dan ditegakkan.
 - Bucket Storage, scheduled cleanup, kredensial, dan deployment produksi belum dikonfigurasi. Tidak ada billing yang diaktifkan.
 
 ## Invariants
