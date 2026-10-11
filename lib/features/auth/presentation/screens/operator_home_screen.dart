@@ -8,6 +8,7 @@ import '../../../proposals/application/resident_proposal_boundary.dart';
 import '../../../assistance/application/proxy_resident_boundary.dart';
 import '../../../notifications/application/task_push_notifications.dart';
 import '../../../notifications/presentation/task_push_opt_in_card.dart';
+import '../../../weather/application/weather_suggestion_boundary.dart';
 
 /// Authenticated operator landing page with access to server-reviewed tasks.
 final class OperatorHomeScreen extends StatelessWidget {
@@ -19,6 +20,7 @@ final class OperatorHomeScreen extends StatelessWidget {
     this.proposalReviewController,
     this.proxyResidentController,
     this.taskPushNotificationsController,
+    this.weatherSuggestionBoundary,
     super.key,
   });
 
@@ -29,6 +31,7 @@ final class OperatorHomeScreen extends StatelessWidget {
   final ResidentProposalReviewController? proposalReviewController;
   final ProxyResidentController? proxyResidentController;
   final TaskPushNotificationsController? taskPushNotificationsController;
+  final WeatherSuggestionBoundary? weatherSuggestionBoundary;
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -91,6 +94,19 @@ final class OperatorHomeScreen extends StatelessWidget {
                 icon: const Icon(Icons.checklist),
                 label: const Text('Buka Katalog Tugas Aman'),
               ),
+              if (weatherSuggestionBoundary != null &&
+                  taskCampaignBoundary != null) ...[
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  key: const Key('operator-weather-suggestions'),
+                  onPressed: () => Navigator.of(context).pushNamed(
+                    '/operator/weather-suggestions',
+                    arguments: profile,
+                  ),
+                  icon: const Icon(Icons.cloud_outlined),
+                  label: const Text('Tinjau Saran Cuaca'),
+                ),
+              ],
               if (taskCampaignBoundary is TaskCampaignManagementBoundary) ...[
                 const SizedBox(height: 12),
                 OutlinedButton.icon(

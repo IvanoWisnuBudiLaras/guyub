@@ -6,6 +6,7 @@ import '../../../assistance/application/assistance_volunteer_boundary.dart';
 import '../../../tasks/application/task_response_boundary.dart';
 import '../../../proposals/application/resident_proposal_boundary.dart';
 import '../../../weather/application/weather_snapshot_store.dart';
+import '../../../weather/application/weather_snapshot_boundary.dart';
 import '../../../weather/presentation/weather_snapshot_card.dart';
 import '../../../notifications/application/task_push_notifications.dart';
 import '../../../notifications/presentation/task_push_opt_in_card.dart';
@@ -18,6 +19,7 @@ final class ResidentSessionHomeScreen extends StatelessWidget {
     this.taskResponseController,
     this.residentProposalController,
     this.weatherSnapshotStore,
+    this.weatherSnapshotSyncController,
     this.assistanceVolunteerController,
     this.taskPushNotificationsController,
     super.key,
@@ -28,6 +30,7 @@ final class ResidentSessionHomeScreen extends StatelessWidget {
   final TaskResponseController? taskResponseController;
   final ResidentProposalController? residentProposalController;
   final WeatherSnapshotStore? weatherSnapshotStore;
+  final WeatherSnapshotSyncController? weatherSnapshotSyncController;
   final AssistanceVolunteerController? assistanceVolunteerController;
   final TaskPushNotificationsController? taskPushNotificationsController;
 
@@ -139,7 +142,17 @@ final class ResidentSessionHomeScreen extends StatelessWidget {
               ),
               if (weatherSnapshotStore != null) ...[
                 const SizedBox(height: 12),
-                WeatherSnapshotCard(store: weatherSnapshotStore!),
+                WeatherSnapshotCard(
+                  store: weatherSnapshotStore!,
+                  communityId: session.communityId,
+                  onRefresh:
+                      session.isOfflineSnapshot ||
+                          weatherSnapshotSyncController == null
+                      ? null
+                      : () => weatherSnapshotSyncController!.refreshForResident(
+                          communityId: session.communityId,
+                        ),
+                ),
               ],
               if (taskPushNotificationsController != null &&
                   taskResponseController != null &&

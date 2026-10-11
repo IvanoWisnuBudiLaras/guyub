@@ -4,14 +4,14 @@ This matrix maps implementation behavior back to the Master PRD. It is intended 
 
 | ID | Requirement | Minimum verification | Layer | Release blocking |
 |---|---|---|---|---|
-| AT-001 | Weather threshold cannot auto-send | Trigger rule; assert suggestion exists and ACTIVE task does not | Integration | Yes |
+| AT-001 | Weather threshold cannot auto-send | Review a scoped suggestion; recommendation opens only the approved catalog; evaluator never creates a DRAFT/ACTIVE campaign | Widget + Functions Emulator | Yes |
 | AT-002 | Unsafe/free-form task blocked | Attempt activation without safe template | Backend integration | Yes |
 | AT-003 | Safety text immutable | Edit allowed task slots; compare safety snapshot | Unit + widget | Yes |
 | AT-004 | Resident can decline voluntarily | Choose decline; assert valid state and no penalty state | Widget + integration | Yes |
 | AT-005 | Completion requires RT verification | Submit completion; assert pending until operator verifies | Integration | Yes |
 | AT-006 | Active task readable offline | Sync task, disable network, reopen/view task | E2E/manual/device | Yes |
 | AT-007 | Emergency info readable offline | Sync directory, disable network, open Darurat | E2E/manual/device | Yes |
-| AT-008 | Cached weather marked stale/timestamped | Disable network; inspect weather UI | Widget + E2E | Yes |
+| AT-008 | Cached weather marked stale/timestamped | Verify same-RT callable scope, per-RT cache isolation, cached-first rendering, timestamps, stale/unknown freshness labels, and failure preservation | Unit + Widget + Functions Emulator | Yes |
 | AT-009 | Forbidden PII absent | Schema/input audit for NIK/full address/GPS | Static/review | Yes |
 | AT-010 | Evidence location metadata stripped | Server re-encodes a synthetic geotagged fixture; emulator inspects stored bytes and verifies direct resident read/write and Firestore metadata access are denied | Functions service + Storage emulator | Yes |
 | AT-011 | Evidence expires after 30 days | Seed an expired Firestore record and Storage object; run cleanup and assert physical deletion; inject a storage delete failure and assert retry-pending state; overlap resident deletion with a pending upload and assert deletion waits, then succeeds after upload completion with failed object cleanup retained for retry | Functions service + Storage emulator | Yes |

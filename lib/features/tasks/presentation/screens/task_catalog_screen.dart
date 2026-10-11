@@ -11,11 +11,15 @@ final class TaskCatalogScreen extends StatefulWidget {
   const TaskCatalogScreen({
     required this.profile,
     required this.controller,
+    this.recommendedTemplateVersions,
     super.key,
   });
 
   final OperatorProfile profile;
   final TaskCampaignController controller;
+
+  /// Optional server-derived recommendation filter from a weather suggestion.
+  final Set<String>? recommendedTemplateVersions;
 
   @override
   State<TaskCatalogScreen> createState() => _TaskCatalogScreenState();
@@ -65,13 +69,24 @@ final class _TaskCatalogScreenState extends State<TaskCatalogScreen> {
             onAction: _reload,
           );
         }
-        final templates = snapshot.data ?? const <TaskTemplate>[];
+        final loadedTemplates = snapshot.data ?? const <TaskTemplate>[];
+        final recommendations = widget.recommendedTemplateVersions;
+        final templates = recommendations == null
+            ? loadedTemplates
+            : loadedTemplates
+                  .where(
+                    (template) => recommendations.contains(
+                      '${template.id}:v${template.version}',
+                    ),
+                  )
+                  .toList(growable: false);
         if (templates.isEmpty) {
-          return const _CatalogMessage(
-            key: Key('task-catalog-empty'),
-            message:
-                'Belum ada template yang disetujui untuk digunakan. Hubungi '
-                'administrator RT; jangan membuat instruksi tugas sendiri.',
+          return _CatalogMessage(
+            key: const Key('task-catalog-empty'),
+            message: recommendations == null
+                ? 'Belum ada template yang disetujui untuk digunakan. Hubungi '
+                      'administrator RT; jangan membuat instruksi tugas sendiri.'
+                : 'Template aman yang disarankan tidak tersedia. Kembali ke saran cuaca atau hubungi pengelola RT.',
           );
         }
         return RefreshIndicator(
@@ -79,6 +94,14 @@ final class _TaskCatalogScreenState extends State<TaskCatalogScreen> {
           child: ListView(
             padding: const EdgeInsets.all(16),
             children: [
+              if (recommendations != null) ...[
+                const Text(
+                  'Ini hanya saran cuaca, bukan peringatan resmi. Tidak ada tugas '
+                  'yang aktif otomatis. Tinjau template lalu konfirmasi aktivasi secara terpisah.',
+                  key: Key('task-catalog-weather-suggestion-notice'),
+                ),
+                const SizedBox(height: 8),
+              ],
               Text(
                 'Pilih tugas yang sudah ditinjau. Instruksi inti dan keselamatan '
                 'tidak dapat diubah.',

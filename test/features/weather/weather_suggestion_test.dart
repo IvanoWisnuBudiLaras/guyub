@@ -9,15 +9,19 @@ void main() {
   final now = DateTime.utc(2026, 1, 1, 8);
   WeatherSnapshot snapshot({
     String id = 'bmkg-1',
+    String communityId = 'rt-a',
     DateTime? fetchedAt,
     DateTime? sourceUpdatedAt,
     double rainfallMm = 16,
+    int? maximumAgeSeconds = 3600,
   }) => WeatherSnapshot(
     id: id,
+    communityId: communityId,
     sourceUpdatedAt:
         sourceUpdatedAt ?? now.subtract(const Duration(minutes: 15)),
     fetchedAt: fetchedAt ?? now.subtract(const Duration(minutes: 5)),
     rainfallMm: rainfallMm,
+    maximumAgeSeconds: maximumAgeSeconds,
   );
 
   group('WeatherRuleEvaluator', () {
@@ -148,14 +152,37 @@ void main() {
         expect(await cache.saveIfNewer(latest), isTrue);
         expect(await cache.saveIfNewer(latest), isFalse);
         expect(await cache.saveIfNewer(older), isFalse);
-        expect((await cache.readLastValid())?.id, 'latest');
+        expect((await cache.readLastValid(communityId: 'rt-a'))?.id, 'latest');
         expect(
-          (await cache.readLastValid())?.isStaleAt(
+          (await cache.readLastValid(communityId: 'rt-a'))?.isStaleAt(
             now: now.add(const Duration(hours: 2)),
             maximumAge: const Duration(hours: 1),
           ),
           isTrue,
         );
+        await localStore.close();
+      },
+    );
+
+    test(
+      'snapshots are isolated by RT when one device changes communities',
+      () async {
+        final localStore = InMemoryLocalStore();
+        final cache = WeatherSnapshotCache(localStore);
+        final rtA = snapshot(id: 'snapshot-a', communityId: 'rt-a');
+        final rtB = snapshot(id: 'snapshot-b', communityId: 'rt-b');
+
+        expect(await cache.saveIfNewer(rtA), isTrue);
+        expect(await cache.saveIfNewer(rtB), isTrue);
+        expect(
+          (await cache.readLastValid(communityId: 'rt-a'))?.id,
+          'snapshot-a',
+        );
+        expect(
+          (await cache.readLastValid(communityId: 'rt-b'))?.id,
+          'snapshot-b',
+        );
+        expect(await cache.readLastValid(communityId: 'rt-c'), isNull);
         await localStore.close();
       },
     );
@@ -177,7 +204,7 @@ void main() {
         ]);
 
         expect(saved, [isTrue, isFalse]);
-        expect((await cache.readLastValid())?.id, 'latest');
+        expect((await cache.readLastValid(communityId: 'rt-a'))?.id, 'latest');
         await localStore.close();
       },
     );
