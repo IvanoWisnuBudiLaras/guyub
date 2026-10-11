@@ -169,13 +169,13 @@ Aturan akses Firestore dan sesi warga diuji dengan Auth/Firestore/Functions Emul
 **Status: resident sessions, RT-scoped task campaigns/cancellation/history, resident responses, RT verification, and emergency-directory callables are implemented for Emulator; production deployment deferred.**
 - `functions/` implements opaque resident-session callables; operator-only reviewed-template, draft, activation, active-list, cancellation, and paginated RT-history callables; RT-scoped resident task listing, JOIN/DECLINE, completion submission, verification, and aggregate response recap; and session-scoped emergency-directory reads. Functions, Auth, and Firestore emulators cover these boundaries.
 - Production callables require Firebase App Check; the Android client uses Play Integrity. App Check is intentionally disabled only in the demo emulator and must be registered for the signed Android app before production use. Enrollment retries reuse a pending secure request ID so one attempt does not create duplicate resident profiles.
-- Protected collections remain client-deny by Firestore rules. No human-reviewed real task template is provisioned; the catalog remains empty until trusted provisioning. Offline task cache/outbox/reconciliation, emergency-directory callables/cache, and stale weather display are implemented in code but still need Android airplane-mode and pilot validation. No emergency contacts, assembly points, official routes, or BMKG values are seeded. No production function is deployed; FCM delivery, BMKG fetching, reminders, escalation, and evidence-cleanup jobs remain unimplemented.
+- Protected collections remain client-deny by Firestore rules. No human-reviewed real task template is provisioned; the catalog remains empty until trusted provisioning. Offline task cache/outbox/reconciliation, emergency-directory callables/cache, and cached weather display are implemented in code but still need Android airplane-mode and pilot validation. A server-side BMKG fetch/suggestion pipeline is implemented but has no provisioned source, rule, threshold, or pilot area; the Android card is not connected to that pipeline. No emergency contacts, assembly points, official routes, or BMKG values are seeded. No production function is deployed; FCM delivery, reminders, and escalation remain unimplemented. The evidence sanitization and cleanup code is emulator-tested but is not deployed to production.
 - Production deployment and scheduled automation may require a Firebase billing/provider decision. This repository does not enable billing or deploy production infrastructure.
 
 ### Firebase Cloud Storage
-**Status: DEFERRED / NOT A PRODUCTION PROVIDER.**
-- Optional evidence upload, metadata stripping, and physical 30-day deletion have not been implemented.
-- No Storage deployment or billing change was made. Provider activation and production retention validation remain external blockers.
+**Status: EMULATOR-TESTED CODE; NOT A PRODUCTION PROVIDER.**
+- Optional evidence upload, client/server metadata stripping, private Storage access, resident-scoped evidence deletion, and physical 30-day cleanup are implemented and covered by service/emulator tests.
+- No Storage deployment or billing change was made. Production bucket setup, scheduled cleanup deployment, and retention validation remain external blockers.
 
 ---
 
