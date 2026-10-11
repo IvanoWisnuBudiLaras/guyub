@@ -244,3 +244,48 @@ test('declined residents never receive a reminder', async () => {
   assert.equal(result.scheduled, 0);
   assert.equal(repository.events.size, 0);
 });
+test('dispatch error in resolveDeliveryTargets marks event failed with backoff and processes subsequent events', async () => {
+  const resident1 = {
+    residentId: 'resident-1',
+    recipientHash: residentNotificationRecipientHash(RT_ID, 'resident-1'),
+    response: null,
+    valid: true,
+  };
+  const resident2 = {
+    residentId: 'resident-2',
+    recipientHash: residentNotificationRecipientHash(RT_ID, 'resident-2'),
+    response: null,
+    valid: true,
+  };
+  const repository = new FakeRepository({ residents: [resident1, resident2] });
+
+  const origResolve = repository.resolveDeliveryTargets.bind(repository);
+  repository.resolveDeliveryTargets = async (event, now) => {
+    if (event.recipientHash === resident1.recipientHash) {
+      const err = new Error('resource-exhausted');
+      err.code = 'resource-exhausted';
+      throw err;
+    }
+    return origResolve(event, now);
+  };
+
+  const delivery = { async send({ event }) { repository.sendings.push(event); } };
+  const service = createService(repository, delivery);
+
+  const result = await service.sendTaskReminders({ now: NOW });
+  assert.equal(result.scheduled, 2);
+  assert.equal(result.failed, 1);
+  assert.equal(result.delivered, 1);
+
+  const event1 = [...repository.events.values()].find((e) => e.recipientHash === resident1.recipientHash);
+  const event2 = [...repository.events.values()].find((e) => e.recipientHash === resident2.recipientHash);
+
+  assert.equal(event1.status, 'PENDING');
+  assert.equal(event1.attemptCount, 1);
+  assert.equal(event1.lastErrorCode, 'resource-exhausted');
+  assert.ok(event1.nextAttemptAt > NOW);
+  assert.equal(event1.leaseId, undefined);
+
+  assert.equal(event2.status, 'SENT');
+  assert.equal(event2.attemptCount, 1);
+});

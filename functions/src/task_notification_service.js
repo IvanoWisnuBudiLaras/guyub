@@ -220,7 +220,19 @@ class TaskNotificationService {
         leaseId,
       });
       if (!event) continue;
-      const resolution = await this.repository.resolveDeliveryTargets(event, now);
+      let resolution;
+      try {
+        resolution = await this.repository.resolveDeliveryTargets(event, now);
+      } catch (error) {
+        await this.repository.markEventAttemptFailed({
+          eventId: event.eventId,
+          leaseId,
+          now,
+          errorCode: typeof error?.code === 'string' ? error.code : 'resolution-failed',
+        });
+        failed += 1;
+        continue;
+      }
       if (!resolution.valid) {
         await this.repository.markEventSkipped({
           eventId: event.eventId, leaseId, now, reason: 'no-longer-eligible',
