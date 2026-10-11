@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
-const { hashJoinCode } = require('../src/resident_session_service');
+const { hashJoinCode, hashSessionToken } = require('../src/resident_session_service');
 const { proxyResidentDocumentId } = require('../src/proxy_resident_service');
 const { responseDocumentId } = require('../src/task_response_service');
 
@@ -295,4 +295,55 @@ async function seedOperator(uid, rtId, role = 'KETUA_RT_RW', active = true) {
   assert.equal(storedProfile.body.fields.proxyRequestHash, undefined);
   assert.equal(storedProfile.body.fields.proxyProfileFingerprint, undefined);
   assert.equal(storedProfile.body.fields.proxyCreatedByOperatorUid, undefined);
+
+  // INV-03: Resident with app session can overwrite proxy-recorded response to DECLINED
+  const proxyResident2Payload = {
+    nickname: 'Kakek Joko', houseNumber: '14B', needsAssistance: true,
+    residentConsentConfirmed: true, requestId: requestId(),
+  };
+  const created2 = await callFunction('createProxyResident', proxyResident2Payload, operatorA.idToken);
+  assert.equal(created2.status, 200, JSON.stringify(created2.body));
+  const resident2Id = created2.body.result.residentId;
+  const resident2StatusPayload = {
+    residentId: resident2Id, taskId: taskA, participationState: 'JOINED',
+    completionReported: false, residentConsentConfirmed: true, commandId: requestId(),
+  };
+  const proxyStatus2 = await callFunction('updateProxyTaskStatus', resident2StatusPayload, operatorA.idToken);
+  assert.equal(proxyStatus2.status, 200, JSON.stringify(proxyStatus2.body));
+  assert.equal(proxyStatus2.body.result.participationState, 'JOINED');
+
+  const sessionToken2 = crypto.randomBytes(32).toString('base64url');
+  await seedDocument('resident_sessions', hashSessionToken(sessionToken2), {
+    residentId: resident2Id,
+    rtId: rtA,
+    active: true,
+    createdAt: new Date(),
+    expiresAt: new Date(Date.now() + 3600_000),
+  });
+
+  const residentDecline = await callFunction('recordResidentTaskResponse', {
+    sessionToken: sessionToken2,
+    taskId: taskA,
+    choice: 'DECLINED',
+    commandId: requestId(),
+  });
+  assert.equal(residentDecline.status, 200, JSON.stringify(residentDecline.body));
+  assert.equal(residentDecline.body.result.participationState, 'DECLINED');
+
+  const response2Id = responseDocumentId(rtA, taskA, resident2Id);
+  const resp2Doc = await readDocument('task_responses', response2Id);
+  assert.equal(resp2Doc.body.fields.participationState.stringValue, 'DECLINED');
+  assert.equal(resp2Doc.body.fields.proxyRecordedBy.booleanValue, false);
+
+  assertError(await callFunction('updateProxyTaskStatus', {
+    ...resident2StatusPayload,
+    commandId: requestId(),
+  }, operatorA.idToken), 'FAILED_PRECONDITION');
+
+  assertError(await callFunction('recordResidentTaskResponse', {
+    sessionToken: sessionToken2,
+    taskId: taskA,
+    choice: 'JOINED',
+    commandId: requestId(),
+  }), 'FAILED_PRECONDITION');
 });
