@@ -5,6 +5,7 @@ const {
   normalizeCompletionNote,
   responseDocumentId,
 } = require('../src/task_response_service');
+const { FirestoreTaskResponseRepository } = require('../src/firestore_task_response_repository');
 const { hashSessionToken } = require('../src/resident_session_service');
 
 const SESSION_TOKEN = 'resident-session-token-0123456789';
@@ -289,4 +290,102 @@ test('recap is response-only aggregate data without a non-response count or resi
   });
   assert.equal('nonResponseCount' in recap, false);
   assert.equal('residentId' in recap, false);
+});
+
+test('resident can overwrite a proxy-recorded response to DECLINED and lock in self choice', async () => {
+  let storedResponse = {
+    taskId: TASK_ID,
+    rtId: 'rt-a',
+    residentId: 'resident-a',
+    participationState: 'JOINED',
+    completionState: 'PENDING_RT_VERIFICATION',
+    proxyRecordedBy: true,
+  };
+  let updatedResponse = null;
+
+  const fakeFirestore = {
+    collection(name) {
+      return {
+        doc(id) {
+          return { collectionName: name, id };
+        },
+      };
+    },
+    async runTransaction(fn) {
+      const transaction = {
+        async get(ref) {
+          if (ref.collectionName === 'resident_sessions') {
+            return {
+              exists: true,
+              data: () => ({
+                active: true,
+                expiresAt: new Date(Date.now() + 3600_000),
+                residentId: 'resident-a',
+                rtId: 'rt-a',
+              }),
+            };
+          }
+          if (ref.collectionName === 'resident_profiles') {
+            return {
+              exists: true,
+              data: () => ({ rtId: 'rt-a', nickname: 'Warga A' }),
+            };
+          }
+          if (ref.collectionName === 'task_campaigns') {
+            return {
+              exists: true,
+              data: () => ({ campaignId: TASK_ID, rtId: 'rt-a', status: 'ACTIVE' }),
+            };
+          }
+          if (ref.collectionName === 'task_responses') {
+            if (!storedResponse) return { exists: false, data: () => null };
+            return {
+              exists: true,
+              id: ref.id,
+              data: () => ({ ...storedResponse, responseId: ref.id }),
+            };
+          }
+          throw new Error(`Unknown collection: ${ref.collectionName}`);
+        },
+        update(ref, data) {
+          updatedResponse = { ...storedResponse, ...data };
+          storedResponse = updatedResponse;
+        },
+        create(ref, data) {
+          updatedResponse = data;
+          storedResponse = data;
+        },
+      };
+      return fn(transaction);
+    },
+  };
+
+  const repository = new FirestoreTaskResponseRepository(fakeFirestore);
+  const result = await repository.recordParticipation({
+    sessionIdHash: 'session-hash',
+    residentId: 'resident-a',
+    taskId: TASK_ID,
+    rtId: 'rt-a',
+    choice: 'DECLINED',
+    commandHash: 'cmd-hash-1',
+    now: new Date('2026-10-10T10:00:00.000Z'),
+  });
+
+  assert.equal(result.participationState, 'DECLINED');
+  assert.equal(result.completionState, 'NOT_SUBMITTED');
+  assert.equal(updatedResponse.participationState, 'DECLINED');
+  assert.equal(updatedResponse.completionState, 'NOT_SUBMITTED');
+  assert.equal(updatedResponse.proxyRecordedBy, false);
+
+  await assert.rejects(async () => {
+    await repository.recordParticipation({
+      sessionIdHash: 'session-hash',
+      residentId: 'resident-a',
+      taskId: TASK_ID,
+      rtId: 'rt-a',
+      choice: 'JOINED',
+      commandHash: 'cmd-hash-2',
+      now: new Date('2026-10-10T10:05:00.000Z'),
+    });
+  }, { message: 'Pilihan tugas sudah tersimpan dan tidak dapat diubah.' });
 });

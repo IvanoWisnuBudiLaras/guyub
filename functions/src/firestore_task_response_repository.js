@@ -185,6 +185,35 @@ class FirestoreTaskResponseRepository {
         responseSnapshot, responseId, input.taskId, input.rtId, input.residentId,
       );
       if (responseSnapshot.exists) {
+        if (existing.proxyRecordedBy === true && existing.completionState !== 'VERIFIED_COMPLETE') {
+          const isDeclining = input.choice === 'DECLINED';
+          const updated = {
+            participationState: input.choice,
+            participationCommandHash: input.commandHash,
+            proxyRecordedBy: false,
+            updatedAt: input.now,
+            ...(isDeclining ? {
+              completionState: 'NOT_SUBMITTED',
+              completionCommandHash: null,
+              completionSubmittedAt: null,
+              completionNote: null,
+              evidenceId: null,
+            } : {}),
+          };
+          transaction.update(responseRef, updated);
+          return {
+            responseId,
+            taskId: input.taskId,
+            rtId: input.rtId,
+            residentId: input.residentId,
+            participationState: input.choice,
+            completionState: isDeclining ? 'NOT_SUBMITTED' : existing.completionState,
+            completionNote: isDeclining ? null : (existing.completionNote ?? null),
+            completionSubmittedAt: isDeclining ? null : (existing.completionSubmittedAt ?? null),
+            verifiedAt: isDeclining ? null : (existing.verifiedAt ?? null),
+            evidenceId: isDeclining ? null : (existing.evidenceId ?? null),
+          };
+        }
         if (existing.participationState === input.choice) return responseView(responseSnapshot);
         throw fail('failed-precondition', 'Pilihan tugas sudah tersimpan dan tidak dapat diubah.');
       }

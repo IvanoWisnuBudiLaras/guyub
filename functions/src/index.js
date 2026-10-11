@@ -10,6 +10,7 @@ const { FirestoreTaskEvidenceRepository } = require('./firestore_task_evidence_r
 const { FirestoreResidentProposalRepository } = require('./firestore_resident_proposal_repository');
 const { FirestoreEmergencyDirectoryRepository } = require('./firestore_emergency_directory_repository');
 const { FirestoreWeatherSuggestionRepository } = require('./firestore_weather_suggestion_repository');
+const { FirestoreProxyResidentRepository } = require('./firestore_proxy_resident_repository');
 const { fetchBmkgPayload } = require('./bmkg_forecast_client');
 const { ResidentSessionService, SessionServiceError } = require('./resident_session_service');
 const { TaskCampaignService, TaskCampaignError } = require('./task_campaign_service');
@@ -18,6 +19,7 @@ const { TaskEvidenceService } = require('./task_evidence_service');
 const { ResidentProposalService, ResidentProposalError } = require('./resident_proposal_service');
 const { EmergencyDirectoryService, EmergencyDirectoryError } = require('./emergency_directory_service');
 const { WeatherSuggestionService, WeatherPipelineError } = require('./weather_suggestion_service');
+const { ProxyResidentService, ProxyResidentError } = require('./proxy_resident_service');
 const { protectedCallableOptions } = require('./callable_options');
 
 if (getApps().length === 0) initializeApp();
@@ -32,6 +34,9 @@ const tasks = new TaskCampaignService(
 const taskResponses = new TaskResponseService(
   new FirestoreTaskResponseRepository(firestore),
   sessions,
+);
+const proxyResidents = new ProxyResidentService(
+  new FirestoreProxyResidentRepository(firestore),
 );
 const residentProposals = new ResidentProposalService(
   new FirestoreResidentProposalRepository(firestore),
@@ -288,6 +293,46 @@ exports.getTaskResponseRecap = onCall(callableOptions, async (request) => {
   }
 });
 
+exports.createProxyResident = onCall(callableOptions, async (request) => {
+  try {
+    return await proxyResidents.createProxyResident(operatorAuth(request), request.data);
+  } catch (error) {
+    throw toHttpsError(error);
+  }
+});
+
+exports.listProxyResidents = onCall(callableOptions, async (request) => {
+  try {
+    return await proxyResidents.listProxyResidents(operatorAuth(request), request.data);
+  } catch (error) {
+    throw toHttpsError(error);
+  }
+});
+
+exports.getProxyTaskStatus = onCall(callableOptions, async (request) => {
+  try {
+    return await proxyResidents.getProxyTaskStatus(operatorAuth(request), request.data);
+  } catch (error) {
+    throw toHttpsError(error);
+  }
+});
+
+exports.updateProxyResidentAssistance = onCall(callableOptions, async (request) => {
+  try {
+    return await proxyResidents.updateProxyAssistance(operatorAuth(request), request.data);
+  } catch (error) {
+    throw toHttpsError(error);
+  }
+});
+
+exports.updateProxyTaskStatus = onCall(callableOptions, async (request) => {
+  try {
+    return await proxyResidents.updateProxyTaskStatus(operatorAuth(request), request.data);
+  } catch (error) {
+    throw toHttpsError(error);
+  }
+});
+
 exports.submitResidentProposal = onCall(callableOptions, async (request) => {
   try {
     return await residentProposals.submitResidentProposal(request.data);
@@ -345,7 +390,7 @@ function operatorAuth(request) {
 function toHttpsError(error) {
   if (error instanceof SessionServiceError || error instanceof TaskCampaignError ||
       error instanceof ResidentProposalError || error instanceof EmergencyDirectoryError ||
-      error instanceof WeatherPipelineError) {
+      error instanceof WeatherPipelineError || error instanceof ProxyResidentError) {
     return new HttpsError(error.code, error.message);
   }
   // Never return Firestore paths, RT existence, or internal error details.

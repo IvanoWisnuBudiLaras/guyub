@@ -4,6 +4,7 @@ import '../core/config/app_config.dart';
 import '../features/auth/application/operator_auth_boundary.dart';
 import '../features/auth/application/resident_session_controller.dart';
 import '../features/tasks/application/task_campaign_boundary.dart';
+import '../features/assistance/application/proxy_resident_boundary.dart';
 import '../features/tasks/application/task_response_boundary.dart';
 import '../features/proposals/application/resident_proposal_boundary.dart';
 import '../features/emergency/application/emergency_directory_controller.dart';
@@ -21,6 +22,7 @@ final class GuyubApp extends StatelessWidget {
     this.proposalReviewController,
     this.emergencyDirectoryController,
     this.weatherSnapshotStore,
+    this.proxyResidentController,
     super.key,
   });
 
@@ -32,6 +34,7 @@ final class GuyubApp extends StatelessWidget {
   final ResidentProposalReviewController? proposalReviewController;
   final EmergencyDirectoryController? emergencyDirectoryController;
   final WeatherSnapshotStore? weatherSnapshotStore;
+  final ProxyResidentController? proxyResidentController;
 
   @override
   Widget build(BuildContext context) {
@@ -55,6 +58,7 @@ final class GuyubApp extends StatelessWidget {
         proposalReviewController: proposalReviewController,
         emergencyDirectoryController: emergencyDirectoryController,
         weatherSnapshotStore: weatherSnapshotStore,
+        proxyResidentController: proxyResidentController,
       ),
     );
   }
