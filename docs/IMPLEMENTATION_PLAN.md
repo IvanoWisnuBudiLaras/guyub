@@ -142,7 +142,7 @@ Official forecast is synchronized, cached, shown with timestamp, and may produce
 - Define configurable `weather_rules`.
 - Implement scheduled evaluator.
 - Generate idempotent `task_suggestions`.
-- Build same-RT operator suggestion review UI and link recommendations only to matching approved catalog versions; task draft/activation remains a separate operator flow.
+- Build same-RT operator suggestion review UI with accept/review, postpone, and ignore actions; only matching approved catalog versions open, ignored decisions are RT-scoped/idempotent, and task draft/activation remains a separate operator flow.
 
 ## Required tests
 - fetch failure preserves last valid snapshot;
@@ -151,7 +151,8 @@ Official forecast is synchronized, cached, shown with timestamp, and may produce
 - operator and resident snapshot reads derive scope from trusted membership/session; forged RT scope is rejected;
 - direct client reads of weather config/snapshots/suggestions are denied;
 - an RT-keyed offline cache never displays another RT's snapshot, keeps a newer snapshot after fetch failure, and marks unknown/expired freshness safely;
-- stale suggestions cannot open the recommended task catalog;
+- suggestions are revalidated at the action boundary; expired or superseded trigger snapshots cannot open the recommended task catalog, and failed freshness checks fail closed;
+- postpone leaves a suggestion available; ignore is an authorized, idempotent RT-scoped state change that never creates a task;
 - threshold evaluator never creates DRAFT or ACTIVE tasks.
 
 ## Acceptance linkage

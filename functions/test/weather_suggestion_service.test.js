@@ -85,7 +85,21 @@ class FakeRepository {
   }
   async listSuggestionsForOperator(operatorUid, options) {
     this.operatorLookups.push({ operatorUid, options });
-    return [...this.suggestions.values()];
+    return [...this.suggestions.values()].filter((item) => item.state === 'SUGGESTED');
+  }
+  async ignoreSuggestionForOperator(operatorUid, suggestionId, now) {
+    this.operatorLookups.push({ operatorUid, ignoredSuggestionId: suggestionId });
+    const suggestion = this.suggestions.get(suggestionId);
+    if (!suggestion || suggestion.rtId !== 'rt-a') throw { code: 'failed-precondition' };
+    if (suggestion.state !== 'IGNORED') {
+      this.suggestions.set(suggestionId, {
+        ...suggestion,
+        state: 'IGNORED',
+        ignoredAt: now,
+        ignoredByOperatorUid: operatorUid,
+      });
+    }
+    return { ignored: true };
   }
   async getLastValidSnapshotForOperator(operatorUid) {
     this.operatorLookups.push({ operatorUid, snapshot: true });
@@ -282,4 +296,41 @@ test('suggestion listing requires a password-authenticated operator and rejects 
   await assert.rejects(service.listWeatherSuggestions(AUTH, { rtId: 'rt-other' }), {
     code: 'invalid-argument',
   });
+});
+
+test('suggestion listing marks a still-young superseded snapshot stale', async () => {
+  const { repository, service } = setup();
+  await service.syncConfiguredSources();
+  const [suggestionId, suggestion] = repository.suggestions.entries().next().value;
+  repository.suggestions.set(suggestionId, { ...suggestion, isSuperseded: true });
+
+  const result = await service.listWeatherSuggestions(AUTH, {});
+
+  assert.equal(result.suggestions.length, 1);
+  assert.equal(result.suggestions[0].isStale, true);
+});
+
+test('operator ignore is idempotent and does not recreate the suggestion on sync replay', async () => {
+  const { repository, service } = setup();
+  await service.syncConfiguredSources();
+  const suggestionId = repository.suggestions.keys().next().value;
+
+  assert.deepEqual(await service.ignoreWeatherSuggestion(AUTH, { suggestionId }), {
+    ignored: true,
+  });
+  assert.deepEqual(await service.ignoreWeatherSuggestion(AUTH, { suggestionId }), {
+    ignored: true,
+  });
+  assert.equal(repository.suggestions.get(suggestionId).state, 'IGNORED');
+  assert.equal((await service.listWeatherSuggestions(AUTH, {})).suggestions.length, 0);
+
+  const replay = await service.syncConfiguredSources();
+  assert.equal(replay.failed, 0);
+  assert.equal(repository.suggestions.get(suggestionId).state, 'IGNORED');
+  await assert.rejects(service.ignoreWeatherSuggestion(AUTH, {
+    suggestionId, rtId: 'rt-a',
+  }), { code: 'invalid-argument' });
+  await assert.rejects(service.ignoreWeatherSuggestion({
+    operatorUid: 'resident', signInProvider: 'anonymous',
+  }, { suggestionId }), { code: 'permission-denied' });
 });

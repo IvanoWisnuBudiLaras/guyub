@@ -60,6 +60,114 @@ final class _WeatherSuggestionReviewScreenState
     await next;
   }
 
+  bool _checkingSuggestionFreshness = false;
+
+  Future<void> _openCatalogIfFresh(
+    WeatherSuggestion suggestion,
+    Set<String> versions,
+  ) async {
+    if (_checkingSuggestionFreshness) return;
+    setState(() => _checkingSuggestionFreshness = true);
+    try {
+      final latestSuggestions = await widget.suggestionBoundary
+          .listWeatherSuggestions();
+      if (!mounted) return;
+      WeatherSuggestion? latest;
+      for (final item in latestSuggestions) {
+        if (item.id == suggestion.id) {
+          latest = item;
+          break;
+        }
+      }
+      if (latest == null || latest.isStale) {
+        setState(() {
+          _dataFuture = _load();
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Saran ini sudah berubah atau kedaluwarsa. Periksa data terbaru sebelum melanjutkan.',
+            ),
+          ),
+        );
+        return;
+      }
+      Navigator.of(context).push<void>(
+        MaterialPageRoute<void>(
+          builder: (_) => TaskCatalogScreen(
+            profile: widget.profile,
+            controller: widget.taskCampaignController,
+            recommendedTemplateVersions: versions,
+          ),
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _dataFuture = _load();
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Kebaruan saran belum dapat diperiksa. Coba lagi saat tersambung.',
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _checkingSuggestionFreshness = false);
+    }
+  }
+
+  Future<void> _ignoreSuggestion(WeatherSuggestion suggestion) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Abaikan saran cuaca?'),
+        content: const Text(
+          'Saran ini akan disembunyikan untuk RT ini. Tindakan ini tidak '
+          'membuat atau mengirim tugas.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Batal'),
+          ),
+          FilledButton(
+            key: const Key('weather-suggestion-ignore-confirm'),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Abaikan saran'),
+          ),
+        ],
+      ),
+    );
+    if (!mounted || confirmed != true) return;
+    try {
+      await widget.suggestionBoundary.ignoreWeatherSuggestion(
+        suggestionId: suggestion.id,
+      );
+      if (!mounted) return;
+      setState(() {
+        _dataFuture = _load();
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Saran diabaikan untuk RT ini.')),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Saran belum dapat diabaikan. Coba lagi saat tersambung.',
+          ),
+        ),
+      );
+    }
+  }
+
+  void _postponeSuggestion() {
+    Navigator.of(context).maybePop();
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: const Text('Tinjau Saran Cuaca')),
@@ -127,16 +235,12 @@ final class _WeatherSuggestionReviewScreenState
                   _SuggestionCard(
                     suggestion: suggestion,
                     templates: data.templates,
-                    onOpenCatalog: (versions) =>
-                        Navigator.of(context).push<void>(
-                          MaterialPageRoute<void>(
-                            builder: (_) => TaskCatalogScreen(
-                              profile: widget.profile,
-                              controller: widget.taskCampaignController,
-                              recommendedTemplateVersions: versions,
-                            ),
-                          ),
-                        ),
+                    isCheckingFreshness: _checkingSuggestionFreshness,
+                    onOpenCatalog: (versions) {
+                      _openCatalogIfFresh(suggestion, versions);
+                    },
+                    onPostpone: _postponeSuggestion,
+                    onIgnore: () => _ignoreSuggestion(suggestion),
                   ),
                   const SizedBox(height: 12),
                 ],
@@ -162,12 +266,18 @@ final class _SuggestionCard extends StatelessWidget {
   const _SuggestionCard({
     required this.suggestion,
     required this.templates,
+    required this.isCheckingFreshness,
     required this.onOpenCatalog,
+    required this.onPostpone,
+    required this.onIgnore,
   });
 
   final WeatherSuggestion suggestion;
   final List<TaskTemplate> templates;
+  final bool isCheckingFreshness;
   final ValueChanged<Set<String>> onOpenCatalog;
+  final VoidCallback onPostpone;
+  final VoidCallback onIgnore;
 
   @override
   Widget build(BuildContext context) {
@@ -229,9 +339,39 @@ final class _SuggestionCard extends StatelessWidget {
             const SizedBox(height: 12),
             OutlinedButton.icon(
               key: Key('weather-suggestion-review-${suggestion.id}'),
-              onPressed: canReview ? () => onOpenCatalog(versions) : null,
-              icon: const Icon(Icons.fact_check_outlined),
-              label: const Text('Tinjau template aman'),
+              onPressed: canReview && !isCheckingFreshness
+                  ? () => onOpenCatalog(versions)
+                  : null,
+              icon: isCheckingFreshness
+                  ? const SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.fact_check_outlined),
+              label: Text(
+                isCheckingFreshness
+                    ? 'Memeriksa kebaruan data…'
+                    : 'Tinjau template aman',
+              ),
+            ),
+            const SizedBox(height: 4),
+            Wrap(
+              alignment: WrapAlignment.center,
+              spacing: 8,
+              children: [
+                TextButton.icon(
+                  key: Key('weather-suggestion-postpone-${suggestion.id}'),
+                  onPressed: isCheckingFreshness ? null : onPostpone,
+                  icon: const Icon(Icons.schedule_outlined),
+                  label: const Text('Tinjau nanti'),
+                ),
+                TextButton.icon(
+                  key: Key('weather-suggestion-ignore-${suggestion.id}'),
+                  onPressed: isCheckingFreshness ? null : onIgnore,
+                  icon: const Icon(Icons.visibility_off_outlined),
+                  label: const Text('Abaikan saran'),
+                ),
+              ],
             ),
           ],
         ),

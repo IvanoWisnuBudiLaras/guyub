@@ -323,6 +323,10 @@ Historical task completion must belong to the RT/community context, not only to 
    - current local condition,
    - suggested preparation.
 7. Operator may accept, postpone, or ignore the suggestion.
+   - Accept opens only the matching approved safe-task catalog; it does not create a draft or activate/distribute a task.
+   - Postpone leaves the suggestion available for later review without changing task state.
+   - Ignore records an idempotent RT-scoped decision and hides the suggestion; it does not alter any task or resident state.
+8. Before accepting a suggestion by opening the recommended catalog, the server confirms that the trigger snapshot is still the RT’s current last-valid snapshot and within its configured freshness age. Superseded or stale suggestions cannot open the catalog; the operator may still leave them for later or ignore them. Before opening the recommended catalog, the server confirms that the trigger snapshot is still the RT’s current last-valid snapshot and within its configured freshness age; superseded or stale suggestions cannot be acted on.
 
 ## J-03 — Create and confirm task
 
@@ -426,7 +430,7 @@ Backend retrieves BMKG forecast on a schedule.
 - retrieval failure does not erase the last valid snapshot.
 
 ### FR-WTH-002 — Staleness
-UI always distinguishes live/recently synchronized data from cached/offline data.
+UI always distinguishes live/recently synchronized data from cached/offline data. A recommendation may open the task catalog only while its trigger snapshot remains the RT’s current last-valid snapshot and within its configured freshness age; the server rechecks this before the operator opens the catalog.
 
 ### FR-WTH-003 — Threshold evaluation
 Weather values may trigger suggestions.
@@ -903,8 +907,10 @@ Fields:
 - `triggerSnapshotId`
 - `ruleId`
 - recommended template IDs
-- `state`
-- timestamps
+- `state` (`SUGGESTED` or `IGNORED`),
+- timestamps; ignored records include `ignoredAt` and `ignoredByOperatorUid`.
+
+`IGNORED` is an idempotent, RT-scoped operator decision. It hides only the suggestion and never creates or changes a task.
 
 ## 12.8 `task_campaigns`
 
@@ -1305,8 +1311,10 @@ SEC-10. App must tolerate replay/retry of offline commands without duplicating t
 **Given** BMKG data crosses an explicitly reviewed rule
 **When** the evaluator runs
 **Then** a same-RT operator may review a `SUGGESTED` record through the callable-backed review screen
-**And** choosing a recommendation opens only the matching approved catalog template versions
-**And** no DRAFT is created by the evaluator and no ACTIVE task exists until separate operator confirmation.
+**And** choosing a recommendation opens only the matching approved catalog template versions after the server confirms the trigger snapshot is still current and fresh
+**And** a superseded or stale suggestion cannot open the catalog
+**And** postponing leaves the suggestion available for later review, while ignoring hides it through an idempotent same-RT server action
+**And** accepting/reviewing, postponing, or ignoring creates no DRAFT or ACTIVE task until a separate authorized task workflow and confirmation.
 
 ## AT-002 — Unsafe free-form task blocked
 **Given** an operator attempts to bypass catalog  
