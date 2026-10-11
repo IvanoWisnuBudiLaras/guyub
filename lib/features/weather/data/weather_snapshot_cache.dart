@@ -3,18 +3,20 @@ import 'dart:convert';
 
 import '../../../core/database/local_store.dart';
 import '../application/weather_snapshot.dart';
+import '../application/weather_snapshot_store.dart';
 
 /// Persists the last valid normalized BMKG snapshot for offline reading.
 ///
 /// A failed refresh must not call [saveIfNewer]. Older/equal refreshes do not
 /// overwrite the most recent cached snapshot.
-final class WeatherSnapshotCache {
+final class WeatherSnapshotCache implements WeatherSnapshotStore {
   WeatherSnapshotCache(this._localStore);
 
   static const _storageKey = 'guyub.weather.lastValid.v1';
   final LocalStore _localStore;
   Future<void> _writeTail = Future<void>.value();
 
+  @override
   Future<WeatherSnapshot?> readLastValid() async {
     final encoded = await _localStore.read(_storageKey);
     if (encoded == null) return null;

@@ -1,6 +1,6 @@
 # Guyub.id — Sistem Kesiapsiagaan Banjir Komunitas RT/RW
 
-Guyub.id adalah aplikasi koordinasi kesiapsiagaan banjir warga berbasis rukun tetangga (RT/RW). Aplikasi ini memfasilitasi gotong royong terstruktur, pembagian tugas mandiri yang aman, pemantauan peringatan dini BMKG, serta jalur informasi darurat warga secara offline-ready.
+Guyub.id adalah aplikasi koordinasi kesiapsiagaan banjir warga berbasis rukun tetangga (RT/RW). Aplikasi ini memfasilitasi gotong royong terstruktur, pembagian tugas mandiri yang aman, konteks cuaca BMKG, serta jalur informasi darurat warga dengan dukungan offline bertahap. Dukungan offline belum lulus verifikasi perangkat/pilot.
 
 ---
 
@@ -9,7 +9,7 @@ Guyub.id dirancang bukan sebagai mesin prediksi banjir instan atau pengganti tim
 - **Katalog Tugas Aman**: Warga hanya menerima tugas dari katalog aman yang telah disetujui (dilarang membersihkan gorong-gorong berbahaya atau mendekati arus deras).
 - **Partisipasi Sukarela**: Warga bebas memilih ikut atau menolak tugas tanpa penalti sosial atau sistem peringkat.
 - **Privasi Terjaga**: Dilarang mengumpulkan NIK, alamat lengkap, atau koordinat GPS presisi warga.
-- **Tahan Offline**: Tugas yang tersinkronisasi, kontak darurat, dan titik kumpul tetap dapat diakses tanpa koneksi internet.
+- **Dukungan Offline bertahap**: Cache tugas, direktori darurat, dan cuaca terakhir diberi label waktu sinkronisasi. Validasi mode pesawat/perangkat masih menjadi release gate; direktori darurat tidak berisi data produksi sampai kontak, titik kumpul, dan kanal resmi diverifikasi serta diprovisikan.
 
 ---
 
@@ -169,7 +169,7 @@ Aturan akses Firestore dan sesi warga diuji dengan Auth/Firestore/Functions Emul
 **Status: resident sessions, RT-scoped task campaigns, resident responses, and RT verification are implemented for Emulator; production deployment deferred.**
 - `functions/` implements opaque resident-session callables; operator-only reviewed-template/draft/activation callables; and RT-scoped resident task listing, JOIN/DECLINE, completion submission, verification, and response recap callables. Functions, Auth, and Firestore emulators cover these boundaries.
 - Production callables require Firebase App Check; the Android client uses Play Integrity. App Check is intentionally disabled only in the demo emulator and must be registered for the signed Android app before production use. Enrollment retries reuse a pending secure request ID so one attempt does not create duplicate resident profiles.
-- Protected collections remain client-deny by Firestore rules. No human-reviewed real task template is provisioned; the catalog remains empty. No production function is deployed, and notification delivery, offline task cache/response queue, weather, reminder, escalation, and evidence-cleanup jobs are not implemented yet.
+- Protected collections remain client-deny by Firestore rules. No human-reviewed real task template is provisioned; the catalog remains empty until trusted provisioning. Offline task cache/outbox/reconciliation, emergency-directory callables/cache, and stale weather display are implemented in code but still need Android airplane-mode and pilot validation. No emergency contacts, assembly points, official routes, or BMKG values are seeded. No production function is deployed; FCM delivery, BMKG fetching, reminders, escalation, and evidence-cleanup jobs remain unimplemented.
 - Production deployment and scheduled automation may require a Firebase billing/provider decision. This repository does not enable billing or deploy production infrastructure.
 
 ### Firebase Cloud Storage

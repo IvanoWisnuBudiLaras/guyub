@@ -1336,6 +1336,32 @@ Authorized operator can record status for a non-app resident.
 ## AT-015 — RT history persistence
 Task history remains accessible after operator account changes.
 
+## AT-016 — Copy-only WhatsApp task summary
+**Given** an ACTIVE task
+**When** an authorized operator copies its summary
+**Then** the text includes the locked core/safety instructions and voluntary-participation wording
+**And** no message is sent or represented as delivered.
+**And** drafts do not expose a distribution action.
+
+## AT-017 — Active campaign cancellation is audited
+**Given** an ACTIVE campaign in an operator's RT
+**When** an authorized same-RT operator explicitly cancels it
+**Then** the campaign enters `CANCELLED` and one RT-owned audit event is written.
+**And** repeating the same command is idempotent; a conflicting command is rejected.
+**And** the cancelled campaign is absent from resident active tasks.
+
+## AT-018 — Offline completion replays without a note
+**Given** an authorized resident has a synchronized ACTIVE task and has joined
+**When** the resident completes it offline without a note and reconnects
+**Then** one durable idempotent completion command is replayed
+**And** server state remains pending until RT verification.
+
+## AT-019 — Offline completion note is never queued
+**Given** the resident is offline
+**When** the resident submits completion with a note
+**Then** the note is not persisted or queued
+**And** the UI clearly asks the resident to retry while online.
+
 ---
 
 # 23. Test strategy

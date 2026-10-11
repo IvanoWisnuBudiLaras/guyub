@@ -5,10 +5,12 @@ const { FirestoreResidentSessionRepository } = require('./firestore_resident_ses
 const { FirestoreTaskCampaignRepository } = require('./firestore_task_campaign_repository');
 const { FirestoreTaskResponseRepository } = require('./firestore_task_response_repository');
 const { FirestoreResidentProposalRepository } = require('./firestore_resident_proposal_repository');
+const { FirestoreEmergencyDirectoryRepository } = require('./firestore_emergency_directory_repository');
 const { ResidentSessionService, SessionServiceError } = require('./resident_session_service');
 const { TaskCampaignService, TaskCampaignError } = require('./task_campaign_service');
 const { TaskResponseService } = require('./task_response_service');
 const { ResidentProposalService, ResidentProposalError } = require('./resident_proposal_service');
+const { EmergencyDirectoryService, EmergencyDirectoryError } = require('./emergency_directory_service');
 const { protectedCallableOptions } = require('./callable_options');
 
 if (getApps().length === 0) initializeApp();
@@ -28,6 +30,10 @@ const residentProposals = new ResidentProposalService(
   new FirestoreResidentProposalRepository(firestore),
   sessions,
 );
+const emergencyDirectory = new EmergencyDirectoryService(
+  new FirestoreEmergencyDirectoryRepository(firestore),
+  sessions,
+);
 const callableOptions = protectedCallableOptions();
 
 exports.createResidentSession = onCall(callableOptions, async (request) => {
@@ -45,6 +51,14 @@ exports.createResidentSession = onCall(callableOptions, async (request) => {
 exports.validateResidentSession = onCall(callableOptions, async (request) => {
   try {
     return await sessions.validateSession(request.data?.sessionToken);
+  } catch (error) {
+    throw toHttpsError(error);
+  }
+});
+
+exports.getEmergencyDirectory = onCall(callableOptions, async (request) => {
+  try {
+    return await emergencyDirectory.getEmergencyDirectory(request.data);
   } catch (error) {
     throw toHttpsError(error);
   }
@@ -78,6 +92,22 @@ exports.createTaskDraft = onCall(callableOptions, async (request) => {
 exports.activateTaskCampaign = onCall(callableOptions, async (request) => {
   try {
     return await tasks.activateCampaign(operatorAuth(request), request.data);
+  } catch (error) {
+    throw toHttpsError(error);
+  }
+});
+
+exports.listActiveTaskCampaigns = onCall(callableOptions, async (request) => {
+  try {
+    return await tasks.listActiveTaskCampaigns(operatorAuth(request), request.data);
+  } catch (error) {
+    throw toHttpsError(error);
+  }
+});
+
+exports.cancelTaskCampaign = onCall(callableOptions, async (request) => {
+  try {
+    return await tasks.cancelTaskCampaign(operatorAuth(request), request.data);
   } catch (error) {
     throw toHttpsError(error);
   }
@@ -166,7 +196,7 @@ function operatorAuth(request) {
 
 function toHttpsError(error) {
   if (error instanceof SessionServiceError || error instanceof TaskCampaignError ||
-      error instanceof ResidentProposalError) {
+      error instanceof ResidentProposalError || error instanceof EmergencyDirectoryError) {
     return new HttpsError(error.code, error.message);
   }
   // Never return Firestore paths, RT existence, or internal error details.

@@ -37,6 +37,12 @@ Generate a random 12–32 character uppercase alphanumeric code with a cryptogra
 - A pilot administrator must obtain human review before provisioning any usable template. Do not copy test fixture instructions into production.
 
 
+## Active campaign review and cancellation
+
+- `listActiveTaskCampaigns` requires a password-authenticated active operator and derives its RT from `/operators/{uid}`. It returns only ACTIVE campaigns for that RT, with the immutable template snapshot, deadline, and coarse location; it fails closed above the 200-item bound.
+- `cancelTaskCampaign` accepts only `taskId` and an idempotency `commandId`. The repository rechecks operator membership and RT scope, allows only ACTIVE → CANCELLED, hashes the command ID, and writes one deterministic RT-owned audit event. Same actor/command replay succeeds; conflicting commands and foreign/missing IDs do not disclose task existence.
+- Cancellation is available in the operator UI after explicit confirmation. It does not send an FCM/WhatsApp update; residents with offline queued commands may see a server conflict on their next refresh.
+
 ## Resident task response and RT verification
 
 - `listResidentActiveTasks` accepts only the opaque resident token. The service derives the resident and RT from the validated session; the repository rechecks session expiry, active state, and resident RT inside the Firestore transaction. The result contains active campaigns and only that resident's response.
@@ -47,7 +53,8 @@ Generate a random 12–32 character uppercase alphanumeric code with a cryptogra
 - `/task_responses` and `/task_audit_events` remain unreadable and unwritable from clients. The Android adapter calls Functions only. Firestore composite indexes are declared in `firestore.indexes.json`.
 - Active-task lists are capped at 200 items, verification queues at 100, and recap reads at 400 responses. Each response includes `isPartial` when the cap is reached; the UI states that the list/recap may be incomplete. There is not yet cursor pagination.
 - Recap counts only recorded responses. It does not claim to count residents who have not responded because no recipient/eligibility snapshot exists.
-- This phase adds pull-based visibility only. It does not send FCM/WhatsApp, add an offline cache/outbox, or claim that a notification was delivered. Offline/retry reconciliation and distribution remain later work.
+- Phase 7 adds a resident/RT-scoped local task snapshot and durable outbox for JOIN/DECLINE and no-note completion. Every replay still uses callable Functions and server-derived authorization; conflicts remain queued and visible. Completion stays pending until RT verification. Completion notes and bearer tokens are never stored in the outbox.
+- This remains pull-based visibility only. No FCM/WhatsApp message is sent or claimed delivered; offline queue testing on physical Android devices remains outstanding.
 
 ## Resident proposals and RT review
 
@@ -56,6 +63,14 @@ Generate a random 12–32 character uppercase alphanumeric code with a cryptogra
 - New proposals are stored only as `SUBMITTED`, with deterministic IDs and request fingerprints. Even hazardous proposal wording remains review-only text: submission and review never call task creation or activation.
 - `listResidentProposals` and `reviewResidentProposal` require an active password-authenticated operator and derive RT scope from trusted membership. The current review action only dismisses a proposal and records one idempotent audit event. Firestore client access remains denied.
 - Proposal mapping to a safe-template draft, official-report routing, evidence storage, proxy assistance, and helper assignment are not implemented. PII pattern checks reduce common mistakes but cannot identify every obfuscated string; avoid entering personal details.
+
+## Emergency directory and offline client cache
+
+- `getEmergencyDirectory` accepts only the opaque resident session token. The service derives RT scope from the validated session and the Firestore transaction rechecks the session, resident profile, and RT community before reading `/emergency_directories/{rtId}`.
+- Firestore client reads and writes remain denied. The directory is read-only to the app and must be provisioned through a trusted pilot process; this repository contains no emergency phone numbers, assembly locations, or official reporting links as production data.
+- The provisioned document uses exact fields `rtId`, `state` (`ACTIVE`/`DISABLED`), positive data `version`, `lastVerifiedAt`, and bounded `emergencyContacts`, `assemblyPoints`, and `officialReportChannels` arrays. Contacts contain a label and phone; assembly points contain a label and public location description; official channels contain a label and HTTPS URL and/or phone.
+- Missing configuration returns `UNCONFIGURED`; an explicit `DISABLED` revision can invalidate an older local cache. The Flutter client keeps only a validated last-known directory with its local sync time, marks it offline/stale, and does not replace it with a missing or failed fetch.
+- No sample/mockup emergency values should be provisioned. Pilot owners must verify contacts, assembly points, official channels, and `lastVerifiedAt` before use.
 
 ## Verification
 

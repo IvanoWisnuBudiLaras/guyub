@@ -161,7 +161,8 @@ Active tasks notify residents, reminders run automatically, and administrative e
 ## Work items
 - register/update FCM tokens,
 - send active-task notification,
-- add task cancellation/update notification,
+- implement audited same-RT campaign cancellation;
+- defer task cancellation/update notifications until FCM and recipient/privacy rules are implemented and reviewed,
 - implement reminder scheduler,
 - implement configurable escalation policy,
 - notify Pendamping RT for non-response,
@@ -173,6 +174,9 @@ Active tasks notify residents, reminders run automatically, and administrative e
 - escalation does not change resident participation status;
 - notification content does not claim official flood warning;
 - task remains accessible if push delivery fails.
+
+## Acceptance linkage
+AT-016 (copy-only summary) and AT-017 (authorized, audited cancellation).
 
 ---
 
@@ -224,7 +228,7 @@ Core preparedness information remains useful without internet.
 - server-authoritative conflicts are surfaced, not silently overwritten.
 
 ## Acceptance linkage
-AT-006, AT-007, AT-008, AT-010 where applicable.
+AT-006, AT-007, AT-008, AT-018, AT-019 and offline/reconciliation scenarios O-01–O-08.
 
 ---
 

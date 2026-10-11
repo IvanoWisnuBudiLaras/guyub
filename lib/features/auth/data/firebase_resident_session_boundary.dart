@@ -52,6 +52,9 @@ final class FirebaseResidentSessionBoundary implements ResidentSessionBoundary {
           error.code == 'not-found') {
         throw const ResidentSessionInvalidException();
       }
+      if (error.code == 'unavailable' || error.code == 'deadline-exceeded') {
+        throw const ResidentSessionUnavailableException();
+      }
       rethrow;
     }
   }

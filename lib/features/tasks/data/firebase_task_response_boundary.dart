@@ -13,9 +13,11 @@ final class FirebaseTaskResponseBoundary implements TaskResponseBoundary {
   Future<ResidentTaskList> listResidentActiveTasks({
     required String sessionToken,
   }) async {
-    final result = await functions
-        .httpsCallable('listResidentActiveTasks')
-        .call(<String, Object?>{'sessionToken': sessionToken});
+    final result = await _mapCallable(
+      () => functions.httpsCallable('listResidentActiveTasks').call(
+        <String, Object?>{'sessionToken': sessionToken},
+      ),
+    );
     final wire = _wireMap(result.data, 'resident task list');
     return ResidentTaskList(
       items: _wireList(
@@ -33,14 +35,16 @@ final class FirebaseTaskResponseBoundary implements TaskResponseBoundary {
     required ParticipationChoice choice,
     required String commandId,
   }) async {
-    final result = await functions
-        .httpsCallable('recordResidentTaskResponse')
-        .call(<String, Object?>{
+    final result = await _mapCallable(
+      () => functions.httpsCallable('recordResidentTaskResponse').call(
+        <String, Object?>{
           'sessionToken': sessionToken,
           'taskId': taskId,
           'choice': choice == ParticipationChoice.join ? 'JOINED' : 'DECLINED',
           'commandId': commandId,
-        });
+        },
+      ),
+    );
     return TaskResponseRecord.fromWire(_wireMap(result.data, 'task response'));
   }
 
@@ -51,22 +55,26 @@ final class FirebaseTaskResponseBoundary implements TaskResponseBoundary {
     required String? note,
     required String commandId,
   }) async {
-    final result = await functions.httpsCallable('submitTaskCompletion').call(
-      <String, Object?>{
-        'sessionToken': sessionToken,
-        'taskId': taskId,
-        'note': note,
-        'commandId': commandId,
-      },
+    final result = await _mapCallable(
+      () => functions.httpsCallable('submitTaskCompletion').call(
+        <String, Object?>{
+          'sessionToken': sessionToken,
+          'taskId': taskId,
+          'note': note,
+          'commandId': commandId,
+        },
+      ),
     );
     return TaskResponseRecord.fromWire(_wireMap(result.data, 'task response'));
   }
 
   @override
   Future<TaskVerificationQueue> listPendingVerifications() async {
-    final result = await functions
-        .httpsCallable('listPendingTaskVerifications')
-        .call(<String, Object?>{});
+    final result = await _mapCallable(
+      () => functions
+          .httpsCallable('listPendingTaskVerifications')
+          .call(<String, Object?>{}),
+    );
     final wire = _wireMap(result.data, 'verification queue');
     return TaskVerificationQueue(
       items: _wireList(
@@ -82,18 +90,51 @@ final class FirebaseTaskResponseBoundary implements TaskResponseBoundary {
     required String responseId,
     required String commandId,
   }) async {
-    final result = await functions.httpsCallable('verifyTaskCompletion').call(
-      <String, Object?>{'responseId': responseId, 'commandId': commandId},
+    final result = await _mapCallable(
+      () => functions.httpsCallable('verifyTaskCompletion').call(
+        <String, Object?>{'responseId': responseId, 'commandId': commandId},
+      ),
     );
     return TaskResponseRecord.fromWire(_wireMap(result.data, 'task response'));
   }
 
   @override
   Future<TaskResponseRecap> getResponseRecap({required String taskId}) async {
-    final result = await functions.httpsCallable('getTaskResponseRecap').call(
-      <String, Object?>{'taskId': taskId},
+    final result = await _mapCallable(
+      () => functions.httpsCallable('getTaskResponseRecap').call(
+        <String, Object?>{'taskId': taskId},
+      ),
     );
     return TaskResponseRecap.fromWire(_wireMap(result.data, 'task recap'));
+  }
+}
+
+/// Maps only callable codes with a defined offline/reconciliation meaning.
+/// Unknown Firebase errors stay unclassified and never enable cache fallback.
+final class FirebaseTaskResponseErrorMapper {
+  const FirebaseTaskResponseErrorMapper._();
+
+  static Exception? map(FirebaseFunctionsException error) =>
+      switch (error.code) {
+        'unavailable' ||
+        'deadline-exceeded' => const TransientTaskNetworkUnavailableException(),
+        'failed-precondition' ||
+        'not-found' ||
+        'already-exists' => const TaskResponseConflictException(),
+        'permission-denied' ||
+        'unauthenticated' ||
+        'invalid-argument' => TaskResponseRejectedException(code: error.code),
+        _ => null,
+      };
+}
+
+Future<T> _mapCallable<T>(Future<T> Function() call) async {
+  try {
+    return await call();
+  } on FirebaseFunctionsException catch (error) {
+    final mapped = FirebaseTaskResponseErrorMapper.map(error);
+    if (mapped == null) rethrow;
+    throw mapped;
   }
 }
 

@@ -4,17 +4,34 @@ import '../application/task_campaign_boundary.dart';
 import '../application/task_template.dart';
 
 /// Callable Functions adapter; task authorization and persistence stay server-side.
-final class FirebaseTaskCampaignBoundary implements TaskCampaignBoundary {
-  const FirebaseTaskCampaignBoundary(this.functions);
+typedef TaskCampaignCallableInvoker = Future<Object?> Function(
+  String name,
+  Map<String, Object?> data,
+);
 
-  final FirebaseFunctions functions;
+final class FirebaseTaskCampaignBoundary
+    implements TaskCampaignBoundary, TaskCampaignManagementBoundary {
+  const FirebaseTaskCampaignBoundary(this.functions) : _invoker = null;
+
+  const FirebaseTaskCampaignBoundary.withInvoker(this._invoker)
+    : functions = null;
+
+  final FirebaseFunctions? functions;
+  final TaskCampaignCallableInvoker? _invoker;
+
+  Future<Object?> _call(String name, Map<String, Object?> data) async {
+    final invoker = _invoker;
+    if (invoker != null) return invoker(name, data);
+    final functions = this.functions;
+    if (functions == null) throw StateError('Callable client unavailable.');
+    final result = await functions.httpsCallable(name).call(data);
+    return result.data;
+  }
 
   @override
   Future<List<TaskTemplate>> listApprovedTemplates() async {
-    final result = await functions
-        .httpsCallable('listApprovedTaskTemplates')
-        .call();
-    final payload = _asMap(result.data);
+    final result = await _call('listApprovedTaskTemplates', const {});
+    final payload = _asMap(result);
     final templates = payload['templates'];
     if (templates is! List) {
       throw const FormatException('Invalid task catalog.');
@@ -54,14 +71,14 @@ final class FirebaseTaskCampaignBoundary implements TaskCampaignBoundary {
     required String? locationReference,
     required String requestId,
   }) async {
-    final result = await functions.httpsCallable('createTaskDraft').call({
+    final result = await _call('createTaskDraft', {
       'templateId': template.id,
       'version': template.version,
       'deadline': deadline.toUtc().toIso8601String(),
       'locationReference': locationReference,
       'requestId': requestId,
     });
-    return TaskCampaignRecord.fromWire(_asMap(result.data));
+    return TaskCampaignRecord.fromWire(_asMap(result));
   }
 
   @override
@@ -69,13 +86,41 @@ final class FirebaseTaskCampaignBoundary implements TaskCampaignBoundary {
     required String campaignId,
     required String commandId,
   }) async {
-    final result = await functions.httpsCallable('activateTaskCampaign').call({
+    final result = await _call('activateTaskCampaign', {
       'campaignId': campaignId,
       'commandId': commandId,
     });
-    return TaskCampaignRecord.fromWire(_asMap(result.data));
+    return TaskCampaignRecord.fromWire(_asMap(result));
+  }
+
+  @override
+  Future<List<ActiveTaskCampaignRecord>> listActiveTaskCampaigns() async {
+    final result = await _call('listActiveTaskCampaigns', const {});
+    return ActiveTaskCampaignRecord.listFromWire(result);
+  }
+
+  @override
+  Future<TaskCampaignCancellationRecord> cancelTaskCampaign({
+    required String taskId,
+    required String commandId,
+  }) async {
+    if (!_taskIdPattern.hasMatch(taskId) ||
+        !_commandIdPattern.hasMatch(commandId)) {
+      throw ArgumentError('Invalid task cancellation command.');
+    }
+    final result = await _call('cancelTaskCampaign', {
+      'taskId': taskId,
+      'commandId': commandId,
+    });
+    return TaskCampaignCancellationRecord.fromWire(
+      result,
+      expectedTaskId: taskId,
+    );
   }
 }
+
+final _taskIdPattern = RegExp(r'^[a-f0-9]{40}$');
+final _commandIdPattern = RegExp(r'^[A-Za-z0-9_-]{32,128}$');
 
 Map<String, Object?> _asMap(Object? value) {
   if (value is Map<String, Object?>) return value;

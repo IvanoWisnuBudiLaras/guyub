@@ -20,6 +20,9 @@ This matrix maps implementation behavior back to the Master PRD. It is intended 
 | AT-014 | Proxy status supported | Authorized operator updates non-app resident status | Integration | Yes |
 | AT-015 | RT history survives operator change | Create history, replace operator, verify history | Integration/E2E | Yes |
 | AT-016 | WhatsApp summary is copy-only and active-only | Draft has no copy action; active copy contains locked safety/voluntary text and sends no message | Unit + widget | Yes |
+| AT-017 | Active campaign cancellation is authorized and audited | Same-RT operator cancels; exactly one audit event; replay is idempotent; resident list excludes it | Functions Emulator + widget | Yes |
+| AT-018 | Offline completion replays without a note | No-note completion is queued once, replayed idempotently, and remains pending RT verification | Unit + Functions Emulator | Yes |
+| AT-019 | Offline completion note is never queued | Nonempty note is rejected offline and absent from persistent outbox | Unit + widget | Yes |
 
 ---
 
@@ -48,6 +51,8 @@ This matrix maps implementation behavior back to the Master PRD. It is intended 
 | O-04 | Server task cancelled before queued completion sync | Client surfaces conflict; does not silently restore task |
 | O-05 | BMKG fetch fails | Last valid snapshot retained with timestamp |
 | O-06 | FCM fails | Task remains available through app/WhatsApp copy path |
+| O-07 | Resident submits completion offline without a note | One durable idempotent command replays after reconnect; server still requires RT verification |
+| O-08 | Resident enters a completion note while offline | Note is never persisted or queued; UI asks resident to retry online |
 
 ---
 

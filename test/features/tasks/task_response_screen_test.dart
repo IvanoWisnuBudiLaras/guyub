@@ -196,6 +196,95 @@ void main() {
     expect(find.textContaining('Daftar verifikasi dibatasi'), findsOneWidget);
   });
 
+  testWidgets('cached task list and detail show stale timestamps', (
+    tester,
+  ) async {
+    final boundary = _FakeBoundary()
+      ..tasks = [_task()]
+      ..taskListCached = true
+      ..lastSyncedAt = DateTime.utc(2026, 10, 4, 10);
+    final controller = _controller(boundary);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ResidentTaskListScreen(
+          session: _session(),
+          controller: controller,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('resident-task-offline-banner')),
+      findsOneWidget,
+    );
+    expect(find.textContaining('Mode offline'), findsOneWidget);
+    expect(find.textContaining('Terakhir tersinkron:'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('resident-task-task-a')));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const Key('resident-task-offline-banner')),
+      findsOneWidget,
+    );
+    expect(
+      find.text('Jangan mendekati air banjir atau instalasi listrik basah.'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('pending offline choice is not shown as server accepted', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ResidentTaskDetailScreen(
+          session: _session(),
+          controller: _controller(_FakeBoundary()),
+          task: _task(
+            pendingChoice: ParticipationChoice.join,
+            hasSyncConflict: true,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.textContaining('Pilihan offline belum disimpan'),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('resident-join-task')), findsNothing);
+    expect(find.byKey(const Key('resident-decline-task')), findsNothing);
+  });
+
+  testWidgets('offline completion stays pending RT verification', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ResidentTaskDetailScreen(
+          session: _session(),
+          controller: _controller(_FakeBoundary()),
+          task: _task(
+            participation: ParticipationState.joined,
+            hasPendingCompletionSync: true,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.textContaining('Penyelesaian menunggu sinkronisasi'),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('resident-submit-completion')), findsNothing);
+    expect(
+      find.textContaining('RT tetap harus memverifikasinya'),
+      findsOneWidget,
+    );
+  });
+
   testWidgets(
     'resident sees an honest online-only error when task fetch fails',
     (tester) async {
@@ -209,10 +298,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(
-        find.textContaining('Cache offline belum tersedia'),
-        findsOneWidget,
-      );
+      expect(find.textContaining('Tugas belum tersedia'), findsOneWidget);
       expect(find.text('Coba Lagi'), findsOneWidget);
     },
   );
@@ -241,6 +327,9 @@ ResidentTaskRecord _task({
   ParticipationState participation = ParticipationState.unresponded,
   CompletionState completion = CompletionState.notSubmitted,
   String? completionNote,
+  ParticipationChoice? pendingChoice,
+  bool hasSyncConflict = false,
+  bool hasPendingCompletionSync = false,
 }) => ResidentTaskRecord(
   taskId: 'task-a',
   rtId: 'rt-a',
@@ -258,6 +347,9 @@ ResidentTaskRecord _task({
   participation: participation,
   completion: completion,
   completionNote: completionNote,
+  pendingChoice: pendingChoice,
+  hasSyncConflict: hasSyncConflict,
+  hasPendingCompletionSync: hasPendingCompletionSync,
 );
 
 final class _FakeVault implements ResidentSessionVault {
@@ -285,6 +377,9 @@ final class _FakeBoundary implements TaskResponseBoundary {
   List<TaskVerificationRecord> pending = [];
   bool failTaskList = false;
   bool taskListPartial = false;
+  bool taskListCached = false;
+  DateTime? lastSyncedAt;
+  List<ResidentTaskSyncIssue> syncIssues = [];
   bool pendingPartial = false;
   ParticipationChoice? lastChoice;
   String? lastNote;
@@ -295,7 +390,13 @@ final class _FakeBoundary implements TaskResponseBoundary {
     required String sessionToken,
   }) async {
     if (failTaskList) throw StateError('offline');
-    return ResidentTaskList(items: tasks, isPartial: taskListPartial);
+    return ResidentTaskList(
+      items: tasks,
+      isPartial: taskListPartial,
+      isCached: taskListCached,
+      lastSyncedAt: lastSyncedAt,
+      syncIssues: syncIssues,
+    );
   }
 
   @override

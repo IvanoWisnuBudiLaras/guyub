@@ -41,6 +41,13 @@ final class RoleSelectionScreen extends StatelessWidget {
                 icon: const Icon(Icons.home_outlined),
                 label: const Text('Saya Warga'),
               ),
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                key: const Key('emergency-directory-entry'),
+                onPressed: () => Navigator.of(context).pushNamed('/emergency'),
+                icon: const Icon(Icons.health_and_safety_outlined),
+                label: const Text('Darurat'),
+              ),
               const SizedBox(height: 16),
               const Text(
                 'Guyub.id membantu koordinasi persiapan. Aplikasi ini bukan '
