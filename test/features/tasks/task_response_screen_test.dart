@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -390,6 +391,32 @@ void main() {
     );
   });
 
+  testWidgets('resident task list reloads when connectivity returns', (
+    tester,
+  ) async {
+    final connectivity = StreamController<bool>.broadcast();
+    addTearDown(connectivity.close);
+    final boundary = _FakeBoundary()..tasks = [_task()];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ResidentTaskListScreen(
+          session: _session(),
+          controller: _controller(boundary),
+          connectivityChanges: connectivity.stream,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(boundary.taskListCalls, 1);
+
+    boundary.tasks = [_task(participation: ParticipationState.joined)];
+    connectivity.add(true);
+    await tester.pumpAndSettle();
+
+    expect(boundary.taskListCalls, 2);
+    expect(find.byKey(const Key('resident-task-task-a')), findsOneWidget);
+  });
+
   testWidgets('pending offline choice is not shown as server accepted', (
     tester,
   ) async {
@@ -408,11 +435,27 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(
-      find.textContaining('Pilihan offline belum disimpan'),
+      find.textContaining('Pilihan offline belum terkonfirmasi'),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('resident-resolve-task-sync-conflict')),
       findsOneWidget,
     );
     expect(find.byKey(const Key('resident-join-task')), findsNothing);
     expect(find.byKey(const Key('resident-decline-task')), findsNothing);
+
+    await tester.tap(
+      find.byKey(const Key('resident-resolve-task-sync-conflict')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Periksa status server?'), findsOneWidget);
+    await tester.tap(find.text('Batal'));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const Key('resident-resolve-task-sync-conflict')),
+      findsOneWidget,
+    );
   });
 
   testWidgets('offline completion stays pending RT verification', (
@@ -542,6 +585,7 @@ final class _FakeBoundary implements TaskResponseBoundary {
   List<ResidentTaskRecord> tasks = [];
   List<TaskVerificationRecord> pending = [];
   bool failTaskList = false;
+  int taskListCalls = 0;
   bool taskListPartial = false;
   bool taskListCached = false;
   DateTime? lastSyncedAt;
@@ -556,6 +600,7 @@ final class _FakeBoundary implements TaskResponseBoundary {
   Future<ResidentTaskList> listResidentActiveTasks({
     required String sessionToken,
   }) async {
+    taskListCalls++;
     if (failTaskList) throw StateError('offline');
     return ResidentTaskList(
       items: tasks,

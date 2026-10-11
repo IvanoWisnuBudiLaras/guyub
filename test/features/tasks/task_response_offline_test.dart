@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:guyub/core/database/local_store.dart';
 import 'package:guyub/features/auth/application/resident_session.dart';
@@ -180,6 +182,35 @@ void main() {
     expect(cached.isCached, isTrue);
   });
 
+  test('concurrent reconnect refreshes share one replay', () async {
+    final offline = LocalResidentTaskOfflineStore(
+      localStore: _RecordingLocalStore(),
+    );
+    final boundary = _FakeBoundary(list: _list([_task()]));
+    final gate = Completer<void>();
+    boundary.listGate = gate;
+    final controller = _controller(boundary, _FakeVault(token), offline);
+    await offline.enqueueChoice(
+      session: session,
+      taskId: 'task-a',
+      choice: ParticipationChoice.join,
+      commandId: 'd' * 40,
+      queuedAt: syncedAt,
+    );
+
+    final first = controller.listResidentActiveTasks(session: session);
+    final second = controller.listResidentActiveTasks(session: session);
+    await Future<void>.delayed(Duration.zero);
+    expect(boundary.listCalls, 1);
+    gate.complete();
+    final results = await Future.wait([first, second]);
+
+    expect(results, hasLength(2));
+    expect(boundary.listCalls, 1);
+    expect(boundary.choiceCommandIds, ['d' * 40]);
+    expect(await offline.pendingChoices(session: session), isEmpty);
+  });
+
   test('durable choice is replayed once with its stable command ID', () async {
     final offline = LocalResidentTaskOfflineStore(
       localStore: _RecordingLocalStore(),
@@ -241,6 +272,79 @@ void main() {
   });
 
   test(
+    'conflicted choice can be discarded only after a fresh server read',
+    () async {
+      final offline = LocalResidentTaskOfflineStore(
+        localStore: _RecordingLocalStore(),
+      );
+      final boundary = _FakeBoundary(list: _list([_task()]));
+      final controller = _controller(boundary, _FakeVault(token), offline);
+      await controller.listResidentActiveTasks(session: session);
+      boundary.nextChoiceError =
+          const TransientTaskNetworkUnavailableException();
+      await controller.recordParticipation(
+        taskId: 'task-a',
+        choice: ParticipationChoice.join,
+        session: session,
+      );
+      boundary.list = _list([
+        _task(participation: ParticipationState.declined),
+      ]);
+      final conflicted = await controller.listResidentActiveTasks(
+        session: session,
+      );
+      expect(
+        conflicted.items.single.participation,
+        ParticipationState.declined,
+      );
+      expect(conflicted.items.single.hasSyncConflict, isTrue);
+      final commandIdsBeforeResolve = List<String>.of(
+        boundary.choiceCommandIds,
+      );
+
+      boundary.nextListError = const TransientTaskNetworkUnavailableException();
+      await expectLater(
+        controller.discardPendingChoiceConflict(
+          taskId: 'task-a',
+          session: session,
+        ),
+        throwsA(isA<TransientTaskNetworkUnavailableException>()),
+      );
+      expect(await offline.pendingChoices(session: session), hasLength(1));
+      expect(boundary.choiceCommandIds, commandIdsBeforeResolve);
+
+      boundary.nextListError = const TaskResponseRejectedException(
+        code: 'permission-denied',
+      );
+      await expectLater(
+        controller.discardPendingChoiceConflict(
+          taskId: 'task-a',
+          session: session,
+        ),
+        throwsA(isA<TaskResponseRejectedException>()),
+      );
+      expect(await offline.pendingChoices(session: session), hasLength(1));
+      expect(boundary.choiceCommandIds, commandIdsBeforeResolve);
+
+      await controller.discardPendingChoiceConflict(
+        taskId: 'task-a',
+        session: session,
+      );
+      expect(await offline.pendingChoices(session: session), isEmpty);
+      expect(boundary.choiceCommandIds, commandIdsBeforeResolve);
+      final authoritative = await controller.listResidentActiveTasks(
+        session: session,
+      );
+      expect(
+        authoritative.items.single.participation,
+        ParticipationState.declined,
+      );
+      expect(authoritative.items.single.hasSyncConflict, isFalse);
+      expect(authoritative.syncIssues, isEmpty);
+    },
+  );
+
+  test(
     'immediate choice rejection returns pending conflict metadata',
     () async {
       final offline = LocalResidentTaskOfflineStore(
@@ -261,7 +365,7 @@ void main() {
       expect(result.hasSyncConflict, isTrue);
       final queued = (await offline.pendingChoices(session: session)).single;
       expect(queued.hasConflict, isTrue);
-      expect(queued.taskNoLongerActive, isTrue);
+      expect(queued.taskNoLongerActive, isFalse);
     },
   );
 
@@ -370,7 +474,7 @@ void main() {
   );
 
   test(
-    'inactive-state rejection during completion replay is retained',
+    'conflicted completion can be discarded after fresh RT status is read',
     () async {
       final offline = LocalResidentTaskOfflineStore(
         localStore: _RecordingLocalStore(),
@@ -387,17 +491,104 @@ void main() {
         note: null,
         session: session,
       );
-      boundary.nextCompletionError = const TaskResponseConflictException();
+      boundary.nextCompletionError = const TaskResponseConflictException(
+        code: 'failed-precondition',
+      );
+      final conflicted = await controller.listResidentActiveTasks(
+        session: session,
+      );
+      expect(conflicted.items.single.completion, CompletionState.notSubmitted);
+      expect(conflicted.items.single.hasPendingCompletionSync, isTrue);
+      final commandIdsBeforeResolve = List<String>.of(
+        boundary.completionCommandIds,
+      );
+
+      await controller.discardPendingCompletionConflict(
+        taskId: 'task-a',
+        session: session,
+      );
+      expect(await offline.pendingCompletions(session: session), isEmpty);
+      expect(boundary.completionCommandIds, commandIdsBeforeResolve);
+      final authoritative = await controller.listResidentActiveTasks(
+        session: session,
+      );
+      expect(
+        authoritative.items.single.completion,
+        CompletionState.notSubmitted,
+      );
+      expect(authoritative.items.single.hasPendingCompletionSync, isFalse);
+      expect(authoritative.syncIssues, isEmpty);
+    },
+  );
+
+  test(
+    'failed-precondition during choice replay does not hide an active task',
+    () async {
+      final offline = LocalResidentTaskOfflineStore(
+        localStore: _RecordingLocalStore(),
+      );
+      final boundary = _FakeBoundary(list: _list([_task()]));
+      final controller = _controller(boundary, _FakeVault(token), offline);
+      await controller.listResidentActiveTasks(session: session);
+      boundary.nextChoiceError =
+          const TransientTaskNetworkUnavailableException();
+      await controller.recordParticipation(
+        taskId: 'task-a',
+        choice: ParticipationChoice.join,
+        session: session,
+      );
+      boundary.nextChoiceError = const TaskResponseConflictException(
+        code: 'failed-precondition',
+      );
 
       final result = await controller.listResidentActiveTasks(session: session);
-      expect(result.items, isEmpty);
+      expect(result.items, hasLength(1));
+      expect(result.items.single.participation, ParticipationState.unresponded);
+      expect(result.items.single.pendingChoice, ParticipationChoice.join);
+      expect(result.items.single.hasSyncConflict, isTrue);
       expect(
         result.syncIssues.single.kind,
-        ResidentTaskSyncIssueKind.taskUnavailable,
+        ResidentTaskSyncIssueKind.choiceConflict,
+      );
+      final pending = await offline.pendingChoices(session: session);
+      expect(pending.single.hasConflict, isTrue);
+      expect(pending.single.taskNoLongerActive, isFalse);
+    },
+  );
+
+  test(
+    'failed-precondition during completion replay does not hide an active task',
+    () async {
+      final offline = LocalResidentTaskOfflineStore(
+        localStore: _RecordingLocalStore(),
+      );
+      final boundary = _FakeBoundary(
+        list: _list([_task(participation: ParticipationState.joined)]),
+      );
+      final controller = _controller(boundary, _FakeVault(token), offline);
+      await controller.listResidentActiveTasks(session: session);
+      boundary.nextCompletionError =
+          const TransientTaskNetworkUnavailableException();
+      await controller.submitCompletion(
+        taskId: 'task-a',
+        note: null,
+        session: session,
+      );
+      boundary.nextCompletionError = const TaskResponseConflictException(
+        code: 'failed-precondition',
+      );
+
+      final result = await controller.listResidentActiveTasks(session: session);
+      expect(result.items, hasLength(1));
+      expect(result.items.single.participation, ParticipationState.joined);
+      expect(result.items.single.hasPendingCompletionSync, isTrue);
+      expect(
+        result.syncIssues.single.kind,
+        ResidentTaskSyncIssueKind.completionConflict,
       );
       final pending = await offline.pendingCompletions(session: session);
       expect(pending.single.hasConflict, isTrue);
-      expect(pending.single.taskNoLongerActive, isTrue);
+      expect(pending.single.taskNoLongerActive, isFalse);
     },
   );
 
@@ -618,6 +809,8 @@ final class _FakeBoundary implements TaskResponseBoundary {
   _FakeBoundary({required this.list});
 
   ResidentTaskList list;
+  int listCalls = 0;
+  Completer<void>? listGate;
   Object? nextListError;
   Object? nextChoiceError;
   Object? nextCompletionError;
@@ -629,6 +822,8 @@ final class _FakeBoundary implements TaskResponseBoundary {
   Future<ResidentTaskList> listResidentActiveTasks({
     required String sessionToken,
   }) async {
+    listCalls++;
+    await listGate?.future;
     if (nextListError case final error?) {
       nextListError = null;
       throw error;
