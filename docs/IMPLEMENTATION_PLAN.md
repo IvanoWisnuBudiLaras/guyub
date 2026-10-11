@@ -156,30 +156,34 @@ AT-001, AT-008.
 # Phase 5 — Distribution, FCM, reminders, escalation
 
 ## Deliverable
-Active tasks notify residents, reminders run automatically, and administrative escalation reaches Pendamping RT.
+Provide the CF-07 reminder and CF-08 escalation backend with validated per-RT policy, transactional outbox/audit, replay-safe delivery attempts, and same-RT Pendamping RT targeting. Keep task access independent of push delivery.
 
-## Current status and decisions required
-**Blocked; do not invent timing or recipient rules.** The product owner must approve reminder offsets, escalation thresholds, the non-response cohort, recipient snapshot semantics, and which Pendamping RT accounts receive escalation. FCM token lifecycle, payload privacy, retry/delivery semantics, and scheduler ownership also need review. Keep sending disabled until these decisions and configuration exist.
+## Current status
+**Backend slice implemented; rollout remains disabled and unconfigured.** `rt_communities.reminderPolicyId` points to a server-provisioned document in `task_reminder_policies`. A policy must be enabled, reviewed, versioned, RT-scoped, and valid. It defines reminder windows/cohorts, escalation window/cohort/minimum cohort size, and retry delays. Campaign activation snapshots the policy document ID, version, and fingerprint. Missing or invalid policy never blocks activation; it produces no automated notification.
 
-## Work items
-- register/update FCM tokens,
-- send active-task notification,
-- implement audited same-RT campaign cancellation;
-- defer task cancellation/update notifications until FCM and recipient/privacy rules are implemented and reviewed,
-- implement reminder scheduler,
-- implement configurable escalation policy,
-- notify Pendamping RT for non-response,
-- implement WhatsApp copy-text action,
-- audit delivery workflow without storing unnecessary content.
+`sendTaskReminders` and `escalateUnrespondedTasks` scan configured policies every five minutes. An idempotent event and privacy-safe audit marker are created transactionally for each RT/campaign/window/recipient hash. Declined residents are excluded. Escalation recipients are derived server-side from active `PENDAMPING_RT` operator membership and token records in the campaign RT. Resident token registration validates a live session; revoking that session deletes its push-token record. Protected policy, event, audit, and token collections remain unavailable to direct clients.
+
+FCM is a delivery hint, not task storage or an official alert. The outbox retries failures using policy delays and stable event IDs. FCM acceptance followed by worker failure can still cause a transport duplicate; logical event creation is idempotent, not provider-level exactly-once. `GUYUB_NOTIFICATIONS_ENABLED` defaults off. No pilot policy values, production token setup, scheduled deployment, or real FCM delivery has been configured or verified.
+
+## Remaining work / decisions
+- Provision reviewed per-RT policy values only after product-owner approval; do not add pilot timing, thresholds, or recipients as defaults.
+- Connect Android opt-in/token refresh and notification click handling to the callable boundary; no token is requested merely by loading the app.
+- Design and review a resident-facing activation notification separately; this slice implements scheduled reminders and escalation only.
+- Keep campaign cancellation/update notifications deferred until reviewed.
+- Complete WhatsApp copy-text usability and device-level fallback checks.
 
 ## Required tests
-- retries do not duplicate reminders;
-- escalation does not change resident participation status;
-- notification content does not claim official flood warning;
-- task remains accessible if push delivery fails.
+- scheduler replay creates one event per policy window; a later configured window is distinct;
+- retry after delivery failure creates no second logical reminder;
+- escalation replay is idempotent and does not alter participation/completion state;
+- declined residents receive no reminder;
+- cross-RT operator cannot read campaign notification audit or receive its escalation;
+- FCM failure leaves the active task available in the app;
+- payload/copy and audit contain no sensitive resident details and never claim an official flood warning;
+- clients cannot directly read/write policy, outbox, audit, or push-token collections.
 
 ## Acceptance linkage
-AT-016 (copy-only summary) and AT-017 (authorized, audited cancellation).
+AT-016 (copy-only summary), AT-017 (authorized, audited cancellation), and AT-023 (configured reminders/escalation).
 
 ---
 

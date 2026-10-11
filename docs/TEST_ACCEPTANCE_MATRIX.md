@@ -26,6 +26,7 @@ This matrix maps implementation behavior back to the Master PRD. It is intended 
 | AT-020 | Helper assignment is opt-in, private, and voluntary | Resident opts in; same-RT operator offers a pairing only to an opted-in helper; helper response hides household identity; decline/withdrawal is allowed; cross-RT and replay cases remain scoped/idempotent | Functions Emulator + Flutter | Yes |
 | AT-021 | RT-assisted resident-data deletion is scoped and retryable | Require same-RT operator, resident-request and pilot identity attestations; delete sessions/profile/responses/proposals/assignments/evidence; retain only privacy-safe audit and a minimal enrollment replay tombstone without resident/session identifiers; active upload leases block completion until expiry, then cleanup retries without reopening resident writes | Functions Emulator + Storage Emulator + Flutter | Yes |
 | AT-022 | Uncertain proxy creation is RT-bound and safely reconcilable | Cross-RT retry is blocked before the payload is shown; backend cancellation tombstones a missing create; concurrent create/cancel cannot both commit; confirmed creation clears only the local retry payload and leaves server data intact | Functions Emulator + Flutter | Yes |
+| AT-023 | Configured reminders and escalation are replay-safe, private, and non-coercive | Reviewed per-RT policy snapshot drives windows/cohorts; same-window replay creates one outbox/audit event while a later window is distinct; declined residents are excluded; escalation reaches only active same-RT Pendamping RT; retry/push failure leaves the task accessible and resident state unchanged; clients cannot directly access policy/event/audit/token data | Functions unit + Auth/Firestore Emulator + rules | Yes |
 
 ---
 
@@ -41,6 +42,8 @@ This matrix maps implementation behavior back to the Master PRD. It is intended 
 | S-06 | Resident token used for another RT | Denied |
 | S-07 | Resident attempts to verify own completion | Denied |
 | S-08 | Resident proposal contains arbitrary risky instructions | Stored as proposal only; never executable directly |
+| S-09 | Operator in RT B reads RT A notification audit or becomes an escalation recipient | Denied; recipients are derived from active same-RT Pendamping RT membership |
+| S-10 | Resident session is revoked or push delivery fails | Session-bound token is removed; active task remains available; no participation/completion state changes |
 
 ---
 
@@ -69,6 +72,7 @@ This matrix maps implementation behavior back to the Master PRD. It is intended 
 | P-04 | Same-device resident deletion | Only own scoped data can be requested/deleted; full same-device profile/response/proposal deletion remains open |
 | P-05 | Lost device resident asks deletion | Same-RT RT-assisted server deletion requires resident-request and pilot-defined offline identity-check attestations; pilot procedure must be approved |
 | P-06 | UI shows vulnerable resident | RT-only profile display uses nickname/optional house number/assistance marker; no diagnosis or public household details |
+| P-07 | Push token and notification audit are stored | Token is server-only, RT/session-bound, removed when the session is revoked; outbox/audit contain no resident ID, name, token, note, evidence, phone, or raw token | Functions Emulator + rules |
 
 ---
 

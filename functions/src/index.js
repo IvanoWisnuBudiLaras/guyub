@@ -2,6 +2,7 @@ const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { initializeApp, getApps } = require('firebase-admin/app');
 const { getFirestore } = require('firebase-admin/firestore');
 const { getStorage } = require('firebase-admin/storage');
+const { getMessaging } = require('firebase-admin/messaging');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { FirestoreResidentSessionRepository } = require('./firestore_resident_session_repository');
 const { FirestoreTaskCampaignRepository } = require('./firestore_task_campaign_repository');
@@ -13,6 +14,10 @@ const { FirestoreWeatherSuggestionRepository } = require('./firestore_weather_su
 const { FirestoreProxyResidentRepository } = require('./firestore_proxy_resident_repository');
 const { FirestoreResidentDataDeletionRepository } = require('./firestore_resident_data_deletion_repository');
 const { FirestoreAssistanceAssignmentRepository } = require('./firestore_assistance_assignment_repository');
+const { FirestoreTaskNotificationRepository, TaskNotificationError } =
+  require('./firestore_task_notification_repository');
+const { TaskNotificationService } = require('./task_notification_service');
+const { FirebaseMessagingDeliveryAdapter } = require('./task_notification_delivery');
 const { fetchBmkgPayload } = require('./bmkg_forecast_client');
 const { ResidentSessionService, SessionServiceError } = require('./resident_session_service');
 const { TaskCampaignService, TaskCampaignError } = require('./task_campaign_service');
@@ -89,6 +94,11 @@ const assistanceAssignments = new AssistanceAssignmentService(
 const weatherSuggestions = new WeatherSuggestionService(
   new FirestoreWeatherSuggestionRepository(firestore),
   { fetchPayload: fetchBmkgPayload },
+);
+const taskNotifications = new TaskNotificationService(
+  new FirestoreTaskNotificationRepository(firestore),
+  new FirebaseMessagingDeliveryAdapter(getMessaging()),
+  sessions,
 );
 const callableOptions = protectedCallableOptions();
 const evidenceUploadOptions = {
@@ -279,6 +289,25 @@ exports.syncBmkgWeather = onSchedule({
   timeoutSeconds: 120,
 }, runScheduledWeatherSync);
 
+const notificationScheduleOptions = {
+  region: 'asia-southeast2',
+  schedule: 'every 5 minutes',
+  timeZone: 'Etc/UTC',
+  maxInstances: 1,
+  timeoutSeconds: 120,
+};
+const notificationsEnabled = () => process.env.GUYUB_NOTIFICATIONS_ENABLED === 'true';
+
+exports.sendTaskReminders = onSchedule(notificationScheduleOptions, async () => {
+  if (!notificationsEnabled()) return { enabled: false, scheduled: 0, delivered: 0 };
+  return taskNotifications.sendTaskReminders();
+});
+
+exports.escalateUnrespondedTasks = onSchedule(notificationScheduleOptions, async () => {
+  if (!notificationsEnabled()) return { enabled: false, scheduled: 0, delivered: 0 };
+  return taskNotifications.escalateUnrespondedTasks();
+});
+
 exports.listPendingTaskVerifications = onCall(callableOptions, async (request) => {
   try {
     return await taskResponses.listPendingTaskVerifications(
@@ -403,6 +432,46 @@ exports.respondToAssistanceAssignment = onCall(callableOptions, async (request) 
   }
 });
 
+exports.registerResidentPushToken = onCall(callableOptions, async (request) => {
+  try {
+    return await taskNotifications.registerResidentPushToken(request.data);
+  } catch (error) {
+    throw toHttpsError(error);
+  }
+});
+
+exports.unregisterResidentPushToken = onCall(callableOptions, async (request) => {
+  try {
+    return await taskNotifications.unregisterResidentPushToken(request.data);
+  } catch (error) {
+    throw toHttpsError(error);
+  }
+});
+
+exports.registerPendampingPushToken = onCall(callableOptions, async (request) => {
+  try {
+    return await taskNotifications.registerPendampingPushToken(operatorAuth(request), request.data);
+  } catch (error) {
+    throw toHttpsError(error);
+  }
+});
+
+exports.unregisterPendampingPushToken = onCall(callableOptions, async (request) => {
+  try {
+    return await taskNotifications.unregisterPendampingPushToken(operatorAuth(request), request.data);
+  } catch (error) {
+    throw toHttpsError(error);
+  }
+});
+
+exports.listTaskNotificationAudit = onCall(callableOptions, async (request) => {
+  try {
+    return await taskNotifications.listAuditEvents(operatorAuth(request), request.data);
+  } catch (error) {
+    throw toHttpsError(error);
+  }
+});
+
 exports.submitResidentProposal = onCall(callableOptions, async (request) => {
   try {
     return await residentProposals.submitResidentProposal(request.data);
@@ -459,7 +528,8 @@ function operatorAuth(request) {
 
 function toHttpsError(error) {
   if (error instanceof SessionServiceError || error instanceof TaskCampaignError ||
-      error instanceof ResidentProposalError || error instanceof EmergencyDirectoryError ||
+      error instanceof TaskNotificationError || error instanceof ResidentProposalError ||
+      error instanceof EmergencyDirectoryError ||
       error instanceof WeatherPipelineError || error instanceof ProxyResidentError) {
     return new HttpsError(error.code, error.message);
   }

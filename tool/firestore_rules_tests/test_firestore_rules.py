@@ -165,6 +165,11 @@ class FirestoreRulesTest(unittest.TestCase):
                 "task_campaigns",
                 "task_responses",
                 "task_audit_events",
+                "task_reminder_policies",
+                "task_notification_events",
+                "task_notification_audit_events",
+                "resident_push_tokens",
+                "operator_push_tokens",
             ):
                 url = document_url(collection, "task-1")
                 read_status, _ = request("GET", url, token=token)
