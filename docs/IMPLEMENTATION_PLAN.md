@@ -186,13 +186,12 @@ AT-016 (copy-only summary) and AT-017 (authorized, audited cancellation).
 Residents can propose tasks/conditions, and RT can manage vulnerable-resident assistance.
 
 ## Work items
-- implement proposal form,
-- optional supporting evidence reference,
-- proposal review list,
-- map approved proposal to safe template draft,
-- implement vulnerable-resident records,
-- implement helper assignment,
-- implement proxy status update.
+- [x] implement resident proposal form and same-RT review queue,
+- [x] map a SUBMITTED proposal only to a DRAFT created from an approved, versioned safe template; proposal text is context only,
+- [ ] optional supporting evidence reference and temporary image retention (requires approved storage policy/configuration),
+- [ ] implement vulnerable-resident records,
+- [ ] implement voluntary helper assignment,
+- [ ] implement consent-defined proxy status update.
 
 ## Required tests
 - proposal cannot activate task directly;

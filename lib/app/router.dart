@@ -143,6 +143,9 @@ final class AppRouter {
           builder: (_) => ResidentProposalReviewScreen(
             profile: profile,
             controller: proposalReviewController,
+            campaignController: taskCampaignBoundary == null
+                ? null
+                : TaskCampaignController(taskCampaignBoundary),
           ),
           settings: settings,
         );

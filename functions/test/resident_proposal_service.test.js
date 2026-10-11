@@ -1,5 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const crypto = require('node:crypto');
 const {
   ResidentProposalService,
   proposalDocumentId,
@@ -29,7 +30,18 @@ class FakeRepository {
   constructor() {
     this.proposals = new Map();
     this.campaigns = new Map();
-    this.operatorRtIds = new Map([['operator-a', 'rt-a'], ['operator-b', 'rt-b']]);
+    this.operatorRtIds = new Map([['operator-a', 'rt-a'], ['operator-b', 'rt-b'],
+      ['operator-inactive', 'rt-a']]);
+    this.inactiveOperators = new Set(['operator-inactive']);
+    this.templates = new Map([['safe_household_prep_v1', {
+      templateId: 'safe_household_prep',
+      version: 1,
+      title: 'Persiapan rumah tangga',
+      category: 'HOUSEHOLD_PREPARATION',
+      coreInstruction: 'Simpan dokumen penting dalam wadah kedap air.',
+      safetyInstruction: 'Jangan mendekati air banjir atau instalasi listrik basah.',
+      estimatedDurationMinutes: 30,
+    }]]);
   }
 
   async submitProposal(input) {
@@ -98,6 +110,67 @@ class FakeRepository {
       reviewedAt: input.now,
     });
     return structuredClone(record);
+  }
+
+  async mapProposalToDraft(input) {
+    const rtId = this.operatorRtIds.get(input.operatorUid);
+    const proposal = this.proposals.get(input.proposalId);
+    if (!rtId || this.inactiveOperators.has(input.operatorUid) ||
+        !proposal || proposal.rtId !== rtId) {
+      const error = new Error('operator access denied');
+      error.code = 'permission-denied';
+      throw error;
+    }
+    const campaignId = crypto.createHash('sha256')
+      .update(`resident-proposal-campaign\0${rtId}\0${input.proposalId}`)
+      .digest('hex').slice(0, 40);
+    if (proposal.state === 'MAPPED_TO_SAFE_TEMPLATE') {
+      const campaign = this.campaigns.get(campaignId);
+      if (proposal.mappingCommandHash === input.commandHash &&
+          proposal.mappingFingerprint === input.mappingFingerprint &&
+          proposal.reviewedByOperatorUid === input.operatorUid && campaign) {
+        return { proposal: structuredClone(proposal), campaign: structuredClone(campaign) };
+      }
+      const error = new Error('already mapped');
+      error.code = 'failed-precondition';
+      throw error;
+    }
+    if (proposal.state !== 'SUBMITTED') {
+      const error = new Error('proposal is not pending');
+      error.code = 'failed-precondition';
+      throw error;
+    }
+    const template = this.templates.get(`${input.templateId}_v${input.version}`);
+    if (!template) {
+      const error = new Error('template is not approved');
+      error.code = 'failed-precondition';
+      throw error;
+    }
+    const templateSnapshot = structuredClone(template);
+    const campaign = {
+      campaignId,
+      rtId,
+      sourceProposalId: input.proposalId,
+      templateId: input.templateId,
+      templateVersion: input.version,
+      templateSnapshot,
+      deadline: input.deadline,
+      locationReference: input.locationReference,
+      status: 'DRAFT',
+      createdAt: input.now,
+      activatedAt: null,
+    };
+    Object.assign(proposal, {
+      state: 'MAPPED_TO_SAFE_TEMPLATE',
+      reviewDecision: 'MAPPED_TO_SAFE_TEMPLATE',
+      mappingCommandHash: input.commandHash,
+      mappingFingerprint: input.mappingFingerprint,
+      mappedCampaignId: campaignId,
+      reviewedByOperatorUid: input.operatorUid,
+      reviewedAt: input.now,
+    });
+    this.campaigns.set(campaignId, campaign);
+    return { proposal: structuredClone(proposal), campaign: structuredClone(campaign) };
   }
 }
 
@@ -230,6 +303,51 @@ test('enforces bounded text and only exposes pending same-RT operator queue', as
     code: 'invalid-argument',
   });
   await assert.rejects(service.submitResidentProposal(payload({ description: 'x'.repeat(1001) })), {
+    code: 'invalid-argument',
+  });
+});
+
+test('maps a submitted proposal only to an approved safe DRAFT and replays idempotently', async () => {
+  const { service, repository } = setup();
+  const submitted = await service.submitResidentProposal(payload({
+    title: 'Enter drain',
+    description: 'Residents should enter the drain and clear it by hand.',
+  }));
+  const mappingInput = {
+    proposalId: submitted.proposalId,
+    templateId: 'safe_household_prep',
+    version: 1,
+    deadline: '2026-10-06T12:00:00.000Z',
+    locationReference: null,
+    commandId: 'm'.repeat(43),
+  };
+  const mapped = await service.mapResidentProposalToDraft(AUTH, mappingInput);
+  assert.equal(mapped.proposal.state, 'MAPPED_TO_SAFE_TEMPLATE');
+  assert.equal(mapped.campaign.status, 'DRAFT');
+  assert.equal(mapped.campaign.activatedAt, null);
+  assert.equal(mapped.campaign.templateSnapshot.coreInstruction,
+    'Simpan dokumen penting dalam wadah kedap air.');
+  assert.equal(JSON.stringify(mapped.campaign).includes('Enter drain'), false);
+  assert.equal(JSON.stringify(mapped.campaign).includes('enter the drain'), false);
+  assert.equal(repository.campaigns.size, 1);
+  assert.deepEqual(await service.mapResidentProposalToDraft(AUTH, mappingInput), mapped);
+  await assert.rejects(service.mapResidentProposalToDraft(AUTH, {
+    ...mappingInput, commandId: 'n'.repeat(43),
+  }), { code: 'failed-precondition' });
+  await assert.rejects(service.mapResidentProposalToDraft(AUTH, {
+    ...mappingInput,
+    deadline: '2026-10-07T12:00:00.000Z',
+    commandId: 'o'.repeat(43),
+  }), { code: 'failed-precondition' });
+  await assert.rejects(service.mapResidentProposalToDraft({
+    operatorUid: 'operator-b', signInProvider: 'password',
+  }, mappingInput), { code: 'permission-denied' });
+  await assert.rejects(service.mapResidentProposalToDraft(AUTH, {
+    ...mappingInput, unsafeInstruction: 'use resident text',
+  }), { code: 'invalid-argument' });
+  const { locationReference: omittedLocation, ...missingLocation } = mappingInput;
+  assert.equal(omittedLocation, null);
+  await assert.rejects(service.mapResidentProposalToDraft(AUTH, missingLocation), {
     code: 'invalid-argument',
   });
 });

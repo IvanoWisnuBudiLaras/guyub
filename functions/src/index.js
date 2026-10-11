@@ -195,6 +195,14 @@ exports.reviewResidentProposal = onCall(callableOptions, async (request) => {
   }
 });
 
+exports.mapResidentProposalToDraft = onCall(callableOptions, async (request) => {
+  try {
+    return await residentProposals.mapResidentProposalToDraft(operatorAuth(request), request.data);
+  } catch (error) {
+    throw toHttpsError(error);
+  }
+});
+
 function operatorAuth(request) {
   return {
     operatorUid: request.auth?.uid,

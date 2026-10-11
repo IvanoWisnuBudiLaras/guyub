@@ -6,6 +6,8 @@ import 'package:guyub/features/auth/application/resident_session_vault.dart';
 import 'package:guyub/features/proposals/application/resident_proposal_boundary.dart';
 import 'package:guyub/features/proposals/presentation/resident_proposal_review_screen.dart';
 import 'package:guyub/features/proposals/presentation/resident_proposal_screen.dart';
+import 'package:guyub/features/tasks/application/task_campaign_boundary.dart';
+import 'package:guyub/features/tasks/application/task_template.dart';
 
 void main() {
   testWidgets('resident submission stays a proposal, not an active task', (
@@ -34,6 +36,8 @@ void main() {
       find.byKey(const Key('proposal-description')),
       'Masuk ke saluran air untuk membersihkan sampah',
     );
+    await tester.drag(find.byType(ListView).first, const Offset(0, -700));
+    await tester.pumpAndSettle();
     await tester.ensureVisible(find.byKey(const Key('proposal-submit')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('proposal-submit')));
@@ -71,6 +75,8 @@ void main() {
         find.byKey(const Key('proposal-description')),
         'Teks usulan yang sama.',
       );
+      await tester.drag(find.byType(ListView).first, const Offset(0, -700));
+      await tester.pumpAndSettle();
       await tester.ensureVisible(find.byKey(const Key('proposal-submit')));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('proposal-submit')));
@@ -102,7 +108,7 @@ void main() {
       expect(find.textContaining('Usulan bukan tugas aktif.'), findsOneWidget);
       expect(find.text('Tutup usulan'), findsOneWidget);
       expect(find.textContaining('Masuk ke saluran air'), findsOneWidget);
-      await tester.tap(find.byKey(const Key('proposal-dismiss-proposal-1')));
+      await tester.tap(find.byKey(Key('proposal-dismiss-${'a' * 40}')));
       await tester.pumpAndSettle();
 
       expect(boundary.lastDecision, 'DISMISSED');
@@ -130,13 +136,105 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Arahkan ke kanal resmi'), findsOneWidget);
-      await tester.tap(find.byKey(const Key('proposal-official-proposal-1')));
+      await tester.tap(find.byKey(Key('proposal-official-${'a' * 40}')));
       await tester.pumpAndSettle();
 
       expect(boundary.lastDecision, 'NEEDS_OFFICIAL_REPORT');
       expect(boundary.activationCalls, 0);
     },
   );
+
+  testWidgets('proposal mapping creates DRAFT; separate action activates it', (
+    tester,
+  ) async {
+    final proposalBoundary = _FakeProposalBoundary(withQueueItem: true);
+    final taskBoundary = _FakeTaskCampaignBoundary();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ResidentProposalReviewScreen(
+          profile: _operatorProfile,
+          controller: ResidentProposalReviewController(
+            boundary: proposalBoundary,
+          ),
+          campaignController: TaskCampaignController(
+            taskBoundary,
+            idFactory: () => 'c' * 40,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(Key('proposal-map-${'a' * 40}')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.textContaining('Konteks usulan warga'), findsOneWidget);
+    expect(find.textContaining('Isi usulan tidak disalin'), findsOneWidget);
+    expect(
+      find.textContaining('Masuk ke saluran air untuk membersihkan sampah'),
+      findsNWidgets(2),
+    );
+    expect(
+      tester
+          .widget<FilledButton>(
+            find.byKey(const Key('proposal-map-create-draft')),
+          )
+          .onPressed,
+      isNull,
+    );
+    await tester.tap(find.byKey(const Key('proposal-map-template')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.tap(find.text('Persiapan rumah tangga').last);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.tap(find.byKey(const Key('proposal-map-location')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.tap(find.text('Tanpa lokasi khusus').last);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.tap(find.byKey(const Key('proposal-map-deadline')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.tap(find.text('OK').last);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.tap(find.text('OK').last);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(
+      tester
+          .widget<FilledButton>(
+            find.byKey(const Key('proposal-map-create-draft')),
+          )
+          .onPressed,
+      isNotNull,
+    );
+    await tester.tap(find.byKey(const Key('proposal-map-create-draft')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(proposalBoundary.mappingCalls, 1);
+    expect(proposalBoundary.lastMappedTemplateId, 'safe_household_prep');
+    expect(proposalBoundary.lastMappedLocation, isNull);
+    expect(taskBoundary.activationCalls, 0);
+    expect(find.text('Konfirmasi Aktivasi Tugas'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('task-campaign-draft')),
+      200,
+      scrollable: find.byType(Scrollable).last,
+    );
+    expect(find.byKey(const Key('task-campaign-draft')), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('task-confirm-activation')),
+      200,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.tap(find.byKey(const Key('task-confirm-activation')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(taskBoundary.activationCalls, 1);
+    expect(find.byKey(const Key('task-campaign-active')), findsOneWidget);
+  });
 }
 
 final _residentSession = ResidentSession(
@@ -189,6 +287,9 @@ final class _FakeProposalBoundary implements ResidentProposalBoundary {
   final String submissionState;
   int submissionCalls = 0;
   int activationCalls = 0;
+  int mappingCalls = 0;
+  String? lastMappedTemplateId;
+  String? lastMappedLocation;
   String? lastSessionToken;
   String? lastRequestId;
   String? lastDecision;
@@ -197,7 +298,7 @@ final class _FakeProposalBoundary implements ResidentProposalBoundary {
 
   ResidentProposalRecord _record({String state = 'SUBMITTED'}) =>
       ResidentProposalRecord(
-        proposalId: 'proposal-1',
+        proposalId: 'a' * 40,
         title: 'Bersihkan drainase',
         description: 'Masuk ke saluran air untuk membersihkan sampah',
         category: ResidentProposalCategory.environmentalCleanup,
@@ -239,5 +340,86 @@ final class _FakeProposalBoundary implements ResidentProposalBoundary {
     lastDecision = decision;
     lastCommandId = commandId;
     return _record(state: decision);
+  }
+
+  @override
+  Future<ResidentProposalDraftMapping> mapResidentProposalToDraft({
+    required String proposalId,
+    required String templateId,
+    required int version,
+    required DateTime deadline,
+    required String? locationReference,
+    required String commandId,
+  }) async {
+    mappingCalls++;
+    lastMappedTemplateId = templateId;
+    lastMappedLocation = locationReference;
+    final template = TaskTemplate(
+      id: templateId,
+      version: version,
+      title: 'Persiapan rumah tangga',
+      category: 'HOUSEHOLD_PREPARATION',
+      coreInstruction: 'Simpan dokumen penting.',
+      safetyInstruction: 'Jangan dekati air banjir.',
+      enabled: true,
+    );
+    final campaign = TaskCampaignRecord(
+      campaignId: 'b' * 40,
+      rtId: 'rt-1',
+      templateSnapshot: template.snapshot(),
+      deadline: deadline,
+      status: 'DRAFT',
+      createdAt: DateTime.now(),
+      locationReference: locationReference,
+    );
+    return ResidentProposalDraftMapping(
+      proposalId: proposalId,
+      state: 'MAPPED_TO_SAFE_TEMPLATE',
+      reviewedAt: DateTime.now(),
+      campaign: campaign,
+    );
+  }
+}
+
+final class _FakeTaskCampaignBoundary implements TaskCampaignBoundary {
+  int activationCalls = 0;
+  final TaskTemplate template = TaskTemplate(
+    id: 'safe_household_prep',
+    version: 1,
+    title: 'Persiapan rumah tangga',
+    category: 'HOUSEHOLD_PREPARATION',
+    coreInstruction: 'Simpan dokumen penting.',
+    safetyInstruction: 'Jangan dekati air banjir.',
+    enabled: true,
+  );
+
+  @override
+  Future<List<TaskTemplate>> listApprovedTemplates() async => [template];
+
+  TaskCampaignRecord _record({required String status}) => TaskCampaignRecord(
+    campaignId: 'b' * 40,
+    rtId: 'rt-1',
+    templateSnapshot: template.snapshot(),
+    deadline: DateTime.now().add(const Duration(days: 1)),
+    status: status,
+    createdAt: DateTime.now(),
+    activatedAt: status == 'ACTIVE' ? DateTime.now() : null,
+  );
+
+  @override
+  Future<TaskCampaignRecord> createDraft({
+    required TaskTemplate template,
+    required DateTime deadline,
+    required String? locationReference,
+    required String requestId,
+  }) async => _record(status: 'DRAFT');
+
+  @override
+  Future<TaskCampaignRecord> activateCampaign({
+    required String campaignId,
+    required String commandId,
+  }) async {
+    activationCalls++;
+    return _record(status: 'ACTIVE');
   }
 }

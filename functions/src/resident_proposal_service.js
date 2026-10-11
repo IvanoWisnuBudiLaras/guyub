@@ -79,7 +79,8 @@ function containsForbiddenPersonalData(value) {
   // before matching so punctuation cannot hide a number sequence.
   const normalized = value.replace(/[()]/gu, '');
   return NIK_PATTERN.test(normalized) || MOBILE_PATTERN.test(normalized) ||
-    COORDINATE_PAIR_PATTERN.test(normalized) || LABELED_COORDINATE_PATTERN.test(normalized) ||
+    COORDINATE_PAIR_PATTERN.test(normalized) ||
+    LABELED_COORDINATE_PATTERN.test(normalized) ||
     EXPLICIT_ADDRESS_PATTERN.test(normalized) || STREET_ADDRESS_PATTERN.test(normalized) ||
     HOUSE_NUMBER_PATTERN.test(normalized);
 }
@@ -90,6 +91,35 @@ function optionalLocationReference(value) {
     throw invalidArgument('Pilih referensi lokasi yang diizinkan.');
   }
   return value;
+}
+
+function parseMappingDeadline(value, now) {
+  const match = typeof value === 'string' &&
+    /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d{1,9})?(Z|([+-])(\d{2}):(\d{2}))$/u.exec(value);
+  if (!match) throw invalidArgument('Batas waktu tugas tidak valid.');
+  const [, yearText, monthText, dayText, hourText, minuteText, secondText,
+    zone, , offsetHourText, offsetMinuteText] = match;
+  const year = Number(yearText);
+  const month = Number(monthText);
+  const day = Number(dayText);
+  const hour = Number(hourText);
+  const minute = Number(minuteText);
+  const second = Number(secondText);
+  const offsetHour = offsetHourText == null ? 0 : Number(offsetHourText);
+  const offsetMinute = offsetMinuteText == null ? 0 : Number(offsetMinuteText);
+  const wallClock = new Date(Date.UTC(year, month - 1, day, hour, minute, second));
+  if (year < 1 || month < 1 || month > 12 || day < 1 ||
+      wallClock.getUTCFullYear() !== year || wallClock.getUTCMonth() !== month - 1 ||
+      wallClock.getUTCDate() !== day || hour > 23 || minute > 59 || second > 59 ||
+      offsetHour > 23 || offsetMinute > 59) {
+    throw invalidArgument('Batas waktu tugas tidak valid.');
+  }
+  const deadline = new Date(value);
+  if (!Number.isFinite(deadline.getTime()) || !(now instanceof Date) ||
+      !Number.isFinite(now.getTime()) || deadline.getTime() <= now.getTime()) {
+    throw invalidArgument('Batas waktu harus berada di masa depan.');
+  }
+  return deadline;
 }
 
 function validateOperatorAuth(auth) {
@@ -121,8 +151,21 @@ function publicProposal(proposal) {
     locationReference: proposal.locationReference ?? null,
     state: proposal.state,
     submittedAt: iso(proposal.submittedAt),
-    ...(proposal.state === 'DISMISSED' || proposal.state === 'NEEDS_OFFICIAL_REPORT'
+    ...(proposal.state === 'DISMISSED' || proposal.state === 'NEEDS_OFFICIAL_REPORT' || proposal.state === 'MAPPED_TO_SAFE_TEMPLATE'
       ? { reviewedAt: iso(proposal.reviewedAt) } : {}),
+  };
+}
+
+function publicMappedCampaign(campaign) {
+  return {
+    campaignId: campaign.campaignId,
+    rtId: campaign.rtId,
+    templateSnapshot: campaign.templateSnapshot,
+    deadline: iso(campaign.deadline),
+    locationReference: campaign.locationReference ?? null,
+    status: campaign.status,
+    createdAt: iso(campaign.createdAt),
+    activatedAt: iso(campaign.activatedAt),
   };
 }
 
@@ -195,6 +238,50 @@ class ResidentProposalService {
       now: this.clock(),
     });
     return publicProposal(proposal);
+  }
+
+  async mapResidentProposalToDraft(auth, data) {
+    validateOperatorAuth(auth);
+    const requiredKeys = [
+      'proposalId', 'templateId', 'version', 'deadline', 'locationReference', 'commandId',
+    ];
+    assertOnlyKeys(data, requiredKeys);
+    if (requiredKeys.some((key) => !Object.prototype.hasOwnProperty.call(data, key))) {
+      throw invalidArgument('Kolom pemetaan usulan tidak lengkap.');
+    }
+    if (typeof data.proposalId !== 'string' || !PROPOSAL_ID_PATTERN.test(data.proposalId)) {
+      throw invalidArgument('ID usulan tidak valid.');
+    }
+    if (typeof data.templateId !== 'string') {
+      throw invalidArgument('Template tugas tidak valid.');
+    }
+    const templateId = data.templateId.normalize('NFC').trim();
+    if (!/^[a-z][a-z0-9_-]{0,63}$/u.test(templateId) ||
+        !Number.isInteger(data.version) || data.version < 1) {
+      throw invalidArgument('Template tugas tidak valid.');
+    }
+    const commandId = requireRequestId(data.commandId);
+    const now = this.clock();
+    const deadline = parseMappingDeadline(data.deadline, now);
+    const locationReference = optionalLocationReference(data.locationReference);
+    const mappingFingerprint = sha256(JSON.stringify([
+      templateId, data.version, deadline.toISOString(), locationReference,
+    ]));
+    const result = await this.repository.mapProposalToDraft({
+      operatorUid: auth.operatorUid,
+      proposalId: data.proposalId,
+      templateId,
+      version: data.version,
+      deadline,
+      locationReference,
+      commandHash: sha256(commandId),
+      mappingFingerprint,
+      now,
+    });
+    return {
+      proposal: publicProposal(result.proposal),
+      campaign: publicMappedCampaign(result.campaign),
+    };
   }
 }
 
