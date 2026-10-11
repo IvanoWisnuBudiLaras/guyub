@@ -14,15 +14,18 @@ This matrix maps implementation behavior back to the Master PRD. It is intended 
 | AT-008 | Cached weather marked stale/timestamped | Disable network; inspect weather UI | Widget + E2E | Yes |
 | AT-009 | Forbidden PII absent | Schema/input audit for NIK/full address/GPS | Static/review | Yes |
 | AT-010 | Evidence location metadata stripped | Server re-encodes a synthetic geotagged fixture; emulator inspects stored bytes and verifies direct resident read/write and Firestore metadata access are denied | Functions service + Storage emulator | Yes |
-| AT-011 | Evidence expires after 30 days | Seed an expired Firestore record and Storage object; run cleanup and assert physical deletion; inject a storage delete failure in the service test and assert retry-pending state | Functions service + Storage emulator | Yes |
+| AT-011 | Evidence expires after 30 days | Seed an expired Firestore record and Storage object; run cleanup and assert physical deletion; inject a storage delete failure and assert retry-pending state; overlap resident deletion with a pending upload and assert deletion waits, then succeeds after upload completion with failed object cleanup retained for retry | Functions service + Storage emulator | Yes |
 | AT-012 | Proposal maps only to a reviewed-template DRAFT | Submit hazardous proposal; RT selects an approved template and explicit slots; assert draft snapshot contains only template instructions, remains absent from resident active tasks, and requires a separate authorized activation | Functions emulator + Flutter | Yes |
 | AT-013 | Official escalation route exists | Configured per-RT HTTPS/telephone routes launch only after a tap; unconfigured, load-error, invalid-URI, and failed-handoff states expose no unsafe action | Flutter widget + Functions validation | Yes |
-| AT-014 | Proxy status supported | Authorized operator updates non-app resident status | Integration | Yes |
+| AT-014 | RT proxy status and profile recovery are safe | Same-RT operators can update proxy or self-enrolled profiles only after consent; conflicting resident choices are preserved; completion stays pending; uncertain proxy creation replays one persisted request; a 200-row cap is disclosed; incomplete deletion remains visible for retry | Functions Emulator + Flutter | Yes |
 | AT-015 | RT history and lifecycle events survive operator change | Create, activate, then explicitly close a task; replace the operator; verify CLOSED history and only event types/timestamps; confirm closure does not verify completion | Functions Emulator + Flutter | Yes |
 | AT-016 | WhatsApp summary is copy-only and active-only | Draft has no copy action; active copy contains locked safety/voluntary text and sends no message | Unit + widget | Yes |
 | AT-017 | Active campaign cancellation is authorized and audited | Same-RT operator cancels; exactly one audit event; replay is idempotent; resident list excludes it | Functions Emulator + widget | Yes |
 | AT-018 | Offline completion replays without a note | No-note completion is queued once, replayed idempotently, and remains pending RT verification | Unit + Functions Emulator | Yes |
 | AT-019 | Offline completion note is never queued | Nonempty note is rejected offline and absent from persistent outbox | Unit + widget | Yes |
+| AT-020 | Helper assignment is opt-in, private, and voluntary | Resident opts in; same-RT operator offers a pairing only to an opted-in helper; helper response hides household identity; decline/withdrawal is allowed; cross-RT and replay cases remain scoped/idempotent | Functions Emulator + Flutter | Yes |
+| AT-021 | RT-assisted resident-data deletion is scoped and retryable | Require same-RT operator, resident-request and pilot identity attestations; delete sessions/profile/responses/proposals/assignments/evidence; retain only privacy-safe audit and a minimal enrollment replay tombstone without resident/session identifiers; active upload leases block completion until expiry, then cleanup retries without reopening resident writes | Functions Emulator + Storage Emulator + Flutter | Yes |
+| AT-022 | Uncertain proxy creation is RT-bound and safely reconcilable | Cross-RT retry is blocked before the payload is shown; backend cancellation tombstones a missing create; concurrent create/cancel cannot both commit; confirmed creation clears only the local retry payload and leaves server data intact | Functions Emulator + Flutter | Yes |
 
 ---
 
@@ -60,12 +63,12 @@ This matrix maps implementation behavior back to the Master PRD. It is intended 
 
 | PRV | Scenario | Expected |
 |---|---|---|
-| P-01 | New resident profile | Only minimal documented fields persisted |
+| P-01 | New resident profile | Only minimal documented fields persisted, including an opt-in helper willingness flag; no sensitive details |
 | P-02 | Evidence photo contains EXIF GPS | Stored object has location metadata removed |
 | P-03 | Evidence becomes >30 days old | Scheduled deletion physically removes object |
-| P-04 | Same-device resident deletion | Only own scoped data can be requested/deleted |
-| P-05 | Lost device resident asks deletion | Authorized RT-assisted process available |
-| P-06 | UI shows vulnerable resident | No unnecessary public sensitive detail |
+| P-04 | Same-device resident deletion | Only own scoped data can be requested/deleted; full same-device profile/response/proposal deletion remains open |
+| P-05 | Lost device resident asks deletion | Same-RT RT-assisted server deletion requires resident-request and pilot-defined offline identity-check attestations; pilot procedure must be approved |
+| P-06 | UI shows vulnerable resident | RT-only profile display uses nickname/optional house number/assistance marker; no diagnosis or public household details |
 
 ---
 

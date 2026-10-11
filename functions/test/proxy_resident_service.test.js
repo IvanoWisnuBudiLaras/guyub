@@ -30,6 +30,10 @@ class FakeRepository {
       createdAt: input.now,
     };
   }
+  async cancelProxyResidentCreate(input) {
+    this.calls.push(['cancelProxyResidentCreate', input]);
+    return { state: 'CANCELLED' };
+  }
   async listProxyResidents(input) {
     this.calls.push(['listProxyResidents', input]);
     return { items: [], isPartial: false };
@@ -71,6 +75,7 @@ test('proxy profile stores only a nickname, optional house number and assistance
   assert.deepEqual(created, {
     residentId: proxyResidentDocumentId('rt-a', REQUEST_ID),
     nickname: 'Bu Sari', houseNumber: '12A', needsAssistance: true,
+    deletionPending: false,
     createdAt: NOW.toISOString(),
   });
   const call = repository.calls[0][1];
@@ -80,6 +85,17 @@ test('proxy profile stores only a nickname, optional house number and assistance
   assert.equal(call.requestHash.length, 64);
   assert.equal('rtId' in created, false);
   assert.equal(JSON.stringify(created).includes('operator-a'), false);
+});
+
+test('canceling an uncertain create is scoped and server-confirmed', async () => {
+  const { service, repository } = setup();
+  const result = await service.cancelPendingProxyResidentCreate(AUTH, { requestId: REQUEST_ID });
+  assert.deepEqual(result, { state: 'CANCELLED' });
+  const call = repository.calls[0];
+  assert.equal(call[0], 'cancelProxyResidentCreate');
+  assert.equal(call[1].expectedRtId, 'rt-a');
+  assert.equal(call[1].residentId, proxyResidentDocumentId('rt-a', REQUEST_ID));
+  assert.equal(call[1].requestHash.length, 64);
 });
 
 test('proxy profile input is bounded and rejects forbidden personal data and caller identity', async () => {

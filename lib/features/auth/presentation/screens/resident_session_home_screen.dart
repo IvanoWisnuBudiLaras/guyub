@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../application/resident_session.dart';
 import '../../application/resident_session_controller.dart';
+import '../../../assistance/application/assistance_volunteer_boundary.dart';
 import '../../../tasks/application/task_response_boundary.dart';
 import '../../../proposals/application/resident_proposal_boundary.dart';
 import '../../../weather/application/weather_snapshot_store.dart';
@@ -15,6 +16,7 @@ final class ResidentSessionHomeScreen extends StatelessWidget {
     this.taskResponseController,
     this.residentProposalController,
     this.weatherSnapshotStore,
+    this.assistanceVolunteerController,
     super.key,
   });
 
@@ -23,6 +25,7 @@ final class ResidentSessionHomeScreen extends StatelessWidget {
   final TaskResponseController? taskResponseController;
   final ResidentProposalController? residentProposalController;
   final WeatherSnapshotStore? weatherSnapshotStore;
+  final AssistanceVolunteerController? assistanceVolunteerController;
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -101,6 +104,17 @@ final class ResidentSessionHomeScreen extends StatelessWidget {
                           .pushNamed('/resident/tasks', arguments: session),
                   icon: const Icon(Icons.checklist),
                   label: const Text('Lihat Tugas Kesiapsiagaan'),
+                ),
+              ],
+              if (assistanceVolunteerController != null &&
+                  !session.isOfflineSnapshot) ...[
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  key: const Key('resident-assistance-volunteer'),
+                  onPressed: () => Navigator.of(context)
+                      .pushNamed('/resident/assistance', arguments: session),
+                  icon: const Icon(Icons.volunteer_activism_outlined),
+                  label: const Text('Kesediaan Membantu'),
                 ),
               ],
               if (residentProposalController != null &&

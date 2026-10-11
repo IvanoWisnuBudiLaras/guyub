@@ -21,8 +21,10 @@ import '../features/emergency/application/emergency_directory_controller.dart';
 import '../features/emergency/data/emergency_directory_cache.dart';
 import '../features/emergency/data/firebase_emergency_directory_boundary.dart';
 import '../features/tasks/application/task_campaign_boundary.dart';
+import '../features/assistance/application/assistance_volunteer_boundary.dart';
 import '../features/assistance/application/proxy_resident_boundary.dart';
 import '../features/assistance/data/firebase_proxy_resident_boundary.dart';
+import '../features/assistance/data/flutter_secure_proxy_create_request_store.dart';
 import '../features/tasks/application/task_response_boundary.dart';
 import '../features/tasks/data/firebase_task_campaign_boundary.dart';
 import '../features/tasks/data/firebase_task_response_boundary.dart';
@@ -46,6 +48,7 @@ Future<Widget> createBootstrapApp(
   EmergencyDirectoryController? emergencyDirectoryController,
   WeatherSnapshotStore? weatherSnapshotStore,
   ProxyResidentController? proxyResidentController,
+  AssistanceVolunteerController? assistanceVolunteerController,
 }) async {
   WidgetsFlutterBinding.ensureInitialized();
   AppConfig.initialize(config);
@@ -59,6 +62,7 @@ Future<Widget> createBootstrapApp(
     emergencyDirectoryController: emergencyDirectoryController,
     weatherSnapshotStore: weatherSnapshotStore,
     proxyResidentController: proxyResidentController,
+    assistanceVolunteerController: assistanceVolunteerController,
   );
 }
 
@@ -84,6 +88,7 @@ Future<void> bootstrap(AppConfig config) async {
   EmergencyDirectoryController? emergencyDirectoryController;
   WeatherSnapshotStore? weatherSnapshotStore;
   ProxyResidentController? proxyResidentController;
+  AssistanceVolunteerController? assistanceVolunteerController;
   OperatorAuthBoundary? operatorAuthBoundary;
   ResidentSessionController? residentSessionController;
   TaskCampaignBoundary? taskCampaignBoundary;
@@ -153,8 +158,14 @@ Future<void> bootstrap(AppConfig config) async {
           vault: residentVault,
         );
         taskCampaignBoundary = FirebaseTaskCampaignBoundary(functions);
+        final assistanceBoundary = FirebaseProxyResidentBoundary(functions);
         proxyResidentController = ProxyResidentController(
-          FirebaseProxyResidentBoundary(functions),
+          assistanceBoundary,
+          createRequestStore: FlutterSecureProxyCreateRequestStore(),
+        );
+        assistanceVolunteerController = AssistanceVolunteerController(
+          boundary: assistanceBoundary,
+          readSessionToken: residentVault.read,
         );
         final responseBoundary = FirebaseTaskResponseBoundary(functions);
         taskResponseController = TaskResponseController(
@@ -201,6 +212,7 @@ Future<void> bootstrap(AppConfig config) async {
       emergencyDirectoryController: emergencyDirectoryController,
       weatherSnapshotStore: weatherSnapshotStore,
       proxyResidentController: proxyResidentController,
+      assistanceVolunteerController: assistanceVolunteerController,
     ),
   );
 }

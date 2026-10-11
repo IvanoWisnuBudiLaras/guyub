@@ -7,7 +7,7 @@
     "node": "22"
   },
   "scripts": {
-    "test": "node --test test/*_service.test.js",
+    "test": "node --test test/*_service.test.js test/*_repository.test.js",
     "test:emulator": "cd .. && GUYUB_EVIDENCE_BUCKET=demo-guyub-functions.appspot.com FIREBASE_STORAGE_EMULATOR_HOST=127.0.0.1:9199 npx --yes firebase-tools@15.32.1 emulators:exec --project demo-guyub-functions --only auth,firestore,functions,storage \"cd functions && node --test --test-concurrency=1 test/*_emulator.test.js\""
   },
   "dependencies": {

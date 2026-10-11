@@ -1,16 +1,90 @@
 import 'dart:math';
 
-final _residentIdPattern = RegExp(r'^[a-f0-9]{40}$');
+import 'assistance_volunteer_boundary.dart';
+
+final _residentIdPattern = RegExp(
+  r'^(?:[a-f0-9]{40}|[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12})$',
+  caseSensitive: false,
+);
 final _taskIdPattern = RegExp(r'^[a-f0-9]{40}$');
 final _commandIdPattern = RegExp(r'^[A-Za-z0-9_-]{32,128}$');
 
+abstract interface class ProxyCreateRequestStore {
+  Future<PendingProxyResidentCreate?> read({required String communityId});
+  Future<void> write(PendingProxyResidentCreate request);
+  Future<void> clear();
+}
+
+final class ProxyCreateRequestScopeMismatch implements Exception {
+  const ProxyCreateRequestScopeMismatch();
+}
+
+final class PendingProxyResidentCreate {
+  const PendingProxyResidentCreate({
+    required this.communityId,
+    required this.requestId,
+    required this.nickname,
+    required this.houseNumber,
+    required this.needsAssistance,
+    required this.residentConsentConfirmed,
+  });
+
+  final String communityId;
+  final String requestId;
+  final String nickname;
+  final String? houseNumber;
+  final bool needsAssistance;
+  final bool residentConsentConfirmed;
+
+  bool matches({
+    required String nickname,
+    required String? houseNumber,
+    required bool needsAssistance,
+    required bool residentConsentConfirmed,
+  }) =>
+      this.nickname == nickname &&
+      this.houseNumber == houseNumber &&
+      this.needsAssistance == needsAssistance &&
+      this.residentConsentConfirmed == residentConsentConfirmed;
+}
+
+final class ProxyResidentList {
+  ProxyResidentList({
+    required List<ProxyResidentRecord> residents,
+    required this.isPartial,
+  }) : residents = List<ProxyResidentRecord>.unmodifiable(residents);
+
+  final List<ProxyResidentRecord> residents;
+  final bool isPartial;
+
+  factory ProxyResidentList.fromWire(Object? value) {
+    final wire = _strictMap(value);
+    _onlyKeys(wire, const {'items', 'isPartial'});
+    final items = wire['items'];
+    if (items is! List || items.length > 200 || wire['isPartial'] is! bool) {
+      throw const FormatException('Daftar warga tidak valid.');
+    }
+    final ids = <String>{};
+    final residents = items.map(ProxyResidentRecord.fromWire).toList();
+    if (residents.any((item) => !ids.add(item.residentId))) {
+      throw const FormatException('Daftar warga tidak valid.');
+    }
+    return ProxyResidentList(
+      residents: residents,
+      isPartial: wire['isPartial']! as bool,
+    );
+  }
+}
+
 abstract interface class ProxyResidentBoundary {
-  Future<List<ProxyResidentRecord>> listProxyResidents();
+  Future<ProxyResidentList> listProxyResidents();
 
   Future<ProxyTaskStatusRecord> getProxyTaskStatus({
     required String residentId,
     required String taskId,
   });
+
+  Future<String> cancelPendingProxyResidentCreate({required String requestId});
 
   Future<ProxyResidentRecord> createProxyResident({
     required String nickname,
@@ -24,6 +98,21 @@ abstract interface class ProxyResidentBoundary {
     required String residentId,
     required bool needsAssistance,
     required bool residentConsentConfirmed,
+    required String commandId,
+  });
+
+  Future<void> deleteResidentData({
+    required String residentId,
+    required bool residentRequestConfirmed,
+    required bool identityVerificationConfirmed,
+    required String commandId,
+  });
+
+  Future<VolunteerHelperList> listVolunteerHelpers();
+
+  Future<HelperAssignmentResult> createHelperAssignment({
+    required String residentId,
+    required String helperResidentId,
     required String commandId,
   });
 
@@ -43,6 +132,7 @@ final class ProxyResidentRecord {
     required this.nickname,
     required this.houseNumber,
     required this.needsAssistance,
+    this.deletionPending = false,
     required this.createdAt,
   });
 
@@ -50,6 +140,7 @@ final class ProxyResidentRecord {
   final String nickname;
   final String? houseNumber;
   final bool needsAssistance;
+  final bool deletionPending;
   final DateTime createdAt;
 
   factory ProxyResidentRecord.fromWire(Object? value) {
@@ -59,6 +150,7 @@ final class ProxyResidentRecord {
       'nickname',
       'houseNumber',
       'needsAssistance',
+      'deletionPending',
       'createdAt',
     });
     final residentId = _requiredString(wire['residentId']);
@@ -69,7 +161,8 @@ final class ProxyResidentRecord {
         (houseNumber != null &&
             (houseNumber is! String ||
                 !RegExp(r'^[A-Za-z0-9-]{1,12}$').hasMatch(houseNumber))) ||
-        wire['needsAssistance'] is! bool) {
+        wire['needsAssistance'] is! bool ||
+        wire['deletionPending'] is! bool) {
       throw const FormatException('Data warga tidak valid.');
     }
     return ProxyResidentRecord(
@@ -77,23 +170,9 @@ final class ProxyResidentRecord {
       nickname: nickname,
       houseNumber: houseNumber as String?,
       needsAssistance: wire['needsAssistance']! as bool,
+      deletionPending: wire['deletionPending']! as bool,
       createdAt: _requiredDate(wire['createdAt']),
     );
-  }
-
-  static List<ProxyResidentRecord> listFromWire(Object? value) {
-    final wire = _strictMap(value);
-    _onlyKeys(wire, const {'items', 'isPartial'});
-    final items = wire['items'];
-    if (items is! List || items.length > 200 || wire['isPartial'] is! bool) {
-      throw const FormatException('Daftar warga tidak valid.');
-    }
-    final ids = <String>{};
-    final result = items.map(ProxyResidentRecord.fromWire).toList();
-    if (result.any((item) => !ids.add(item.residentId))) {
-      throw const FormatException('Daftar warga tidak valid.');
-    }
-    return List<ProxyResidentRecord>.unmodifiable(result);
   }
 }
 
@@ -165,16 +244,25 @@ final class ProxyTaskStatusRecord {
 
 /// Keeps command IDs stable while a callable request is retried after failure.
 final class ProxyResidentController {
-  ProxyResidentController(this.boundary, {String Function()? idFactory})
-    : _idFactory = idFactory ?? _newOpaqueId;
+  ProxyResidentController(
+    this.boundary, {
+    String Function()? idFactory,
+    ProxyCreateRequestStore? createRequestStore,
+  }) : _idFactory = idFactory ?? _newOpaqueId,
+       _createRequestStore =
+           createRequestStore ?? _MemoryProxyCreateRequestStore();
 
   final ProxyResidentBoundary boundary;
   final String Function() _idFactory;
-  String? _createRequestId;
+  final ProxyCreateRequestStore _createRequestStore;
   final Map<String, String> _commandIds = {};
 
-  Future<List<ProxyResidentRecord>> listProxyResidents() =>
+  Future<ProxyResidentList> listProxyResidents() =>
       boundary.listProxyResidents();
+
+  Future<PendingProxyResidentCreate?> getPendingCreate({
+    required String communityId,
+  }) => _createRequestStore.read(communityId: communityId);
 
   Future<ProxyTaskStatusRecord> getProxyTaskStatus({
     required String residentId,
@@ -185,26 +273,57 @@ final class ProxyResidentController {
     return boundary.getProxyTaskStatus(residentId: residentId, taskId: taskId);
   }
 
+  Future<String> cancelPendingProxyResidentCreate({
+    required String communityId,
+  }) async {
+    final pending = await _createRequestStore.read(communityId: communityId);
+    if (pending == null) return 'NONE';
+    final state = await boundary.cancelPendingProxyResidentCreate(
+      requestId: pending.requestId,
+    );
+    if (state == 'CANCELLED' || state == 'CREATED' || state == 'DELETED') {
+      await _createRequestStore.clear();
+    }
+    return state;
+  }
+
   Future<ProxyResidentRecord> createProxyResident({
+    required String communityId,
     required String nickname,
     required String? houseNumber,
     required bool needsAssistance,
     required bool residentConsentConfirmed,
   }) async {
-    final requestId = _createRequestId ??= _validId(_idFactory());
-    try {
-      final result = await boundary.createProxyResident(
+    var pending = await _createRequestStore.read(communityId: communityId);
+    if (pending == null) {
+      pending = PendingProxyResidentCreate(
+        communityId: communityId,
+        requestId: _validId(_idFactory()),
         nickname: nickname,
         houseNumber: houseNumber,
         needsAssistance: needsAssistance,
         residentConsentConfirmed: residentConsentConfirmed,
-        requestId: requestId,
       );
-      _createRequestId = null;
-      return result;
-    } catch (_) {
-      rethrow;
+      await _createRequestStore.write(pending);
+    } else if (!pending.matches(
+      nickname: nickname,
+      houseNumber: houseNumber,
+      needsAssistance: needsAssistance,
+      residentConsentConfirmed: residentConsentConfirmed,
+    )) {
+      throw StateError(
+        'An uncertain resident create must be retried with its original data.',
+      );
     }
+    final result = await boundary.createProxyResident(
+      nickname: pending.nickname,
+      houseNumber: pending.houseNumber,
+      needsAssistance: pending.needsAssistance,
+      residentConsentConfirmed: pending.residentConsentConfirmed,
+      requestId: pending.requestId,
+    );
+    await _createRequestStore.clear();
+    return result;
   }
 
   Future<ProxyAssistanceUpdate> updateProxyAssistance({
@@ -230,6 +349,48 @@ final class ProxyResidentController {
     } catch (_) {
       rethrow;
     }
+  }
+
+  Future<void> deleteResidentData({
+    required String residentId,
+    required bool residentRequestConfirmed,
+    required bool identityVerificationConfirmed,
+  }) async {
+    _requireId(residentId, _residentIdPattern, 'residentId');
+    final commandId = _commandIds.putIfAbsent(
+      'delete:$residentId',
+      () => _validId(_idFactory()),
+    );
+    await boundary.deleteResidentData(
+      residentId: residentId,
+      residentRequestConfirmed: residentRequestConfirmed,
+      identityVerificationConfirmed: identityVerificationConfirmed,
+      commandId: commandId,
+    );
+    _commandIds.remove('delete:$residentId');
+  }
+
+  Future<VolunteerHelperList> listVolunteerHelpers() =>
+      boundary.listVolunteerHelpers();
+
+  Future<HelperAssignmentResult> createHelperAssignment({
+    required String residentId,
+    required String helperResidentId,
+  }) async {
+    _requireId(residentId, _residentIdPattern, 'residentId');
+    _requireId(helperResidentId, _residentIdPattern, 'helperResidentId');
+    final key = 'assignment:$residentId:$helperResidentId';
+    final commandId = _commandIds.putIfAbsent(
+      key,
+      () => _validId(_idFactory()),
+    );
+    final result = await boundary.createHelperAssignment(
+      residentId: residentId,
+      helperResidentId: helperResidentId,
+      commandId: commandId,
+    );
+    _commandIds.remove(key);
+    return result;
   }
 
   Future<ProxyTaskStatusRecord> updateProxyTaskStatus({
@@ -310,6 +471,30 @@ DateTime _requiredDate(Object? value) {
     throw const FormatException('Waktu warga tidak valid.');
   }
   return result;
+}
+
+final class _MemoryProxyCreateRequestStore implements ProxyCreateRequestStore {
+  PendingProxyResidentCreate? _pending;
+
+  @override
+  Future<PendingProxyResidentCreate?> read({
+    required String communityId,
+  }) async {
+    if (_pending != null && _pending!.communityId != communityId) {
+      throw const ProxyCreateRequestScopeMismatch();
+    }
+    return _pending;
+  }
+
+  @override
+  Future<void> write(PendingProxyResidentCreate request) async {
+    _pending = request;
+  }
+
+  @override
+  Future<void> clear() async {
+    _pending = null;
+  }
 }
 
 String _newOpaqueId() {

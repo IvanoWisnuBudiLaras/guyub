@@ -1362,6 +1362,31 @@ Task history remains accessible after operator account changes.
 **Then** the note is not persisted or queued
 **And** the UI clearly asks the resident to retry while online.
 
+AT-020 — Helper assignment is opt-in, private, and voluntary
+**Given** a same-RT resident has explicitly opted in as a helper
+**When** an authorized RT operator offers an assistance pairing
+**Then** the backend verifies the helper's opt-in and the target household's RT scope
+**And** the helper sees no household identity in the app
+**And** the helper may accept, decline, or withdraw without penalty
+**And** retries do not create duplicate active pairings.
+
+AT-021 — RT-assisted resident-data deletion is scoped and retryable
+**Given** an authorized RT operator has confirmed the resident's deletion request and completed the pilot-defined offline identity check
+**When** the operator requests deletion
+**Then** the backend deletes scoped resident sessions, profile, responses, proposals, assistance assignments, and evidence objects
+**And** shared campaign history remains
+**And** the retained audit contains no raw resident identifier
+**And** incomplete storage cleanup blocks other resident changes and remains discoverable for retry
+**And** the enrollment request retains only a minimal RT-scoped replay tombstone, with no resident/session identifier or nickname.
+
+AT-022 — Uncertain proxy creation is RT-bound and safely reconcilable
+**Given** an operator has a secure local retry record for a proxy creation request
+**When** a different RT context is active
+**Then** the request payload is not displayed or retried
+**And** same-RT cancellation is allowed only after the server confirms the profile was not created
+**And** a concurrent create/cancel race produces either one created profile or one cancellation tombstone, never both
+**And** when the server confirms the profile exists, the local retry payload is cleared without deleting server data.
+
 ---
 
 # 23. Test strategy

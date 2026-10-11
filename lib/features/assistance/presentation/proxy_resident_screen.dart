@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../auth/application/operator_profile.dart';
 import '../../tasks/application/task_campaign_boundary.dart';
+import '../application/assistance_volunteer_boundary.dart';
 import '../application/proxy_resident_boundary.dart';
 
 /// RT-only list and proxy status workflow for residents without app access.
@@ -22,8 +23,17 @@ final class ProxyResidentScreen extends StatefulWidget {
 }
 
 final class _ProxyPageData {
-  const _ProxyPageData({required this.residents, required this.tasks});
+  const _ProxyPageData({
+    required this.residents,
+    required this.isPartial,
+    required this.helpers,
+    required this.helperLoadFailed,
+    required this.tasks,
+  });
   final List<ProxyResidentRecord> residents;
+  final bool isPartial;
+  final VolunteerHelperList helpers;
+  final bool helperLoadFailed;
   final List<ActiveTaskCampaignRecord> tasks;
 }
 
@@ -37,7 +47,14 @@ final class _ProxyResidentScreenState extends State<ProxyResidentScreen> {
   }
 
   Future<_ProxyPageData> _loadPage() async {
-    final residents = await widget.controller.listProxyResidents();
+    final residentPage = await widget.controller.listProxyResidents();
+    var helpers = VolunteerHelperList(items: const [], isPartial: false);
+    var helperLoadFailed = false;
+    try {
+      helpers = await widget.controller.listVolunteerHelpers();
+    } catch (_) {
+      helperLoadFailed = true;
+    }
     final campaignController = widget.taskCampaignController;
     final taskBoundary = campaignController?.boundary;
     final tasks =
@@ -45,7 +62,13 @@ final class _ProxyResidentScreenState extends State<ProxyResidentScreen> {
             taskBoundary is TaskCampaignManagementBoundary
         ? await campaignController.listActiveTaskCampaigns()
         : const <ActiveTaskCampaignRecord>[];
-    return _ProxyPageData(residents: residents, tasks: tasks);
+    return _ProxyPageData(
+      residents: residentPage.residents,
+      isPartial: residentPage.isPartial,
+      helpers: helpers,
+      helperLoadFailed: helperLoadFailed,
+      tasks: tasks,
+    );
   }
 
   void _reload() {
@@ -55,15 +78,42 @@ final class _ProxyResidentScreenState extends State<ProxyResidentScreen> {
   }
 
   Future<void> _createProxyResident() async {
+    PendingProxyResidentCreate? pending;
+    try {
+      pending = await widget.controller.getPendingCreate(
+        communityId: widget.profile.communityId,
+      );
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              error is ProxyCreateRequestScopeMismatch
+                  ? 'Permintaan tersimpan terkait RT lain. Kembali ke RT asal untuk menyelesaikannya.'
+                  : 'Permintaan tersimpan belum dapat dibaca dengan aman.',
+            ),
+          ),
+        );
+      }
+      return;
+    }
+    if (!mounted) return;
     final submitted = await showDialog<bool>(
       context: context,
       builder: (_) => _CreateProxyResidentDialog(
+        pending: pending,
+        onCancelPending: pending == null
+            ? null
+            : () => widget.controller.cancelPendingProxyResidentCreate(
+                communityId: widget.profile.communityId,
+              ),
         onSubmit:
             ({
               required nickname,
               required houseNumber,
               required needsAssistance,
             }) => widget.controller.createProxyResident(
+              communityId: widget.profile.communityId,
               nickname: nickname,
               houseNumber: houseNumber,
               needsAssistance: needsAssistance,
@@ -130,6 +180,197 @@ final class _ProxyResidentScreenState extends State<ProxyResidentScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Status bantuan belum dapat diperbarui.'),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _deleteResidentData(ProxyResidentRecord resident) async {
+    var residentRequestConfirmed = false;
+    var identityVerificationConfirmed = false;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text(
+            resident.deletionPending
+                ? 'Lanjutkan penghapusan data warga'
+                : 'Hapus data warga?',
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  resident.deletionPending
+                      ? 'Penghapusan data ${resident.nickname} belum selesai. '
+                            'Lanjutkan proses yang sama; akses warga tetap dibatasi.'
+                      : 'Data profil ${resident.nickname}, sesi warga, status tugas, '
+                            'usulan, penanda bantuan, dan foto bukti akan dihapus '
+                            'dari server. Riwayat kampanye RT tetap tersimpan.',
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'Alat ini tidak memulihkan identitas. Lanjutkan hanya setelah '
+                  'prosedur verifikasi identitas offline ditetapkan untuk pilot '
+                  'dan telah dilakukan.',
+                ),
+                CheckboxListTile(
+                  key: const Key('proxy-delete-request-consent'),
+                  contentPadding: EdgeInsets.zero,
+                  value: residentRequestConfirmed,
+                  onChanged: (value) => setDialogState(
+                    () => residentRequestConfirmed = value ?? false,
+                  ),
+                  title: const Text('Warga meminta penghapusan data.'),
+                  controlAffinity: ListTileControlAffinity.leading,
+                ),
+                CheckboxListTile(
+                  key: const Key('proxy-delete-identity-check'),
+                  contentPadding: EdgeInsets.zero,
+                  value: identityVerificationConfirmed,
+                  onChanged: (value) => setDialogState(
+                    () => identityVerificationConfirmed = value ?? false,
+                  ),
+                  title: const Text(
+                    'Verifikasi identitas offline sudah dilakukan.',
+                  ),
+                  controlAffinity: ListTileControlAffinity.leading,
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Batal'),
+            ),
+            FilledButton(
+              key: const Key('proxy-delete-confirm'),
+              onPressed:
+                  residentRequestConfirmed && identityVerificationConfirmed
+                  ? () => Navigator.of(dialogContext).pop(true)
+                  : null,
+              child: const Text('Hapus data'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    try {
+      await widget.controller.deleteResidentData(
+        residentId: resident.residentId,
+        residentRequestConfirmed: true,
+        identityVerificationConfirmed: true,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Data warga telah dihapus dari server.'),
+          ),
+        );
+        _reload();
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Penghapusan belum selesai. Data warga dibatasi sementara; '
+              'periksa koneksi lalu coba lagi.',
+            ),
+          ),
+        );
+        _reload();
+      }
+    }
+  }
+
+  Future<void> _assignHelper(
+    ProxyResidentRecord resident,
+    VolunteerHelperList helpers,
+  ) async {
+    if (helpers.items.isEmpty) return;
+    VolunteerHelperRecord? selected = helpers.items.first;
+    final selectedHelper = await showDialog<VolunteerHelperRecord>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Tawarkan bantuan sukarela'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Pilih relawan untuk ${resident.nickname}. Relawan sudah '
+                'menyatakan bersedia, tetapi tetap bebas menerima atau menolak '
+                'permintaan ini.',
+              ),
+              const SizedBox(height: 12),
+              if (helpers.isPartial)
+                const Text(
+                  'Daftar relawan dibatasi hingga 200 orang dan belum lengkap.',
+                ),
+              DropdownButtonFormField<String>(
+                key: const Key('proxy-helper-picker'),
+                initialValue: selected?.residentId,
+                decoration: const InputDecoration(labelText: 'Relawan'),
+                items: [
+                  for (final helper in helpers.items)
+                    DropdownMenuItem(
+                      value: helper.residentId,
+                      child: Text(
+                        '${helper.nickname} · ${helper.residentId.substring(36)}',
+                      ),
+                    ),
+                ],
+                onChanged: (value) => setDialogState(() {
+                  selected = helpers.items.firstWhere(
+                    (helper) => helper.residentId == value,
+                  );
+                }),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Batal'),
+            ),
+            FilledButton(
+              key: const Key('proxy-helper-assign-confirm'),
+              onPressed: selected == null
+                  ? null
+                  : () => Navigator.of(dialogContext).pop(selected),
+              child: const Text('Kirim permintaan'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (selectedHelper == null || !mounted) return;
+    try {
+      await widget.controller.createHelperAssignment(
+        residentId: resident.residentId,
+        helperResidentId: selectedHelper.residentId,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Permintaan bantuan dikirim. Relawan dapat menerima atau menolak.',
+            ),
+          ),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Permintaan belum tersimpan atau pasangan sudah aktif.',
+            ),
           ),
         );
       }
@@ -221,6 +462,33 @@ final class _ProxyResidentScreenState extends State<ProxyResidentScreen> {
                   ),
                 ),
               ),
+              if (data.helperLoadFailed) ...[
+                const SizedBox(height: 12),
+                const Card(
+                  child: Padding(
+                    padding: EdgeInsets.all(16),
+                    child: Text(
+                      'Daftar relawan belum dapat dimuat. Status warga tetap '
+                      'tersedia; coba muat ulang sebelum memasangkan relawan.',
+                    ),
+                  ),
+                ),
+              ],
+              if (data.isPartial) ...[
+                const SizedBox(height: 12),
+                const Card(
+                  key: Key('proxy-resident-partial-warning'),
+                  color: Color(0xFFFFF1D6),
+                  child: Padding(
+                    padding: EdgeInsets.all(16),
+                    child: Text(
+                      'Menampilkan 200 warga pertama. Daftar belum lengkap; '
+                      'warga lain mungkin tidak terlihat atau dapat dipilih. '
+                      'Jangan anggap ini daftar penuh.',
+                    ),
+                  ),
+                ),
+              ],
               const SizedBox(height: 12),
               FilledButton.icon(
                 key: const Key('proxy-resident-create'),
@@ -233,7 +501,7 @@ final class _ProxyResidentScreenState extends State<ProxyResidentScreen> {
                 const Padding(
                   padding: EdgeInsets.symmetric(vertical: 24),
                   child: Text(
-                    'Belum ada warga yang dicatat sebagai warga tanpa aplikasi.',
+                    'Belum ada profil warga di RT ini.',
                     key: Key('proxy-resident-empty'),
                     textAlign: TextAlign.center,
                   ),
@@ -243,12 +511,16 @@ final class _ProxyResidentScreenState extends State<ProxyResidentScreen> {
                   _ProxyResidentCard(
                     key: ValueKey(resident.residentId),
                     resident: resident,
+                    helpers: data.helpers,
                     tasks: data.tasks,
                     canUpdateTasks:
+                        !resident.deletionPending &&
                         widget.taskCampaignController != null &&
                         widget.taskCampaignController!.boundary
                             is TaskCampaignManagementBoundary,
                     onUpdateAssistance: () => _updateAssistance(resident),
+                    onAssignHelper: () => _assignHelper(resident, data.helpers),
+                    onDelete: () => _deleteResidentData(resident),
                     onLoadTaskStatus: (taskId) =>
                         widget.controller.getProxyTaskStatus(
                           residentId: resident.residentId,
@@ -272,8 +544,14 @@ final class _ProxyResidentScreenState extends State<ProxyResidentScreen> {
 }
 
 final class _CreateProxyResidentDialog extends StatefulWidget {
-  const _CreateProxyResidentDialog({required this.onSubmit});
+  const _CreateProxyResidentDialog({
+    required this.onSubmit,
+    this.onCancelPending,
+    this.pending,
+  });
 
+  final PendingProxyResidentCreate? pending;
+  final Future<String> Function()? onCancelPending;
   final Future<void> Function({
     required String nickname,
     required String? houseNumber,
@@ -289,17 +567,87 @@ final class _CreateProxyResidentDialog extends StatefulWidget {
 final class _CreateProxyResidentDialogState
     extends State<_CreateProxyResidentDialog> {
   final _formKey = GlobalKey<FormState>();
-  final _nickname = TextEditingController();
-  final _houseNumber = TextEditingController();
-  bool _needsAssistance = false;
-  bool _consentConfirmed = false;
+  late final TextEditingController _nickname;
+  late final TextEditingController _houseNumber;
+  late bool _needsAssistance;
+  late bool _consentConfirmed;
   bool _busy = false;
+
+  bool get _isRetry => widget.pending != null;
+
+  @override
+  void initState() {
+    super.initState();
+    final pending = widget.pending;
+    _nickname = TextEditingController(text: pending?.nickname ?? '');
+    _houseNumber = TextEditingController(text: pending?.houseNumber ?? '');
+    _needsAssistance = pending?.needsAssistance ?? false;
+    _consentConfirmed = pending?.residentConsentConfirmed ?? false;
+  }
 
   @override
   void dispose() {
     _nickname.dispose();
     _houseNumber.dispose();
     super.dispose();
+  }
+
+  Future<void> _cancelPending() async {
+    final cancel = widget.onCancelPending;
+    if (cancel == null) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Batalkan permintaan tersimpan?'),
+        content: const Text(
+          'Server akan memastikan profil belum dibuat sebelum membatalkan. '
+          'Jika profil sudah dibuat, permintaan tetap tersimpan dan data warga '
+          'tidak akan dihapus otomatis.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Kembali'),
+          ),
+          FilledButton(
+            key: const Key('proxy-create-cancel-confirm'),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Periksa dan batalkan'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => _busy = true);
+    try {
+      final state = await cancel();
+      if (!mounted) return;
+      if (state == 'CANCELLED' || state == 'CREATED' || state == 'DELETED') {
+        final message = switch (state) {
+          'CANCELLED' => 'Permintaan dibatalkan sebelum profil dibuat.',
+          'CREATED' => 'Profil sudah dibuat dan tampil di daftar RT. Data server tidak dihapus.',
+          _ => 'Profil sudah dihapus dari server.',
+        };
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(message)));
+        Navigator.of(context).pop(true);
+        return;
+      }
+      setState(() => _busy = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Status permintaan belum dapat diperiksa.'),
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _busy = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Status permintaan belum dapat diperiksa. Coba lagi.'),
+        ),
+      );
+    }
   }
 
   Future<void> _submit() async {
@@ -327,16 +675,28 @@ final class _CreateProxyResidentDialogState
 
   @override
   Widget build(BuildContext context) => AlertDialog(
-    title: const Text('Catat warga tanpa aplikasi'),
+    title: Text(
+      _isRetry ? 'Kirim ulang pencatatan warga' : 'Catat warga tanpa aplikasi',
+    ),
     content: SingleChildScrollView(
       child: Form(
         key: _formKey,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            if (_isRetry)
+              const Padding(
+                padding: EdgeInsets.only(bottom: 12),
+                child: Text(
+                  'Permintaan sebelumnya belum mendapat konfirmasi server. '
+                  'Kirim ulang data yang sama agar tidak membuat duplikat.',
+                  key: Key('proxy-create-retry-notice'),
+                ),
+              ),
             TextFormField(
               key: const Key('proxy-nickname'),
               controller: _nickname,
+              readOnly: _isRetry,
               maxLength: 40,
               decoration: const InputDecoration(
                 labelText: 'Nama panggilan',
@@ -348,6 +708,7 @@ final class _CreateProxyResidentDialogState
             TextFormField(
               key: const Key('proxy-house-number'),
               controller: _houseNumber,
+              readOnly: _isRetry,
               maxLength: 12,
               decoration: const InputDecoration(
                 labelText: 'Nomor rumah (opsional)',
@@ -358,7 +719,7 @@ final class _CreateProxyResidentDialogState
               key: const Key('proxy-needs-assistance'),
               contentPadding: EdgeInsets.zero,
               value: _needsAssistance,
-              onChanged: _busy
+              onChanged: _busy || _isRetry
                   ? null
                   : (value) => setState(() => _needsAssistance = value),
               title: const Text('Perlu dukungan'),
@@ -370,18 +731,28 @@ final class _CreateProxyResidentDialogState
               key: const Key('proxy-consent-attestation'),
               contentPadding: EdgeInsets.zero,
               value: _consentConfirmed,
-              onChanged: _busy
+              onChanged: _busy || _isRetry
                   ? null
                   : (value) =>
                         setState(() => _consentConfirmed = value ?? false),
               controlAffinity: ListTileControlAffinity.leading,
-              title: const Text('Warga menyetujui pencatatan ini.'),
+              title: Text(
+                _isRetry
+                    ? 'Persetujuan awal tersimpan untuk permintaan ini.'
+                    : 'Warga menyetujui pencatatan ini.',
+              ),
             ),
           ],
         ),
       ),
     ),
     actions: [
+      if (_isRetry)
+        TextButton(
+          key: const Key('proxy-create-cancel-pending'),
+          onPressed: _busy ? null : _cancelPending,
+          child: const Text('Batalkan permintaan tersimpan'),
+        ),
       TextButton(
         onPressed: _busy ? null : () => Navigator.of(context).pop(false),
         child: const Text('Batal'),
@@ -398,18 +769,24 @@ final class _CreateProxyResidentDialogState
 final class _ProxyResidentCard extends StatefulWidget {
   const _ProxyResidentCard({
     required this.resident,
+    required this.helpers,
     required this.tasks,
     required this.canUpdateTasks,
     required this.onUpdateAssistance,
+    required this.onAssignHelper,
+    required this.onDelete,
     required this.onLoadTaskStatus,
     required this.onUpdateStatus,
     super.key,
   });
 
   final ProxyResidentRecord resident;
+  final VolunteerHelperList helpers;
   final List<ActiveTaskCampaignRecord> tasks;
   final bool canUpdateTasks;
   final VoidCallback onUpdateAssistance;
+  final VoidCallback onAssignHelper;
+  final VoidCallback onDelete;
   final Future<ProxyTaskStatusRecord> Function(String taskId) onLoadTaskStatus;
   final void Function(String taskId, String participation, bool completed)
   onUpdateStatus;
@@ -622,7 +999,8 @@ final class _ProxyResidentCardState extends State<_ProxyResidentCard> {
                     style: theme.textTheme.titleLarge,
                   ),
                 ),
-                if (widget.resident.needsAssistance)
+                if (!widget.resident.deletionPending &&
+                    widget.resident.needsAssistance)
                   const Chip(
                     key: Key('proxy-assistance-marker'),
                     label: Text('Perlu dukungan'),
@@ -630,16 +1008,53 @@ final class _ProxyResidentCardState extends State<_ProxyResidentCard> {
                   ),
               ],
             ),
-            if (widget.resident.houseNumber != null)
+            if (widget.resident.deletionPending)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8),
+                child: Text(
+                  'Penghapusan sedang diproses. Perubahan lain dinonaktifkan.',
+                  key: Key('proxy-deletion-pending'),
+                ),
+              ),
+            if (!widget.resident.deletionPending &&
+                widget.resident.houseNumber != null)
               Text('Nomor rumah ${widget.resident.houseNumber}'),
             TextButton.icon(
               key: const Key('proxy-assistance-toggle'),
-              onPressed: widget.onUpdateAssistance,
+              onPressed: widget.resident.deletionPending
+                  ? null
+                  : widget.onUpdateAssistance,
               icon: const Icon(Icons.edit_outlined),
               label: Text(
                 widget.resident.needsAssistance
                     ? 'Perbarui penanda dukungan'
                     : 'Catat kebutuhan dukungan',
+              ),
+            ),
+            if (!widget.resident.deletionPending &&
+                widget.resident.needsAssistance)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  key: const Key('proxy-helper-assign'),
+                  onPressed: widget.helpers.items.isEmpty
+                      ? null
+                      : widget.onAssignHelper,
+                  icon: const Icon(Icons.handshake_outlined),
+                  label: const Text('Tawarkan bantuan relawan'),
+                ),
+              ),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                key: const Key('proxy-resident-delete'),
+                onPressed: widget.onDelete,
+                icon: const Icon(Icons.delete_outline),
+                label: Text(
+                  widget.resident.deletionPending
+                      ? 'Lanjutkan penghapusan'
+                      : 'Hapus data warga',
+                ),
               ),
             ),
             const Divider(),
