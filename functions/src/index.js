@@ -1,14 +1,18 @@
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { initializeApp, getApps } = require('firebase-admin/app');
 const { getFirestore } = require('firebase-admin/firestore');
+const { getStorage } = require('firebase-admin/storage');
+const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { FirestoreResidentSessionRepository } = require('./firestore_resident_session_repository');
 const { FirestoreTaskCampaignRepository } = require('./firestore_task_campaign_repository');
 const { FirestoreTaskResponseRepository } = require('./firestore_task_response_repository');
+const { FirestoreTaskEvidenceRepository } = require('./firestore_task_evidence_repository');
 const { FirestoreResidentProposalRepository } = require('./firestore_resident_proposal_repository');
 const { FirestoreEmergencyDirectoryRepository } = require('./firestore_emergency_directory_repository');
 const { ResidentSessionService, SessionServiceError } = require('./resident_session_service');
 const { TaskCampaignService, TaskCampaignError } = require('./task_campaign_service');
 const { TaskResponseService } = require('./task_response_service');
+const { TaskEvidenceService } = require('./task_evidence_service');
 const { ResidentProposalService, ResidentProposalError } = require('./resident_proposal_service');
 const { EmergencyDirectoryService, EmergencyDirectoryError } = require('./emergency_directory_service');
 const { protectedCallableOptions } = require('./callable_options');
@@ -34,7 +38,41 @@ const emergencyDirectory = new EmergencyDirectoryService(
   new FirestoreEmergencyDirectoryRepository(firestore),
   sessions,
 );
+const taskEvidenceStorage = {
+  assertConfigured() {
+    evidenceBucket();
+  },
+  async save(storagePath, bytes, options) {
+    const bucket = evidenceBucket();
+    await bucket.file(storagePath).save(bytes, {
+      resumable: false,
+      metadata: {
+        contentType: options.contentType,
+        cacheControl: options.cacheControl,
+        metadata: { evidenceId: options.evidenceId },
+      },
+    });
+  },
+  async delete(storagePath) {
+    await evidenceBucket().file(storagePath).delete({ ignoreNotFound: true });
+  },
+  async read(storagePath) {
+    const [bytes] = await evidenceBucket().file(storagePath).download();
+    return bytes;
+  },
+};
+const taskEvidence = new TaskEvidenceService(
+  new FirestoreTaskEvidenceRepository(firestore),
+  sessions,
+  taskEvidenceStorage,
+);
 const callableOptions = protectedCallableOptions();
+const evidenceUploadOptions = {
+  ...callableOptions,
+  maxInstances: 5,
+  timeoutSeconds: 120,
+  memory: '1GiB',
+};
 
 exports.createResidentSession = onCall(callableOptions, async (request) => {
   try {
@@ -145,6 +183,38 @@ exports.submitTaskCompletion = onCall(callableOptions, async (request) => {
   }
 });
 
+exports.uploadResidentTaskEvidence = onCall(evidenceUploadOptions, async (request) => {
+  try {
+    return await taskEvidence.uploadResidentEvidence(request.data);
+  } catch (error) {
+    throw toHttpsError(error);
+  }
+});
+
+exports.deleteResidentTaskEvidence = onCall(callableOptions, async (request) => {
+  try {
+    return await taskEvidence.deleteResidentEvidence(request.data);
+  } catch (error) {
+    throw toHttpsError(error);
+  }
+});
+
+exports.getTaskEvidenceForVerification = onCall(callableOptions, async (request) => {
+  try {
+    return await taskEvidence.getEvidenceForOperator(operatorAuth(request), request.data);
+  } catch (error) {
+    throw toHttpsError(error);
+  }
+});
+
+exports.deleteExpiredTaskEvidence = onSchedule({
+  region: 'asia-southeast2',
+  schedule: 'every 24 hours',
+  timeZone: 'Etc/UTC',
+  maxInstances: 1,
+  timeoutSeconds: 120,
+}, async () => taskEvidence.deleteExpiredEvidence());
+
 exports.listPendingTaskVerifications = onCall(callableOptions, async (request) => {
   try {
     return await taskResponses.listPendingTaskVerifications(
@@ -202,6 +272,21 @@ exports.mapResidentProposalToDraft = onCall(callableOptions, async (request) => 
     throw toHttpsError(error);
   }
 });
+
+function evidenceBucket() {
+  const projectId = process.env.GCLOUD_PROJECT;
+  const bucketName = process.env.GUYUB_EVIDENCE_BUCKET ??
+    (process.env.FIREBASE_STORAGE_EMULATOR_HOST && projectId
+      ? `${projectId}.appspot.com`
+      : null);
+  if (typeof bucketName !== 'string' || bucketName.trim().length === 0) {
+    throw new TaskCampaignError(
+      'failed-precondition',
+      'Penyimpanan bukti belum dikonfigurasi.',
+    );
+  }
+  return getStorage().bucket(bucketName.trim());
+}
 
 function operatorAuth(request) {
   return {

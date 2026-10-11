@@ -4,8 +4,10 @@ const {
   asDate,
 } = require('./task_campaign_service');
 const { responseDocumentId } = require('./task_response_service');
+const { residentScopeHash } = require('./task_evidence_service');
 
 const RESPONSE_COLLECTION = 'task_responses';
+const EVIDENCE_COLLECTION = 'task_evidence';
 const CAMPAIGN_COLLECTION = 'task_campaigns';
 const OPERATOR_COLLECTION = 'operators';
 const RESIDENT_COLLECTION = 'resident_profiles';
@@ -108,6 +110,7 @@ function responseView(snapshot) {
     completionNote: response.completionNote ?? null,
     completionSubmittedAt: response.completionSubmittedAt ?? null,
     verifiedAt: response.verifiedAt ?? null,
+    evidenceId: response.evidenceId ?? null,
   };
 }
 
@@ -207,12 +210,16 @@ class FirestoreTaskResponseRepository {
     const campaignRef = this.firestore.collection(CAMPAIGN_COLLECTION).doc(input.taskId);
     const responseId = responseDocumentId(input.rtId, input.taskId, input.residentId);
     const responseRef = this.firestore.collection(RESPONSE_COLLECTION).doc(responseId);
+    const evidenceRef = input.evidenceId == null
+      ? null
+      : this.firestore.collection(EVIDENCE_COLLECTION).doc(input.evidenceId);
 
     return this.firestore.runTransaction(async (transaction) => {
-      const [sessionSnapshot, residentSnapshot, campaignSnapshot, responseSnapshot] =
+      const [sessionSnapshot, residentSnapshot, campaignSnapshot, responseSnapshot, evidenceSnapshot] =
         await Promise.all([
           transaction.get(sessionRef), transaction.get(residentRef),
           transaction.get(campaignRef), transaction.get(responseRef),
+          evidenceRef ? transaction.get(evidenceRef) : Promise.resolve(null),
         ]);
       requireResidentSession(sessionSnapshot, residentSnapshot, input);
       requireCampaign(campaignSnapshot, input.taskId, input.rtId, { active: true });
@@ -226,11 +233,24 @@ class FirestoreTaskResponseRepository {
         throw fail('failed-precondition', 'Penyelesaian hanya tersedia untuk peserta yang ikut.');
       }
       if (existing.completionState === 'PENDING_RT_VERIFICATION') {
+        const sameOrExpiredEvidence = (existing.evidenceId ?? null) === (input.evidenceId ?? null) ||
+          existing.evidenceId == null;
         if (existing.completionCommandHash === input.commandHash &&
-            (existing.completionNote ?? null) === input.completionNote) {
+            (existing.completionNote ?? null) === input.completionNote && sameOrExpiredEvidence) {
           return responseView(responseSnapshot);
         }
         throw fail('failed-precondition', 'Penyelesaian sedang menunggu verifikasi RT.');
+      }
+      if (input.evidenceId != null) {
+        const evidence = evidenceSnapshot?.data();
+        const expiresAt = asDate(evidence?.expiresAt);
+        if (!evidenceSnapshot?.exists || evidence?.evidenceId !== input.evidenceId ||
+            evidence.rtId !== input.rtId || evidence.taskId !== input.taskId ||
+            evidence.responseId !== responseId ||
+            evidence.residentScopeHash !== residentScopeHash(input.rtId, input.residentId) ||
+            evidence.status !== 'READY' || !expiresAt || expiresAt <= input.now) {
+          throw fail('failed-precondition', 'Foto bukti tidak tersedia untuk tugas ini.');
+        }
       }
       if (existing.completionState !== 'NOT_SUBMITTED') {
         throw fail('failed-precondition', 'Status penyelesaian tidak dapat diubah.');
@@ -242,12 +262,14 @@ class FirestoreTaskResponseRepository {
         completionSubmittedAt: input.now,
         updatedAt: input.now,
       };
+      if (input.evidenceId != null) updated.evidenceId = input.evidenceId;
       transaction.update(responseRef, updated);
       return {
         ...responseView(responseSnapshot),
         completionState: updated.completionState,
         completionNote: updated.completionNote,
         completionSubmittedAt: updated.completionSubmittedAt,
+        evidenceId: input.evidenceId ?? null,
       };
     });
   }
@@ -292,6 +314,7 @@ class FirestoreTaskResponseRepository {
           nickname: resident.nickname,
           completionNote: response.completionNote ?? null,
           completionSubmittedAt: response.completionSubmittedAt ?? null,
+          evidenceId: response.evidenceId ?? null,
         };
       }).filter((item) => item !== null).sort((left, right) => {
         const leftTime = asDate(left.completionSubmittedAt)?.getTime() ?? 0;

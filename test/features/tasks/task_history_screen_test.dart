@@ -144,6 +144,7 @@ final class _RecapBoundary implements TaskResponseBoundary {
     required String taskId,
     required String? note,
     required String commandId,
+    String? evidenceId,
   }) => throw UnimplementedError();
 
   @override

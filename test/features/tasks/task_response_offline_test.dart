@@ -645,6 +645,7 @@ final class _FakeBoundary implements TaskResponseBoundary {
     required String taskId,
     required String? note,
     required String commandId,
+    String? evidenceId,
   }) async {
     completionCommandIds.add(commandId);
     completionNotes.add(note);

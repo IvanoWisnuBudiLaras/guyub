@@ -13,8 +13,8 @@ This matrix maps implementation behavior back to the Master PRD. It is intended 
 | AT-007 | Emergency info readable offline | Sync directory, disable network, open Darurat | E2E/manual/device | Yes |
 | AT-008 | Cached weather marked stale/timestamped | Disable network; inspect weather UI | Widget + E2E | Yes |
 | AT-009 | Forbidden PII absent | Schema/input audit for NIK/full address/GPS | Static/review | Yes |
-| AT-010 | Evidence location metadata stripped | Upload geotagged fixture, inspect stored file metadata | Integration | Yes |
-| AT-011 | Evidence expires after 30 days | Seed expired evidence; run cleanup; assert object deleted | Backend integration | Yes |
+| AT-010 | Evidence location metadata stripped | Server re-encodes a synthetic geotagged fixture; emulator inspects stored bytes and verifies direct resident read/write and Firestore metadata access are denied | Functions service + Storage emulator | Yes |
+| AT-011 | Evidence expires after 30 days | Seed an expired Firestore record and Storage object; run cleanup and assert physical deletion; inject a storage delete failure in the service test and assert retry-pending state | Functions service + Storage emulator | Yes |
 | AT-012 | Proposal maps only to a reviewed-template DRAFT | Submit hazardous proposal; RT selects an approved template and explicit slots; assert draft snapshot contains only template instructions, remains absent from resident active tasks, and requires a separate authorized activation | Functions emulator + Flutter | Yes |
 | AT-013 | Official escalation route exists | Configured per-RT HTTPS/telephone routes launch only after a tap; unconfigured, load-error, invalid-URI, and failed-handoff states expose no unsafe action | Flutter widget + Functions validation | Yes |
 | AT-014 | Proxy status supported | Authorized operator updates non-app resident status | Integration | Yes |
@@ -83,3 +83,5 @@ Some proposal goals require human validation and cannot be proven by automated t
 8. Can an RT handover preserve preparedness history without relying on the old leader’s phone?
 
 A pilot finding may change configuration and wording, but must not weaken the safety/privacy invariants without an explicit product decision.
+
+Phase 8 evidence emulator coverage is included in `functions/test/task_evidence_emulator.test.js`; this Java 17 host cannot run the Firebase CLI 15 emulator suite, which requires Java 21. CI uses Java 21. No production bucket, scheduled job, or billing change is configured.

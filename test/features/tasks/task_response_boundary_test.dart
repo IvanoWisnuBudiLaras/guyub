@@ -1,5 +1,8 @@
+import 'dart:typed_data';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:guyub/features/auth/application/resident_session_vault.dart';
+import 'package:guyub/features/evidence/application/task_evidence_boundary.dart';
 import 'package:guyub/features/tasks/application/task_response.dart';
 import 'package:guyub/features/tasks/application/task_response_boundary.dart';
 
@@ -68,6 +71,77 @@ void main() {
       expect(generated, 1);
     },
   );
+
+  test(
+    'evidence upload uses the secure session and never persists photo bytes',
+    () async {
+      final responseBoundary = _FakeBoundary();
+      final evidenceBoundary = _FakeEvidenceBoundary();
+      final controller = TaskResponseController(
+        boundary: responseBoundary,
+        evidenceBoundary: evidenceBoundary,
+        vault: _FakeVault('secret-session-token'),
+        commandIdFactory: () => 'upload-request-id'.padRight(40, 'x'),
+      );
+      final bytes = Uint8List.fromList([1, 2, 3, 4]);
+
+      final evidenceId = await controller.uploadEvidence(
+        taskId: 'task-a',
+        sanitizedJpegBytes: bytes,
+      );
+
+      expect(evidenceId, 'a' * 40);
+      expect(evidenceBoundary.sessionToken, 'secret-session-token');
+      expect(evidenceBoundary.uploadedBytes, bytes);
+      expect(evidenceBoundary.requestId, 'upload-request-id'.padRight(40, 'x'));
+    },
+  );
+
+  test('evidence deletion retries reuse the same command ID', () async {
+    final evidenceBoundary = _FakeEvidenceBoundary()..failNextDelete = true;
+    var generated = 0;
+    final controller = TaskResponseController(
+      boundary: _FakeBoundary(),
+      evidenceBoundary: evidenceBoundary,
+      vault: _FakeVault('secret-session-token'),
+      commandIdFactory: () => 'delete${generated++}'.padRight(40, 'x'),
+    );
+    await expectLater(
+      controller.deleteEvidence(evidenceId: 'b' * 40),
+      throwsStateError,
+    );
+    await controller.deleteEvidence(evidenceId: 'b' * 40);
+
+    expect(evidenceBoundary.deleteCommandIds, hasLength(2));
+    expect(
+      evidenceBoundary.deleteCommandIds.first,
+      evidenceBoundary.deleteCommandIds.last,
+    );
+    expect(generated, 1);
+  });
+
+  test('wire parsing accepts only opaque hexadecimal evidence IDs', () {
+    expect(
+      () => TaskResponseRecord.fromWire({
+        'taskId': 'task-a',
+        'participationState': 'JOINED',
+        'completionState': 'PENDING_RT_VERIFICATION',
+        'evidenceId': 'public-url',
+      }),
+      throwsFormatException,
+    );
+    expect(
+      () => TaskVerificationRecord.fromWire({
+        'responseId': 'response-a',
+        'taskId': 'task-a',
+        'taskTitle': 'Tugas',
+        'nickname': 'Warga',
+        'submittedAt': '2026-10-05T12:00:00.000Z',
+        'evidenceId': 'public-url',
+      }),
+      throwsFormatException,
+    );
+  });
 
   test('missing secure session fails before a resident call', () async {
     final boundary = _FakeBoundary();
@@ -194,6 +268,7 @@ final class _FakeBoundary implements TaskResponseBoundary {
     required String taskId,
     required String? note,
     required String commandId,
+    String? evidenceId,
   }) async {
     lastSessionToken = sessionToken;
     completionCommandIds.add(commandId);
@@ -236,4 +311,44 @@ final class _FakeBoundary implements TaskResponseBoundary {
         isPartial: false,
         taskTitle: 'Task',
       );
+}
+
+final class _FakeEvidenceBoundary implements TaskEvidenceBoundary {
+  String? sessionToken;
+  String? requestId;
+  Uint8List? uploadedBytes;
+  final List<String> deleteCommandIds = [];
+  bool failNextDelete = false;
+
+  @override
+  Future<String> uploadResidentTaskEvidence({
+    required String sessionToken,
+    required String taskId,
+    required String requestId,
+    required Uint8List sanitizedJpegBytes,
+  }) async {
+    this.sessionToken = sessionToken;
+    this.requestId = requestId;
+    uploadedBytes = sanitizedJpegBytes;
+    return 'a' * 40;
+  }
+
+  @override
+  Future<void> deleteResidentTaskEvidence({
+    required String sessionToken,
+    required String evidenceId,
+    required String commandId,
+  }) async {
+    this.sessionToken = sessionToken;
+    deleteCommandIds.add(commandId);
+    if (failNextDelete) {
+      failNextDelete = false;
+      throw StateError('offline');
+    }
+  }
+
+  @override
+  Future<Uint8List> getTaskEvidenceForVerification({
+    required String evidenceId,
+  }) async => Uint8List.fromList([1, 2, 3]);
 }
