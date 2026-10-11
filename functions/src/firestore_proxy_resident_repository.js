@@ -181,8 +181,7 @@ class FirestoreProxyResidentRepository {
       }
       const response = responseSnapshot.data();
       if (response.responseId !== responseId || response.taskId !== input.taskId ||
-          response.rtId !== operator.rtId || response.residentId !== input.residentId ||
-          response.proxyRecordedBy !== true) deny();
+          response.rtId !== operator.rtId || response.residentId !== input.residentId) deny();
       return responseView(responseSnapshot);
     });
   }
@@ -262,8 +261,7 @@ class FirestoreProxyResidentRepository {
       if (responseSnapshot.exists) {
         const current = responseSnapshot.data();
         if (current.responseId !== responseId || current.taskId !== input.taskId ||
-            current.rtId !== operator.rtId || current.residentId !== input.residentId ||
-            current.proxyRecordedBy !== true) deny();
+            current.rtId !== operator.rtId || current.residentId !== input.residentId) deny();
         if (auditSnapshot.exists) {
           if (proxyStatusAuditMatches(
             auditSnapshot.data(), input, operator, responseId, action,
