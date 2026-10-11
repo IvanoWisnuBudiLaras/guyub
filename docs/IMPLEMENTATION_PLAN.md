@@ -265,6 +265,8 @@ AT-010, AT-011.
 ## Deliverable
 RT history survives operator changes and the app is ready for controlled pilot.
 
+**Current status: PARTIAL.** The read-only RT-scoped history list, aggregate completion recap, and same-RT operator replacement emulator test are implemented. Operator membership provisioning remains trusted-admin work; no self-service transfer flow is added. Pilot configuration, accessibility, usability, and release validation remain open.
+
 ## Work items
 - historical task/event view,
 - confirm RT-owned persistence,

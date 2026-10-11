@@ -122,6 +122,16 @@ function randomRequestId() {
   return crypto.randomBytes(32).toString('base64url');
 }
 
+async function updateDocumentFields(collection, id, record) {
+  const masks = Object.keys(record)
+    .map((key) => `updateMask.fieldPaths=${encodeURIComponent(key)}`).join('&');
+  const result = await request('PATCH', `${documentUrl(collection, id)}?${masks}`, {
+    token: 'owner',
+    body: { fields: fields(record) },
+  });
+  assert.equal(result.status, 200, JSON.stringify(result.body));
+}
+
 async function readDocument(collection, id) {
   return request('GET', documentUrl(collection, id), { token: 'owner' });
 }
@@ -137,6 +147,7 @@ test('operator task callables enforce RT scope, reviewed templates, locked conte
   const inactive = await createAccount();
   const invalidRole = await createAccount();
   const noMembership = await createAccount();
+  const replacementOperator = await createAccount();
   const resident = await createAccount({ anonymous: true });
   await seedOperator(operatorA.localId, { rtId: 'rt-task-a' });
   await seedOperator(operatorB.localId, { rtId: 'rt-task-b' });
@@ -364,6 +375,35 @@ test('operator task callables enforce RT scope, reviewed templates, locked conte
   assert.deepEqual(residentTasksBeforeCancel.body.result.items.map((item) => item.taskId),
     [draft.campaignId]);
 
+  const historyJoin = await callFunction('recordResidentTaskResponse', {
+    sessionToken: residentSession.body.result.sessionToken,
+    taskId: draft.campaignId,
+    choice: 'JOINED',
+    commandId: randomRequestId(),
+  });
+  assert.equal(historyJoin.status, 200, JSON.stringify(historyJoin.body));
+  const historyCompletion = await callFunction('submitTaskCompletion', {
+    sessionToken: residentSession.body.result.sessionToken,
+    taskId: draft.campaignId,
+    note: null,
+    commandId: randomRequestId(),
+  });
+  assert.equal(historyCompletion.status, 200, JSON.stringify(historyCompletion.body));
+  assert.equal(historyCompletion.body.result.completionState, 'PENDING_RT_VERIFICATION');
+  const historyPending = await callFunction('listPendingTaskVerifications', {}, operatorA.idToken);
+  assert.equal(historyPending.status, 200, JSON.stringify(historyPending.body));
+  const historyPendingResponse = historyPending.body.result.items.find(
+    (item) => item.taskId === draft.campaignId,
+  );
+  assert.ok(historyPendingResponse);
+  const historyResponseId = historyPendingResponse.responseId;
+  const historyVerification = await callFunction('verifyTaskCompletion', {
+    responseId: historyResponseId,
+    commandId: randomRequestId(),
+  }, operatorA.idToken);
+  assert.equal(historyVerification.status, 200, JSON.stringify(historyVerification.body));
+  assert.equal(historyVerification.body.result.completionState, 'VERIFIED_COMPLETE');
+
   const cancellationResults = await Promise.all([
     callFunction('cancelTaskCampaign', cancelPayload, operatorA.idToken),
     callFunction('cancelTaskCampaign', cancelPayload, operatorA.idToken),
@@ -411,6 +451,89 @@ test('operator task callables enforce RT scope, reviewed templates, locked conte
   assert.equal(residentTasksAfterCancel.status, 200, JSON.stringify(residentTasksAfterCancel.body));
   assert.deepEqual(residentTasksAfterCancel.body.result.items, []);
 
+  const historyTemplateId = 'history_safe_prep';
+  await seedTemplate({ templateId: historyTemplateId });
+  const additionalHistoryTaskIds = [];
+  for (let index = 0; index < 2; index += 1) {
+    const historyDraft = await callFunction('createTaskDraft', {
+      ...draftPayload,
+      templateId: historyTemplateId,
+      requestId: randomRequestId(),
+    }, operatorA.idToken);
+    assert.equal(historyDraft.status, 200, JSON.stringify(historyDraft.body));
+    const taskId = historyDraft.body.result.campaignId;
+    const historyActivation = await callFunction('activateTaskCampaign', {
+      campaignId: taskId,
+      commandId: randomRequestId(),
+    }, operatorA.idToken);
+    assert.equal(historyActivation.status, 200, JSON.stringify(historyActivation.body));
+    additionalHistoryTaskIds.push(taskId);
+  }
+
+  // Equal activation times exercise the campaignId DESC tie-breaker across page boundaries.
+  const sharedActivatedAt = new Date('2026-10-04T09:00:00.000Z');
+  for (const taskId of [draft.campaignId, ...additionalHistoryTaskIds]) {
+    await updateDocumentFields('task_campaigns', taskId, { activatedAt: sharedActivatedAt });
+  }
+  const expectedHistoryIds = [draft.campaignId, ...additionalHistoryTaskIds].sort().reverse();
+  const pagedHistoryIds = [];
+  const pagedHistoryTasks = [];
+  let historyCursor;
+  do {
+    const historyPage = await callFunction('listRtTaskHistory', {
+      pageSize: 1,
+      ...(historyCursor == null ? {} : { cursor: historyCursor }),
+    }, operatorA.idToken);
+    assert.equal(historyPage.status, 200, JSON.stringify(historyPage.body));
+    const historyResult = historyPage.body.result;
+    assert.equal(historyResult.tasks.length, 1);
+    const task = historyResult.tasks[0];
+    assert.deepEqual(Object.keys(task).sort(), [
+      'activatedAt', 'cancelledAt', 'deadline', 'locationReference', 'status',
+      'taskId', 'templateSnapshot',
+    ]);
+    assert.equal(task.activatedAt, sharedActivatedAt.toISOString());
+    assert.ok(['ACTIVE', 'CANCELLED'].includes(task.status));
+    assert.equal('rtId' in task, false);
+    assert.equal('actorUid' in task, false);
+    pagedHistoryIds.push(task.taskId);
+    pagedHistoryTasks.push(task);
+    assert.ok(pagedHistoryIds.length <= expectedHistoryIds.length);
+    historyCursor = historyResult.nextCursor;
+    if (historyCursor != null) assert.match(historyCursor, /^[A-Za-z0-9_-]{1,256}$/u);
+  } while (historyCursor != null);
+  assert.deepEqual(pagedHistoryIds, expectedHistoryIds);
+  assert.equal(new Set(pagedHistoryIds).size, pagedHistoryIds.length);
+  assertError(await callFunction('listRtTaskHistory', {}), 'PERMISSION_DENIED');
+  assertError(await callFunction('listRtTaskHistory', {}, resident.idToken), 'PERMISSION_DENIED');
+  assertError(await callFunction('listRtTaskHistory', {}, noMembership.idToken), 'PERMISSION_DENIED');
+  assertError(await callFunction('listRtTaskHistory', {}, inactive.idToken), 'PERMISSION_DENIED');
+  assertError(await callFunction('listRtTaskHistory', {}, invalidRole.idToken), 'PERMISSION_DENIED');
+  assert.equal(pagedHistoryTasks.filter((task) => task.status === 'CANCELLED').length, 1);
+  const cancelledHistoryTask = pagedHistoryTasks.find((task) => task.status === 'CANCELLED');
+  assert.ok(cancelledHistoryTask.cancelledAt);
+  assert.ok(pagedHistoryTasks.filter((task) => task.status === 'ACTIVE')
+    .every((task) => task.cancelledAt === null));
+  const historyForOperatorB = await callFunction('listRtTaskHistory', {}, operatorB.idToken);
+  assert.equal(historyForOperatorB.status, 200, JSON.stringify(historyForOperatorB.body));
+  assert.deepEqual(historyForOperatorB.body.result.tasks.map((task) => task.taskId), [foreignTaskId]);
+  for (const malformedInput of [
+    { pageSize: 0 },
+    { pageSize: 51 },
+    { rtId: 'rt-task-a' },
+    { actorUid: operatorA.localId },
+  ]) {
+    assertError(await callFunction('listRtTaskHistory', malformedInput, operatorA.idToken),
+      'INVALID_ARGUMENT');
+  }
+
+  const recapBeforeReplacement = await callFunction('getTaskResponseRecap', {
+    taskId: draft.campaignId,
+  }, operatorA.idToken);
+  assert.equal(recapBeforeReplacement.status, 200, JSON.stringify(recapBeforeReplacement.body));
+  assert.equal(recapBeforeReplacement.body.result.taskId, draft.campaignId);
+  assert.equal(recapBeforeReplacement.body.result.recordedResponseCount, 1);
+  assert.equal(recapBeforeReplacement.body.result.verifiedCompleteCount, 1);
   const auditId = `${draft.campaignId}_activated`;
   const audit = await readDocument('task_audit_events', auditId);
   assert.equal(audit.status, 200, JSON.stringify(audit.body));
@@ -452,6 +575,57 @@ test('operator task callables enforce RT scope, reviewed templates, locked conte
     commandId: randomRequestId(),
   }, operatorA.idToken);
   assertError(changedTemplateActivation, 'FAILED_PRECONDITION');
+
+  await seedOperator(replacementOperator.localId, { rtId: 'rt-task-a' });
+  await seedOperator(operatorA.localId, { rtId: 'rt-task-a', active: false });
+  assertError(await callFunction('listRtTaskHistory', {}, operatorA.idToken), 'PERMISSION_DENIED');
+  const replacementHistory = await callFunction(
+    'listRtTaskHistory', {}, replacementOperator.idToken,
+  );
+  assert.equal(replacementHistory.status, 200, JSON.stringify(replacementHistory.body));
+  assert.deepEqual(replacementHistory.body.result.tasks.map((task) => task.taskId),
+    expectedHistoryIds);
+  assert.equal(replacementHistory.body.result.nextCursor, null);
+  const replacementRecap = await callFunction('getTaskResponseRecap', {
+    taskId: draft.campaignId,
+  }, replacementOperator.idToken);
+  assert.equal(replacementRecap.status, 200, JSON.stringify(replacementRecap.body));
+  assert.equal(replacementRecap.body.result.taskTitle, 'Persiapan rumah tangga');
+  assert.equal(replacementRecap.body.result.recordedResponseCount, 1);
+  assert.equal(replacementRecap.body.result.verifiedCompleteCount, 1);
+  const retainedActivationAudit = await readDocument('task_audit_events', auditId);
+  assert.equal(retainedActivationAudit.status, 200, JSON.stringify(retainedActivationAudit.body));
+  assert.equal(retainedActivationAudit.body.fields.actorUid.stringValue, operatorA.localId);
+  assert.equal(retainedActivationAudit.body.fields.action.stringValue, 'CAMPAIGN_ACTIVATED');
+  const retainedCancellationAudit = await readDocument(
+    'task_audit_events', `${draft.campaignId}_cancelled`,
+  );
+  assert.equal(retainedCancellationAudit.status, 200, JSON.stringify(retainedCancellationAudit.body));
+  assert.equal(retainedCancellationAudit.body.fields.actorUid.stringValue, operatorA.localId);
+  assert.equal(retainedCancellationAudit.body.fields.action.stringValue, 'CAMPAIGN_CANCELLED');
+  const retainedVerificationAudit = await readDocument(
+    'task_audit_events', `${historyResponseId}_verified`,
+  );
+  assert.equal(retainedVerificationAudit.status, 200, JSON.stringify(retainedVerificationAudit.body));
+  assert.equal(retainedVerificationAudit.body.fields.rtId.stringValue, 'rt-task-a');
+  assert.equal(retainedVerificationAudit.body.fields.actorUid.stringValue, operatorA.localId);
+  assert.equal(retainedVerificationAudit.body.fields.action.stringValue,
+    'TASK_COMPLETION_VERIFIED');
+
+  const malformedTaskId = 'f'.repeat(40);
+  await seedDocument('task_campaigns', malformedTaskId, {
+    campaignId: malformedTaskId,
+    rtId: 'rt-task-a',
+    status: 'ACTIVE',
+    activatedAt: sharedActivatedAt,
+    deadline: new Date('2026-10-06T00:00:00.000Z'),
+  });
+  assertError(await callFunction('listRtTaskHistory', {}, replacementOperator.idToken),
+    'FAILED_PRECONDITION');
+  const malformedDelete = await request('DELETE', documentUrl('task_campaigns', malformedTaskId), {
+    token: 'owner',
+  });
+  assert.equal(malformedDelete.status, 200, JSON.stringify(malformedDelete.body));
 
   for (const collection of ['task_templates', 'task_campaigns', 'task_audit_events']) {
     const directRead = await request('GET', documentUrl(collection, draft.campaignId), {

@@ -42,6 +42,7 @@ Generate a random 12–32 character uppercase alphanumeric code with a cryptogra
 - `listActiveTaskCampaigns` requires a password-authenticated active operator and derives its RT from `/operators/{uid}`. It returns only ACTIVE campaigns for that RT, with the immutable template snapshot, deadline, and coarse location; it fails closed above the 200-item bound.
 - `cancelTaskCampaign` accepts only `taskId` and an idempotency `commandId`. The repository rechecks operator membership and RT scope, allows only ACTIVE → CANCELLED, hashes the command ID, and writes one deterministic RT-owned audit event. Same actor/command replay succeeds; conflicting commands and foreign/missing IDs do not disclose task existence.
 - Cancellation is available in the operator UI after explicit confirmation. It does not send an FCM/WhatsApp update; residents with offline queued commands may see a server conflict on their next refresh.
+- `listRtTaskHistory({pageSize?, cursor?})` uses active operator membership for scope; it never accepts client RT/actor IDs. Pages of 1–50 ACTIVE/CANCELLED campaigns are ordered by activation time and campaign ID, with immutable template snapshots and timestamps. Drafts and resident data are excluded. Same-RT replacement operators can read the same records; inactive/foreign operators cannot. The client links each record to the aggregate-only `getTaskResponseRecap`; no self-service operator-transfer flow or offline history cache is added.
 
 ## Resident task response and RT verification
 

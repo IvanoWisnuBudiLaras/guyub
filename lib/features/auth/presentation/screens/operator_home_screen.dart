@@ -82,6 +82,17 @@ final class OperatorHomeScreen extends StatelessWidget {
                   icon: const Icon(Icons.task_alt_outlined),
                   label: const Text('Tinjau Tugas Aktif'),
                 ),
+                if (taskCampaignBoundary is TaskCampaignHistoryBoundary) ...[
+                  const SizedBox(height: 12),
+                  OutlinedButton.icon(
+                    key: const Key('operator-task-history'),
+                    onPressed: () => Navigator.of(
+                      context,
+                    ).pushNamed('/operator/tasks/history', arguments: profile),
+                    icon: const Icon(Icons.history),
+                    label: const Text('Lihat Riwayat Tugas RT'),
+                  ),
+                ],
               ],
               if (taskResponseController != null) ...[
                 const SizedBox(height: 12),

@@ -15,7 +15,7 @@ This file reports repository evidence. It does not convert a domain unit test in
 | 6 — Proposals/assistance | PARTIAL | Callable resident proposal submission, same-RT operator queue, idempotent dismissal/audit, resident form, and review UI; dangerous wording remains proposal-only. | No safe-template draft mapping, official-report route, evidence, assistance/proxy status, or helper assignment. |
 | 7 — Offline/emergency mode | PARTIAL | Resident session restores a secure display-only profile on transient outages; authorized active-task snapshots use RT/resident-hashed cache keys; durable JOIN/DECLINE and no-note completion commands replay through callable Functions with conflicts preserved; cached task UI shows stale time/queue state; emergency directory uses a session-scoped callable and revisioned public offline cache; weather card shows the cached snapshot and both timestamps. Flutter unit/widget tests cover parsing, scope, cache, outbox, conflicts, and display; Functions Emulator tests verify session-derived directory scope and deny direct directory reads/writes. | Android airplane-mode/device validation, live BMKG adapter/refresh, trusted verified pilot directory values, and configured official routes remain external/release blockers. |
 | 8 — Evidence/data lifecycle | MISSING | — | No image processing, EXIF stripping, storage, expiry/delete job, or data deletion workflow. |
-| 9 — History/pilot hardening | MISSING | — | No RT-owned campaign history/handover, pilot configuration, accessibility or stakeholder validation. |
+| 9 — History/pilot hardening | PARTIAL | Paginated RT-owned task history and aggregate completion recap are callable-only; emulator test replaces an operator UID while preserving campaign, verified response, and audit records. Widget tests cover read-only history/pagination/recap. | Pilot configuration, local stakeholder review, accessibility, and physical handover/usability validation remain open. No self-service operator-transfer workflow is included. |
 
 ## Acceptance matrix
 
@@ -35,7 +35,7 @@ This file reports repository evidence. It does not convert a domain unit test in
 | AT-012 | VERIFIED | Functions unit/emulator tests and Flutter form tests show resident submission stays `SUBMITTED`, a risky proposal creates no campaign/ACTIVE task, and RT review can only dismiss. |
 | AT-013 | MISSING | No configured official reporting route. |
 | AT-014 | MISSING | No proxy update path. |
-| AT-015 | MISSING | No RT-owned persistent history/handover path. |
+| AT-015 | PARTIAL | `listRtTaskHistory` is paginated, derives scope from active operator membership, excludes DRAFT/resident-level data, and returns immutable snapshots/status/timestamps. Functions Emulator tests confirm same-RT replacement operator sees the same campaign and verified-completion recap/audit, old inactive operator and other RT stay isolated; Flutter tests cover read-only history, pagination and aggregate recap. Physical pilot handover/usability validation remains open. |
 | AT-016 | PARTIAL | Active-only formatter/widget tests verify locked template text, voluntary wording, no internal identifiers, and a copy-boundary call. Android clipboard behavior has not been device-tested; no message is sent. |
 | AT-017 | PARTIAL | Callable-only same-RT list/cancellation, hash-only command IDs, deterministic audit, concurrent/same-command replay, cross-RT denial, and canceled-task exclusion pass Functions service/Emulator tests; confirmation/navigation widget tests pass. Physical pilot usability validation remains open. |
 | AT-018 | PARTIAL | Offline no-note completion is queued with a stable idempotency key, replayed through the callable, and remains pending until RT verification; unit tests pass. Full emulator/device validation remains open. |
@@ -46,8 +46,8 @@ This file reports repository evidence. It does not convert a domain unit test in
 | ID | Status | Evidence / gap |
 |---|---|---|
 | S-01 | PARTIAL | Client reads/writes for templates, campaigns, responses, proposals, and audit remain denied. Emulator tests cover callable-only proposal/review, resident responses, operator membership, and direct proposal/task-response access denial. Other future workflows remain unimplemented. |
-| S-02 | PARTIAL | Campaign activation, response verification, and proposal review derive RT from trusted membership; cross-RT proposal review and task access are denied in Functions Emulator tests. Proxy and future workflows remain unimplemented. |
-| S-03 | PARTIAL | Resident enrollment, campaign mutations/cancellation, task responses, verification, proposal submission/dismissal, and offline task outbox use stable command IDs/state guards. The 35 Functions service tests and 6 Emulator integration tests pass, including cancellation replay/one-audit verification. Reminder/delivery idempotency remains unimplemented. |
+| S-02 | PARTIAL | Campaign activation, cancellation, history, response verification, and proposal review derive RT from trusted membership. Functions Emulator tests deny cross-RT history access and show a new UID with the same RT membership sees the persistent campaign/recap after the prior operator is deactivated. Proxy and future workflows remain unimplemented. |
+| S-03 | PARTIAL | Resident enrollment, campaign mutations/cancellation, task responses, verification, proposal submission/dismissal, and offline task outbox use stable command IDs/state guards. All 36 Functions service tests and 6 Emulator integration tests pass, including cancellation replay/one-audit and history replacement/pagination verification. Reminder/delivery idempotency remains unimplemented. |
 | S-04 | MISSING | No reminders/escalation scheduler. |
 | S-05 | VERIFIED | Functions emulator tests show malformed and unknown RT codes return the same generic permission error with no RT/resident disclosure. |
 | S-06 | PARTIAL | Resident task/proposal writes derive resident and RT from validated sessions and recheck scope in transactions; operator proposal review derives RT from trusted membership. Proxy and future workflows remain unimplemented. |
@@ -77,9 +77,9 @@ This file reports repository evidence. It does not convert a domain unit test in
 
 Commands run on this branch:
 
-- `./tool/verify.sh` — passed: Dart format, `flutter analyze`, all 125 Flutter tests, and `flutter build apk --debug`.
+- `./tool/verify.sh` — passed: Dart format, `flutter analyze`, all 134 Flutter tests, and `flutter build apk --debug`.
 - `./tool/test_firestore_rules.sh` — 5 Auth/Firestore Emulator authorization tests passed using a demo project only.
-- `./tool/test_functions.sh` — 35 Functions service tests and 6 Auth/Firestore/Functions Emulator integration tests passed using Node 22, Java 21, and demo projects.
+- `./tool/test_functions.sh` — 36 Functions service tests and 6 Auth/Firestore/Functions Emulator integration tests passed using Node 22, Java 21, and demo projects.
 - `npm ci --prefix functions` — completed and reported 0 vulnerabilities.
 - No Android device/emulator was available; no device-level visual check is claimed.
 

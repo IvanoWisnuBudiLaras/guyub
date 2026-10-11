@@ -96,6 +96,35 @@ abstract interface class TaskCampaignManagementBoundary {
   });
 }
 
+/// Optional callable capability for reading a server-derived RT task history.
+/// Kept separate so existing management fakes/implementations do not gain an
+/// accidental local or unscoped history implementation.
+abstract interface class TaskCampaignHistoryBoundary {
+  Future<RtTaskHistoryPage> listRtTaskHistory({
+    int pageSize = 25,
+    String? cursor,
+  });
+}
+
+/// History reads are exposed through the management boundary but supplied only
+/// by adapters that implement [TaskCampaignHistoryBoundary].
+extension TaskCampaignHistoryManagement on TaskCampaignManagementBoundary {
+  Future<RtTaskHistoryPage> listRtTaskHistory({
+    int pageSize = 25,
+    String? cursor,
+  }) {
+    _validateRtTaskHistoryRequest(pageSize: pageSize, cursor: cursor);
+    final historyBoundary = this;
+    if (historyBoundary is! TaskCampaignHistoryBoundary) {
+      throw StateError('RT task history is not available.');
+    }
+    return (historyBoundary as TaskCampaignHistoryBoundary).listRtTaskHistory(
+      pageSize: pageSize,
+      cursor: cursor,
+    );
+  }
+}
+
 /// An active task returned only by the RT-scoped callable endpoint.
 final class ActiveTaskCampaignRecord {
   const ActiveTaskCampaignRecord({
@@ -204,6 +233,157 @@ final class ActiveTaskCampaignRecord {
   }
 }
 
+/// One historical task from the server-authoritative RT history callable.
+/// The wire shape intentionally contains no resident response or profile data.
+final class RtTaskHistoryRecord {
+  const RtTaskHistoryRecord({
+    required this.taskId,
+    required this.templateSnapshot,
+    required this.deadline,
+    required this.status,
+    required this.activatedAt,
+    required this.cancelledAt,
+    required this.locationReference,
+  });
+
+  final String taskId;
+  final TaskTemplateSnapshot templateSnapshot;
+  final DateTime deadline;
+  final String? locationReference;
+  final String status;
+  final DateTime activatedAt;
+  final DateTime? cancelledAt;
+
+  factory RtTaskHistoryRecord.fromWire(Object? value) {
+    final wire = _strictMap(value, 'history task');
+    _requireOnlyKeys(wire, const {
+      'taskId',
+      'templateSnapshot',
+      'deadline',
+      'locationReference',
+      'status',
+      'activatedAt',
+      'cancelledAt',
+    });
+    final taskId = _requiredString(wire['taskId'], 'taskId');
+    if (!_taskIdPattern.hasMatch(taskId)) {
+      throw const FormatException('Invalid history task.');
+    }
+
+    final rawSnapshot = _strictMap(
+      wire['templateSnapshot'],
+      'templateSnapshot',
+    );
+    const snapshotRequiredKeys = {
+      'templateId',
+      'version',
+      'title',
+      'category',
+      'coreInstruction',
+      'safetyInstruction',
+    };
+    _requireAllowedAndRequiredKeys(rawSnapshot, const {
+      ...snapshotRequiredKeys,
+      'estimatedDurationMinutes',
+    }, snapshotRequiredKeys);
+    final duration = rawSnapshot.containsKey('estimatedDurationMinutes')
+        ? _requiredInt(
+            rawSnapshot['estimatedDurationMinutes'],
+            'estimatedDurationMinutes',
+          )
+        : null;
+    final version = _requiredInt(rawSnapshot['version'], 'version');
+    final templateId = _requiredString(rawSnapshot['templateId'], 'templateId');
+    final category = _requiredString(rawSnapshot['category'], 'category');
+    if (version < 1 ||
+        !_templateIdPattern.hasMatch(templateId) ||
+        !_taskCategories.contains(category) ||
+        (duration != null && (duration < 1 || duration > 480))) {
+      throw const FormatException('Invalid history task snapshot.');
+    }
+    final snapshot = TaskTemplateSnapshot(
+      templateId: templateId,
+      version: version,
+      title: _requiredString(rawSnapshot['title'], 'title'),
+      category: category,
+      coreInstruction: _requiredString(
+        rawSnapshot['coreInstruction'],
+        'coreInstruction',
+      ),
+      safetyInstruction: _requiredString(
+        rawSnapshot['safetyInstruction'],
+        'safetyInstruction',
+      ),
+      estimatedDurationMinutes: duration,
+    );
+    final location = wire['locationReference'];
+    if (location != null &&
+        (location is! String ||
+            !TaskLocationReferences.allowed.contains(location))) {
+      throw const FormatException('Invalid history task location.');
+    }
+    final status = _requiredString(wire['status'], 'status');
+    if (status != 'ACTIVE' && status != 'CANCELLED') {
+      throw const FormatException('Invalid history task status.');
+    }
+    final activatedAt = _requiredUtcDate(wire['activatedAt'], 'activatedAt');
+    final cancelledAt = wire['cancelledAt'] == null
+        ? null
+        : _requiredUtcDate(wire['cancelledAt'], 'cancelledAt');
+    if ((status == 'ACTIVE' && cancelledAt != null) ||
+        (status == 'CANCELLED' && cancelledAt == null)) {
+      throw const FormatException('Invalid history task status dates.');
+    }
+
+    return RtTaskHistoryRecord(
+      taskId: taskId,
+      templateSnapshot: snapshot,
+      deadline: _requiredUtcDate(wire['deadline'], 'deadline'),
+      locationReference: location as String?,
+      status: status,
+      activatedAt: activatedAt,
+      cancelledAt: cancelledAt,
+    );
+  }
+}
+
+/// A bounded page of history returned by the RT-scoped callable endpoint.
+final class RtTaskHistoryPage {
+  const RtTaskHistoryPage({required this.tasks, required this.nextCursor});
+
+  final List<RtTaskHistoryRecord> tasks;
+  final String? nextCursor;
+
+  factory RtTaskHistoryPage.fromWire(Object? value, {int pageSize = 50}) {
+    _validateRtTaskHistoryRequest(pageSize: pageSize);
+    final wire = _strictMap(value, 'history response');
+    _requireOnlyKeys(wire, const {'tasks', 'nextCursor'});
+    final rawTasks = wire['tasks'];
+    if (rawTasks is! List || rawTasks.length > pageSize) {
+      throw const FormatException('Invalid history response.');
+    }
+    final ids = <String>{};
+    final tasks = <RtTaskHistoryRecord>[];
+    for (final value in rawTasks) {
+      final task = RtTaskHistoryRecord.fromWire(value);
+      if (!ids.add(task.taskId)) {
+        throw const FormatException('Invalid history response.');
+      }
+      tasks.add(task);
+    }
+    final rawCursor = wire['nextCursor'];
+    if (rawCursor != null &&
+        (rawCursor is! String ||
+            !_taskHistoryCursorPattern.hasMatch(rawCursor))) {
+      throw const FormatException('Invalid history cursor.');
+    }
+    return RtTaskHistoryPage(
+      tasks: List<RtTaskHistoryRecord>.unmodifiable(tasks),
+      nextCursor: rawCursor as String?,
+    );
+  }
+}
+
 /// The only accepted successful response to a cancellation command.
 final class TaskCampaignCancellationRecord {
   const TaskCampaignCancellationRecord({
@@ -248,6 +428,17 @@ final class TaskCampaignController {
 
   Future<List<ActiveTaskCampaignRecord>> listActiveTaskCampaigns() async =>
       await _managementBoundary.listActiveTaskCampaigns();
+
+  Future<RtTaskHistoryPage> listRtTaskHistory({
+    int pageSize = 25,
+    String? cursor,
+  }) async {
+    _validateRtTaskHistoryRequest(pageSize: pageSize, cursor: cursor);
+    return _managementBoundary.listRtTaskHistory(
+      pageSize: pageSize,
+      cursor: cursor,
+    );
+  }
 
   Future<TaskCampaignCancellationRecord> cancelTaskCampaign({
     required String taskId,
@@ -315,6 +506,20 @@ const _taskCategories = {
   'SAFE_VISUAL_INSPECTION',
 };
 final _commandIdPattern = RegExp(r'^[A-Za-z0-9_-]{32,128}$');
+final _taskHistoryCursorPattern = RegExp(r'^[A-Za-z0-9_-]{1,256}$');
+
+void _validateRtTaskHistoryRequest({required int pageSize, String? cursor}) {
+  if (pageSize < 1 || pageSize > 50) {
+    throw ArgumentError.value(
+      pageSize,
+      'pageSize',
+      'Must be between 1 and 50.',
+    );
+  }
+  if (cursor != null && !_taskHistoryCursorPattern.hasMatch(cursor)) {
+    throw ArgumentError.value(cursor, 'cursor', 'Must be a base64url cursor.');
+  }
+}
 
 Map<String, Object?> _strictMap(Object? value, String name) {
   if (value is! Map) throw FormatException('Invalid $name.');
@@ -369,6 +574,15 @@ DateTime _requiredActiveDeadline(Object? value) {
   final parsed = DateTime.tryParse(value);
   if (parsed == null || !parsed.isUtc || parsed.toIso8601String() != value) {
     throw const FormatException('Invalid active task deadline.');
+  }
+  return parsed;
+}
+
+DateTime _requiredUtcDate(Object? value, String name) {
+  if (value is! String) throw FormatException('Invalid $name.');
+  final parsed = DateTime.tryParse(value);
+  if (parsed == null || !parsed.isUtc || parsed.toIso8601String() != value) {
+    throw FormatException('Invalid $name.');
   }
   return parsed;
 }

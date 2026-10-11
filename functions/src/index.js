@@ -105,6 +105,14 @@ exports.listActiveTaskCampaigns = onCall(callableOptions, async (request) => {
   }
 });
 
+exports.listRtTaskHistory = onCall(callableOptions, async (request) => {
+  try {
+    return await tasks.listRtTaskHistory(operatorAuth(request), request.data);
+  } catch (error) {
+    throw toHttpsError(error);
+  }
+});
+
 exports.cancelTaskCampaign = onCall(callableOptions, async (request) => {
   try {
     return await tasks.cancelTaskCampaign(operatorAuth(request), request.data);

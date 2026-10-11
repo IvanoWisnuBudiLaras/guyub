@@ -8,6 +8,7 @@ import '../features/tasks/application/task_campaign_boundary.dart';
 import '../features/tasks/application/task_response_boundary.dart';
 import '../features/tasks/presentation/screens/task_catalog_screen.dart';
 import '../features/tasks/presentation/screens/task_active_campaigns_screen.dart';
+import '../features/tasks/presentation/screens/task_history_screen.dart';
 import '../features/tasks/presentation/screens/task_response_screens.dart';
 import '../features/proposals/application/resident_proposal_boundary.dart';
 import '../features/proposals/presentation/resident_proposal_screen.dart';
@@ -28,6 +29,7 @@ final class AppRouter {
   static const String operatorHome = '/operator/home';
   static const String operatorTaskCatalog = '/operator/tasks/catalog';
   static const String operatorActiveTasks = '/operator/tasks/active';
+  static const String operatorTaskHistory = '/operator/tasks/history';
   static const String operatorTaskVerification = '/operator/tasks/verification';
   static const String residentEntry = '/resident/entry';
   static const String residentHome = '/resident/home';
@@ -100,6 +102,23 @@ final class AppRouter {
           builder: (_) => TaskActiveCampaignsScreen(
             profile: profile,
             controller: TaskCampaignController(boundary),
+          ),
+          settings: settings,
+        );
+      case operatorTaskHistory:
+        final profile = settings.arguments;
+        final boundary = taskCampaignBoundary;
+        if (profile is! OperatorProfile ||
+            boundary == null ||
+            boundary is! TaskCampaignManagementBoundary ||
+            boundary is! TaskCampaignHistoryBoundary) {
+          return _roleSelection(settings);
+        }
+        return MaterialPageRoute<void>(
+          builder: (_) => TaskHistoryScreen(
+            profile: profile,
+            controller: TaskCampaignController(boundary),
+            taskResponseController: taskResponseController,
           ),
           settings: settings,
         );

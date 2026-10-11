@@ -31,6 +31,8 @@ class FakeRepository {
     this.activations = [];
     this.cancellations = [];
     this.activeCampaigns = [];
+    this.historyRequests = [];
+    this.historyPage = { tasks: [], nextCursor: null };
   }
   async listApprovedTemplates() {
     return this.templates.map((record) => approvedTemplateFromRecord(
@@ -72,6 +74,10 @@ class FakeRepository {
   }
   async listActiveCampaigns() {
     return this.activeCampaigns;
+  }
+  async listRtTaskHistory(operatorUid, input) {
+    this.historyRequests.push({ operatorUid, ...input });
+    return this.historyPage;
   }
   async cancelCampaign(input) {
     this.cancellations.push(input);
@@ -229,6 +235,87 @@ test('active campaign listing is operator-authenticated and exposes only bounded
   await assert.rejects(service.listActiveTaskCampaigns(AUTH, { rtId: 'rt-b' }), {
     code: 'invalid-argument',
   });
+});
+
+test('RT task history validates input, returns bounded records, and uses opaque cursors', async () => {
+  const { repository, service } = setup();
+  const seconds = Math.floor(NOW.getTime() / 1000);
+  const cursor = { seconds, nanoseconds: 0, campaignId: 'a'.repeat(40) };
+  repository.historyPage = {
+    tasks: [{
+      campaignId: 'a'.repeat(40),
+      templateSnapshot: {
+        templateId: TEMPLATE.templateId,
+        version: TEMPLATE.version,
+        title: TEMPLATE.title,
+        category: TEMPLATE.category,
+        coreInstruction: TEMPLATE.coreInstruction,
+        safetyInstruction: TEMPLATE.safetyInstruction,
+      },
+      deadline: NOW,
+      locationReference: null,
+      status: 'ACTIVE',
+      activatedAt: NOW,
+      cancelledAt: null,
+    }],
+    nextCursor: cursor,
+  };
+
+  const result = await service.listRtTaskHistory(AUTH, { pageSize: 2 });
+  assert.deepEqual(Object.keys(result).sort(), ['nextCursor', 'tasks']);
+  assert.deepEqual(Object.keys(result.tasks[0]).sort(), [
+    'activatedAt', 'cancelledAt', 'deadline', 'locationReference', 'status',
+    'taskId', 'templateSnapshot',
+  ]);
+  assert.deepEqual(result.tasks[0], {
+    taskId: 'a'.repeat(40),
+    templateSnapshot: repository.historyPage.tasks[0].templateSnapshot,
+    deadline: NOW.toISOString(),
+    locationReference: null,
+    status: 'ACTIVE',
+    activatedAt: NOW.toISOString(),
+    cancelledAt: null,
+  });
+  assert.match(result.nextCursor, /^[A-Za-z0-9_-]{1,256}$/u);
+  assert.deepEqual(JSON.parse(Buffer.from(result.nextCursor, 'base64url').toString('utf8')), {
+    v: 1,
+    seconds,
+    nanoseconds: 0,
+    campaignId: 'a'.repeat(40),
+  });
+  assert.deepEqual(repository.historyRequests[0], {
+    operatorUid: AUTH.operatorUid,
+    pageSize: 2,
+    cursor: null,
+  });
+
+  await service.listRtTaskHistory(AUTH, { cursor: result.nextCursor });
+  assert.deepEqual(repository.historyRequests[1], {
+    operatorUid: AUTH.operatorUid,
+    pageSize: 25,
+    cursor,
+  });
+  await assert.rejects(service.listRtTaskHistory({
+    operatorUid: AUTH.operatorUid, signInProvider: 'anonymous',
+  }, {}), { code: 'permission-denied' });
+
+  for (const input of [
+    { pageSize: 0 },
+    { pageSize: 51 },
+    { pageSize: 1.5 },
+    { pageSize: '25' },
+    { pageSize: null },
+    { cursor: null },
+    { cursor: 'not base64!' },
+    { cursor: Buffer.from('{}').toString('base64url') },
+    { cursor: 'a'.repeat(257) },
+    { rtId: 'rt-other' },
+    { actorUid: AUTH.operatorUid },
+    { operatorUid: AUTH.operatorUid },
+  ]) {
+    await assert.rejects(service.listRtTaskHistory(AUTH, input), { code: 'invalid-argument' });
+  }
+  await assert.rejects(service.listRtTaskHistory(AUTH, null), { code: 'invalid-argument' });
 });
 
 test('cancellation accepts only task and command IDs and stores the command hash only', async () => {
