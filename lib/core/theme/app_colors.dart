@@ -140,5 +140,5 @@ final class AppColors extends ThemeExtension<AppColors> {
 
 /// Extension untuk akses mudah AppColors dari BuildContext
 extension AppColorsX on BuildContext {
-  AppColors get appColors => Theme.of(this).extension<AppColors>()!;
+  AppColors get appColors => Theme.of(this).extension<AppColors>() ?? AppColors.light;
 }

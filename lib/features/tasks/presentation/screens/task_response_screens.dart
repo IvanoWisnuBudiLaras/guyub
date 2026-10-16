@@ -12,6 +12,7 @@ import '../../application/task_response.dart';
 import '../../application/task_response_boundary.dart';
 import '../../application/task_location_reference.dart';
 import '../widgets/locked_instructions_card.dart';
+import '../../../../core/theme/app_colors.dart';
 
 typedef PickEvidenceImage = Future<Uint8List?> Function();
 
@@ -628,37 +629,136 @@ final class _ResidentTaskDetailScreenState
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Detail Tugas')),
-    body: ListView(
-      padding: const EdgeInsets.all(20),
-      children: [
-        Text(
-          'Warga • ${widget.session.rtLabel}',
-          style: Theme.of(context).textTheme.titleSmall,
-        ),
-        if (widget.isCached) ...[
+  Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final timeRemaining = _task.deadline.difference(now);
+    final isUrgent = timeRemaining.inHours < 24 && timeRemaining.inHours >= 0;
+    final isPastDeadline = timeRemaining.isNegative;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Detail Tugas'),
+        backgroundColor: Colors.white,
+        elevation: 0,
+      ),
+      backgroundColor: Colors.white,
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          // Header info: RT label + offline banner
+          Text(
+            'Warga • ${widget.session.rtLabel}',
+            style: Theme.of(context).textTheme.labelLarge?.copyWith(
+              color: context.appColors.textSecondary,
+            ),
+          ),
+          if (widget.isCached) ...[
+            const SizedBox(height: 8),
+            _ResidentTaskOfflineBanner(lastSyncedAt: widget.lastSyncedAt),
+          ],
           const SizedBox(height: 12),
-          _ResidentTaskOfflineBanner(lastSyncedAt: widget.lastSyncedAt),
+
+          // Title & Category
+          Text(
+            _task.templateSnapshot.title,
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            _task.templateSnapshot.category,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: context.appColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Time & Location info - compact
+          Row(
+            children: [
+              if (_task.templateSnapshot.estimatedDurationMinutes != null) ...[
+                Icon(Icons.schedule_outlined, size: 16, color: context.appColors.textSecondary),
+                const SizedBox(width: 4),
+                Text(
+                  _formatDuration(_task.templateSnapshot.estimatedDurationMinutes!),
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                const SizedBox(width: 12),
+              ],
+              Icon(
+                isPastDeadline ? Icons.error_outline : Icons.event_outlined,
+                size: 16,
+                color: isPastDeadline
+                    ? context.appColors.danger
+                    : isUrgent
+                        ? context.appColors.warning
+                        : context.appColors.textSecondary,
+              ),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Text(
+                  '${_formatDate(_task.deadline)}${isPastDeadline ? "" : " (${_formatTimeRemaining(timeRemaining)})"}',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: isPastDeadline
+                        ? context.appColors.danger
+                        : isUrgent
+                            ? context.appColors.warning
+                            : null,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (_task.locationReference case final location?) ...[
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                Icon(Icons.location_on_outlined, size: 16, color: context.appColors.textSecondary),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text(
+                    TaskLocationReferences.label(location),
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ),
+              ],
+            ),
+          ],
+          const SizedBox(height: 16),
+
+          // Instructions Card - simplified
+          LockedTaskInstructionsCard(snapshot: _task.templateSnapshot),
+          const SizedBox(height: 16),
+
+          // Action buttons / status
+          _responseActions(),
         ],
-        const SizedBox(height: 8),
-        Text(
-          _task.templateSnapshot.title,
-          style: Theme.of(context).textTheme.headlineSmall,
-        ),
-        const SizedBox(height: 8),
-        Text('Batas waktu: ${_formatDate(_task.deadline)}'),
-        if (_task.locationReference case final location?) ...[
-          const SizedBox(height: 8),
-          Text('Jenis lokasi umum: ${TaskLocationReferences.label(location)}'),
-        ],
-        const SizedBox(height: 16),
-        LockedTaskInstructionsCard(snapshot: _task.templateSnapshot),
-        const SizedBox(height: 16),
-        _responseActions(),
-      ],
-    ),
-  );
+      ),
+    );
+  }
+
+  String _formatDuration(int minutes) {
+    if (minutes < 60) {
+      return '$minutes menit';
+    }
+    final hours = minutes ~/ 60;
+    final remainingMinutes = minutes % 60;
+    if (remainingMinutes == 0) {
+      return '$hours jam';
+    }
+    return '$hours jam $remainingMinutes menit';
+  }
+
+  String _formatTimeRemaining(Duration timeRemaining) {
+    if (timeRemaining.inDays > 0) {
+      return '${timeRemaining.inDays} hari lagi';
+    }
+    if (timeRemaining.inHours > 0) {
+      return '${timeRemaining.inHours} jam lagi';
+    }
+    return '${timeRemaining.inMinutes} menit lagi';
+  }
 
   Widget _evidencePicker() => Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -744,11 +844,38 @@ final class _ResidentTaskDetailScreenState
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text(
-            'Ikut atau tidak ikut adalah pilihan Anda. Menolak tidak mengurangi '
-            'hak atau layanan.',
+          // Voluntary participation notice - compact
+          Card(
+            elevation: 0,
+            color: context.appColors.primary.withOpacity(0.05),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(color: context.appColors.border),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.volunteer_activism_outlined,
+                    color: context.appColors.primary,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 10),
+                  const Expanded(
+                    child: Text(
+                      'Ikut atau tidak ikut adalah pilihan Anda. Menolak tidak mengurangi '
+                      'hak atau layanan.',
+                      style: TextStyle(fontSize: 13),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
           const SizedBox(height: 12),
+          
+          // Action buttons with equal prominence
           FilledButton(
             key: const Key('resident-join-task'),
             onPressed: _busy ? null : () => _choose(ParticipationChoice.join),
@@ -756,20 +883,40 @@ final class _ResidentTaskDetailScreenState
           ),
           OutlinedButton(
             key: const Key('resident-decline-task'),
-            onPressed: _busy
-                ? null
-                : () => _choose(ParticipationChoice.decline),
+            onPressed: _busy ? null : () => _choose(ParticipationChoice.decline),
             child: const Text('Tidak Ikut'),
           ),
-          if (_busy) const Center(child: CircularProgressIndicator()),
+          
+          if (_busy) ...[
+            const SizedBox(height: 12),
+            const Center(child: CircularProgressIndicator()),
+          ],
         ],
       );
     }
     if (_task.participation == ParticipationState.declined) {
-      return const Card(
+      return Card(
+        elevation: 0,
+        color: context.appColors.textSecondary.withOpacity(0.05),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(color: context.appColors.border),
+        ),
         child: Padding(
-          padding: EdgeInsets.all(16),
-          child: Text('Anda memilih tidak ikut. Tidak ada penalti.'),
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Icon(
+                Icons.info_outline,
+                color: context.appColors.textSecondary,
+                size: 24,
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Text('Anda memilih tidak ikut. Tidak ada penalti.'),
+              ),
+            ],
+          ),
         ),
       );
     }
