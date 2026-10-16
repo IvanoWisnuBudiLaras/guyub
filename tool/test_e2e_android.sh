@@ -1,9 +1,15 @@
 #!/usr/bin/env bash
-# Runs the operator-flow e2e suite against the Android emulator with the
-# Firebase emulator suite seeded behind it.
+# Runs one e2e suite against the Android emulator, with the Firebase emulator
+# suite seeded behind it.
+#
+#   ./tool/test_e2e_android.sh tests/operator-flow.e2e.ts
 #
 # Needs: a booted Android emulator, the debug APK installed, and the AVD named
 # guyub_e2e (pinned in e2e/e2e.config.ts).
+#
+# Run one suite per invocation: running all four back to back on one emulator
+# exhausts it, and the Android snapshot helper starts failing after roughly
+# four tests.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

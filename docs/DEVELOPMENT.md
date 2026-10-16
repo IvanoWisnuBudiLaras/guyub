@@ -108,11 +108,30 @@ Tidak memakai model: `e2e/e2e.config.ts` tidak mendeklarasikan blok `agents`.
 ```bash
 cd e2e && npm install
 flutter build apk --debug && flutter install   # APK harus terpasang lebih dulu
-npx e2e run
+./tool/test_e2e_android.sh tests/operator-flow.e2e.ts
 ```
 
 Butuh Node.js 22.22.3+/24.8+, Android SDK dengan emulator, dan AVD bernama `guyub_e2e`
 (di-pin di `e2e/e2e.config.ts`). Suite ini tidak dijalankan CI karena memerlukan emulator.
+
+Skrip runner menyalakan emulator Firebase, menyemai RT/template/kampanye lewat callable
+sungguhan, menghapus sesi tersimpan, lalu menjalankan suite yang diminta. Jalankan **satu
+suite per pemanggilan**; menjalankan keempatnya berurutan di satu emulator menghabiskan
+tenaganya — snapshot helper Android mulai gagal setelah sekitar empat tes.
+
+| Suite | Menguji |
+|---|---|
+| `tests/operator-flow.e2e.ts` | Login operator, katalog aman, slot draf, draf inert sampai diaktifkan |
+| `tests/task-cycle.e2e.ts` | Siklus penuh: warga kirim penyelesaian, operator verifikasi |
+| `tests/offline-active-task.e2e.ts` | Tugas + instruksi keselamatan terbaca saat mode pesawat |
+| `tests/offline-emergency.e2e.ts` | Rute Darurat terbuka offline tanpa mengarang data |
+
+**Menulis tes baru:** `Key` milik widget Flutter tidak terlihat oleh driver, dan banyak
+layar menggabungkan label dengan detailnya dalam satu node aksesibilitas — jadi gunakan
+teks yang tampil, dan regex bila satu node memuat beberapa baris. Layar entry warga dan
+operator memulihkan sesi secara **asinkron** saat dibuka, jadi tunggu restore selesai
+sebelum memutuskan layar mana yang sedang aktif; tanpa itu, tes mengisi form yang akan
+hilang dan gagal dengan galat verifikasi `fill` yang menyesatkan.
 
 ### Prasyarat khusus host Windows
 

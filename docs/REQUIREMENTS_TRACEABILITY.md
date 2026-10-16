@@ -25,8 +25,8 @@ This file reports repository evidence. It does not convert a domain unit test in
 | AT-002 | PARTIAL | Callable tests reject arbitrary core/safety text and notes, free-text locations, forged RT/operator fields, unreviewed/disabled/malformed templates, and invalid location categories; activation is callable-only. Real human-reviewed template data is not provisioned, so no production task can be activated yet. |
 | AT-003 | PARTIAL | Widget shows locked core/safety instructions; callable drafts snapshot the exact version and activation rejects same-version content mutation; unit, widget, and Functions Emulator replay tests. Real reviewed content remains an external prerequisite. |
 | AT-004 | VERIFIED | Resident UI presents balanced JOIN/DECLINE actions and states that decline has no penalty; callable persistence accepts either state and rejects changes; domain, widget, Functions Emulator replay tests. |
-| AT-005 | VERIFIED | Completion callable creates only `PENDING_RT_VERIFICATION`; password-authenticated same-RT operator verification is a separate transaction with one audit record. Emulator tests cover replay, concurrency, cross-RT denial, and server-authored verifier/time. |
-| AT-006 | PARTIAL | Authorized task snapshots, locked safety text, and scope-isolated offline reads are covered by unit/widget tests. Android airplane-mode reopen/retry testing remains outstanding. |
+| AT-005 | VERIFIED | Completion callable creates only `PENDING_RT_VERIFICATION`; password-authenticated same-RT operator verification is a separate transaction with one audit record. Emulator tests cover replay, concurrency, cross-RT denial, and server-authored verifier/time. The full cycle is now also driven in the real app: `e2e/tests/task-cycle.e2e.ts` has a resident join and submit a completion, shows it staying `Menunggu Verifikasi RT`, then has an operator confirm verification from the queue and the queue drain. |
+| AT-006 | VERIFIED | Authorized task snapshots, locked safety text, and scope-isolated offline reads are covered by unit/widget tests. Android airplane-mode validation is now automated: `e2e/tests/offline-active-task.e2e.ts` synchronizes the seeded task, enables airplane mode, restarts the app, and asserts the restored session reports itself offline and unverified, the cached task is still listed with its cached-data banner, and the locked safety instruction is still readable. |
 | AT-007 | PARTIAL | Session-scoped callable, strict revisioned cache, signed-out Darurat route, RT label, last-sync/verification times, and no-seed state are covered by tests. Android airplane-mode validation is now automated for the route itself: an `e2e` test opens Darurat with airplane mode enabled and asserts offline mode plus an honest empty state (no fabricated directory). Directory *content* rendering offline is still unverified because no pilot contacts/assembly points are provisioned. Verified pilot values and route provisioning remain external. |
 | AT-008 | PARTIAL | Resident/operator snapshot callables derive RT from a live resident session or active operator membership and return only normalized fields. Flutter caches per RT, renders cache before refresh, preserves it on fetch failure, and labels configured-expired/unknown freshness; widget, scope, and Emulator tests pass. BMKG source provisioning and Android airplane-mode validation remain open. |
 | AT-009 | VERIFIED | Functions service and emulator tests assert that a resident profile contains only minimal RT-scoped fields; NIK, full address, and precise GPS fields are absent. Proposal text and completion notes reject DMS, decimal-degree (with dot/comma and hemisphere prefix/suffix), and labeled coordinates, as well as multi-separator NIK sequences across both proposal and completion workflows (#39, #47). |
@@ -67,7 +67,7 @@ This file reports repository evidence. It does not convert a domain unit test in
 
 | ID | Status | Evidence / gap |
 |---|---|---|
-| O-01 | PARTIAL | Authorized task snapshots/safety text are locally cached and displayed with last-sync time. Device validation for the offline *emergency* path is now automated via `e2e` (airplane mode, honest empty state); airplane-mode validation for the cached **task** path remains open and depends on AT-006's seeded campaign. |
+| O-01 | VERIFIED | Authorized task snapshots/safety text are locally cached and displayed with last-sync time. Both offline paths are now automated on a device: the emergency directory (`e2e/tests/offline-emergency.e2e.ts`) and the cached task path (`e2e/tests/offline-active-task.e2e.ts`), the latter with airplane mode on across an app restart. |
 | O-02 | PARTIAL | JOIN is durably queued with a stable command ID and replayed by authorized list refresh; unit/widget tests pass, device validation remains. |
 | O-03 | PARTIAL | DECLINE is durably queued with a stable command ID and replayed by authorized list refresh; unit/widget tests pass, device validation remains. |
 | O-04 | PARTIAL | Audited server cancellation removes the task from operator/resident active results; replay/cross-RT denial/one-audit behavior passes Functions Emulator tests. Queued commands remain and surface typed conflicts in UI tests; physical Android reconnect validation remains open. |
@@ -93,32 +93,39 @@ Commands run on this branch:
 - `npm ci --prefix functions` — completed with 0 reported vulnerabilities.
 - No Android device/emulator was available at that time; no device-level visual check is claimed there. Device-level validation is now available and used — see below.
 
-### Android device-level validation (2026-10-15)
+### Android device-level validation (2026-10-16)
 
-An Android emulator (API 36, AVD `guyub_e2e`) is now available and an `e2e` mobile suite
-runs against the installed debug APK:
+An Android emulator (API 36, AVD `guyub_e2e`) runs an `e2e` mobile suite against the
+installed debug APK. The suite is deterministic and needs no model: `e2e/e2e.config.ts`
+declares no `agents` block, so a run makes no model calls.
 
-- `npx e2e run` (in `e2e/`) — 2/2 passed: role selection renders both roles and the Darurat
-  entry, and the Darurat route opens with **airplane mode enabled**, reporting offline mode
-  and an honest empty state rather than a fabricated directory.
-- This advances AT-007 and O-01 from purely manual to partly automated. It does **not**
-  verify directory *content* offline (no verified pilot contacts are provisioned) and it
-  does not cover AT-006, which needs a seeded RT, catalog, and active campaign plus a
-  resident session.
-- The suite is deterministic and needs no model: `e2e/e2e.config.ts` declares no `agents`
-  block, so the run makes no model calls.
+Run one suite at a time with `./tool/test_e2e_android.sh <suite>`; the script starts the
+emulator suite, seeds through the real callables, clears stored sessions, and runs the
+tests. Running all four back to back on one emulator exhausts it — the Android snapshot
+helper starts failing after roughly four tests — so they are run separately.
+
+| Suite | Result | Covers |
+|---|---|---|
+| `operator-flow` | 4/4 | Operator sign-in, reviewed safe catalog, draft slots and locked instructions, and the draft-is-inert-until-activated path |
+| `offline-active-task` | 3/3 | AT-006 / O-01 — cached task and locked safety text readable with airplane mode on across a restart |
+| `task-cycle` | 1/1 | AT-005 — resident submits, stays pending, operator verifies, queue drains |
+| `offline-emergency` | 2/2 | AT-007 — Darurat opens offline and states its own status |
+
+What this does **not** cover: directory *content* rendering offline (no verified pilot
+contacts are provisioned), and the remaining operator screens (history, weather
+suggestions, resident proposals, proxy assistance, evidence review).
 - Two host prerequisites are documented in the repository, not in CI: `agent-device`'s
   daemon needs PowerShell 7 reachable as `powershell.exe` (Windows PowerShell 5.1 exceeds
   its 2s process-identity probe), and local Android builds need
   `-Pkotlin.incremental=false` because the pub cache and the project sit on different
   drives. Neither applies to the ubuntu CI runner.
 
-### Runtime-portability work (uncommitted, on this working tree)
+### Runtime-portability work
 
 The Cloud Functions runtime has no free tier on the Firebase Spark plan, so the callable
 layer was made runtime-portable. **No tracked behaviour changed**: all 20 Emulator tests
-and all 93 service tests still pass through the Cloud Functions path, and `firestore.rules`
-and `storage.rules` are untouched.
+and all 104 emulator-free service tests still pass through the Cloud Functions path, and
+`firestore.rules` and `storage.rules` are untouched.
 
 - `functions/src/index.js` — reduced from 578 to 97 lines. It now declares only the runtime
   shape (callable options, the 5 schedules); all behaviour moved to `functions/src/app.js`.
@@ -143,7 +150,7 @@ Verification (2026-10-15):
   scheduled job runs with the shared secret.
 - `flutter test test/core/network/http_adapter_contract_test.dart` — 3/3 against the real
   Node adapter, so the Dart client and the adapter agree on the wire format.
-- `flutter test` — 235/235. Emulator suites — 20/20. Service tests — 93/93. Rules — 5/5.
+- `flutter test` — 235/235 (3 skipped). Emulator suites — 20/20. Service tests — 104/104. Rules — 5/5. e2e (four suites, run separately) — 10/10.
 
 App Check is now enforced in `invoke()`, the single choke point both runtimes share, so a
 new adapter cannot omit it; `functions/src/runtime_env.js` holds the one definition of the
