@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../core/config/app_config.dart';
+import '../core/theme/app_theme.dart';
 import '../features/auth/application/operator_auth_boundary.dart';
 import '../features/auth/application/resident_session_controller.dart';
 import '../features/tasks/application/task_campaign_boundary.dart';
@@ -57,11 +58,8 @@ final class GuyubApp extends StatelessWidget {
     return MaterialApp(
       title: config.appName,
       debugShowCheckedModeBanner: config.environment.isDevelopment,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF1E88E5)),
-        useMaterial3: true,
-      ),
-      initialRoute: AppRouter.initial,
+      theme: AppTheme.light,
+      initialRoute: AppRouter.splash,
       onGenerateRoute: (settings) => AppRouter.onGenerateRoute(
         settings,
         operatorAuthBoundary: operatorAuthBoundary,

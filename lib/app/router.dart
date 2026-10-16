@@ -13,6 +13,7 @@ import '../features/tasks/presentation/screens/task_response_screens.dart';
 import '../features/proposals/application/resident_proposal_boundary.dart';
 import '../features/proposals/presentation/resident_proposal_screen.dart';
 import '../features/proposals/presentation/resident_proposal_review_screen.dart';
+import '../features/auth/presentation/screens/splash_screen.dart';
 import '../features/auth/presentation/screens/operator_home_screen.dart';
 import '../features/auth/presentation/screens/operator_login_screen.dart';
 import '../features/auth/presentation/screens/resident_entry_screen.dart';
@@ -33,6 +34,7 @@ import '../features/notifications/presentation/task_push_notification_listener.d
 
 /// Role-aware routes for the Android MVP.
 final class AppRouter {
+  static const String splash = '/splash';
   static const String initial = '/';
   static const String operatorLogin = '/operator/login';
   static const String operatorHome = '/operator/home';
@@ -69,6 +71,11 @@ final class AppRouter {
     Stream<bool>? connectivityChanges,
   }) {
     switch (settings.name) {
+      case splash:
+        return MaterialPageRoute<void>(
+          builder: (_) => const SplashScreen(),
+          settings: settings,
+        );
       case initial:
         return MaterialPageRoute<void>(
           builder: (_) => const RoleSelectionScreen(),
