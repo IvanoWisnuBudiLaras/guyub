@@ -110,11 +110,12 @@ helper starts failing after roughly four tests — so they are run separately.
 | `offline-active-task` | 3/3 | AT-006 / O-01 — cached task and locked safety text readable with airplane mode on across a restart |
 | `task-cycle` | 1/1 | AT-005 — resident submits, stays pending, operator verifies, queue drains |
 | `rt-history` | 1/1 | AT-015 — RT-owned history, explicit closure, lifecycle timeline |
+| `resident-proposal` | 1/1 | AT-012 / INV-08 — a proposal stays inert and reaches the operator as review context |
 | `offline-emergency` | 2/2 | AT-007 — Darurat opens offline and states its own status |
 
 What this does **not** cover: directory *content* rendering offline (no verified pilot
 contacts are provisioned), and the remaining operator screens (weather suggestions,
-resident proposals, proxy assistance, evidence review).
+proxy assistance, evidence review).
 - Two host prerequisites are documented in the repository, not in CI: `agent-device`'s
   daemon needs PowerShell 7 reachable as `powershell.exe` (Windows PowerShell 5.1 exceeds
   its 2s process-identity probe), and local Android builds need
@@ -151,7 +152,7 @@ Verification (2026-10-15):
   scheduled job runs with the shared secret.
 - `flutter test test/core/network/http_adapter_contract_test.dart` — 3/3 against the real
   Node adapter, so the Dart client and the adapter agree on the wire format.
-- `flutter test` — 235/235 (3 skipped). Emulator suites — 20/20. Service tests — 104/104. Rules — 5/5. e2e (five suites, run separately) — 11/11.
+- `flutter test` — 235/235 (3 skipped). Emulator suites — 20/20. Service tests — 104/104. Rules — 5/5. e2e (six suites, run separately) — 12/12.
 
 App Check is now enforced in `invoke()`, the single choke point both runtimes share, so a
 new adapter cannot omit it; `functions/src/runtime_env.js` holds the one definition of the
