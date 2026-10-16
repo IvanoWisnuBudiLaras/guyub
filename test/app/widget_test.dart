@@ -48,11 +48,16 @@ void main() {
 
     await tester.tap(find.textContaining('Saya Ketua RT/RW'));
     await tester.pumpAndSettle();
-    expect(find.text('Masuk Operator RT/RW'), findsOneWidget);
+    expect(find.textContaining('Masuk sebagai Ketua RT/RW'), findsOneWidget);
     expect(find.byKey(const Key('operator-password')), findsOneWidget);
 
-    await tester.pageBack();
+    // Kembali dengan tap back button (Icon arrow_back)
+    await tester.tap(find.byIcon(Icons.arrow_back));
     await tester.pumpAndSettle();
+    
+    // Pastikan kembali ke role selection screen
+    expect(find.textContaining('Saya Ketua RT/RW'), findsOneWidget);
+    
     await tester.tap(find.text('Saya Warga'));
     await tester.pumpAndSettle();
     expect(find.text('Akses warga belum tersedia'), findsOneWidget);
