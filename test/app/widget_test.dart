@@ -11,6 +11,12 @@ void main() {
   testWidgets('GuyubApp starts at the distinct role selection screen', (
     WidgetTester tester,
   ) async {
+    // Set realistic phone viewport (360x640 dp, pixel ratio 2.0)
+    tester.view.physicalSize = const Size(720, 1280);
+    tester.view.devicePixelRatio = 2.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
     AppConfig.initialize(AppConfig.test());
 
     await tester.pumpWidget(const GuyubApp());
@@ -31,6 +37,11 @@ void main() {
   testWidgets('role selection routes each role to its entry path', (
     WidgetTester tester,
   ) async {
+    tester.view.physicalSize = const Size(720, 1280);
+    tester.view.devicePixelRatio = 2.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
     AppConfig.initialize(AppConfig.test());
     await tester.pumpWidget(const GuyubApp());
     await tester.pumpAndSettle(const Duration(seconds: 2));
@@ -50,18 +61,65 @@ void main() {
   testWidgets('Darurat is reachable before sign-in', (
     WidgetTester tester,
   ) async {
+    tester.view.physicalSize = const Size(720, 1280);
+    tester.view.devicePixelRatio = 2.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
     AppConfig.initialize(AppConfig.test());
     await tester.pumpWidget(const GuyubApp());
     await tester.pumpAndSettle(const Duration(seconds: 2));
+
+    // Scroll ke bawah untuk akses tombol darurat
+    await tester.drag(
+      find.byType(SingleChildScrollView),
+      const Offset(0, -200),
+    );
+    await tester.pumpAndSettle();
 
     await tester.tap(find.byKey(const Key('emergency-directory-entry')));
     await tester.pumpAndSettle();
 
     expect(find.text('Informasi Darurat'), findsOneWidget);
-    expect(find.textContaining('Direktori belum tersedia'), findsOneWidget);
+    expect(
+      find.textContaining('Direktori belum tersedia'),
+      findsOneWidget,
+    );
     expect(
       find.textContaining('Guyub.id tidak menggantikan layanan darurat'),
       findsOneWidget,
     );
+  });
+
+  testWidgets('role selection adapts to large text scale', (
+    WidgetTester tester,
+  ) async {
+    // Test dengan text scale 2.0 (aksesibilitas)
+    tester.view.physicalSize = const Size(720, 1280);
+    tester.view.devicePixelRatio = 2.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    AppConfig.initialize(AppConfig.test());
+
+    await tester.pumpWidget(
+      MediaQuery(
+        data: const MediaQueryData(textScaler: TextScaler.linear(2.0)),
+        child: const GuyubApp(),
+      ),
+    );
+    await tester.pumpAndSettle(const Duration(seconds: 2));
+
+    // Semua text tetap terlihat tanpa overflow
+    expect(find.textContaining('Saya Ketua RT/RW'), findsOneWidget);
+    expect(find.text('Saya Warga'), findsOneWidget);
+
+    // Scroll hingga "Saya Warga" terlihat dan bisa di-tap
+    await tester.ensureVisible(find.text('Saya Warga'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Saya Warga'));
+    await tester.pumpAndSettle();
+    expect(find.text('Akses warga belum tersedia'), findsOneWidget);
   });
 }

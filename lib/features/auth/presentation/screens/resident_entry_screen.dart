@@ -88,12 +88,12 @@ final class _ResidentEntryScreenState extends State<ResidentEntryScreen> {
     if (controller == null) {
       return Scaffold(
         appBar: AppBar(title: const Text('Akses Warga')),
-        body: const Center(
-          child: Padding(
-            padding: EdgeInsets.all(24),
+        body: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
             child: Column(
               mainAxisSize: MainAxisSize.min,
-              children: [
+              children: const [
                 Icon(Icons.lock_outline, size: 48),
                 SizedBox(height: 16),
                 Text(
