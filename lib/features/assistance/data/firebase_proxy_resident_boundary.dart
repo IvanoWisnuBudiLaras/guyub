@@ -1,4 +1,4 @@
-import 'package:cloud_functions/cloud_functions.dart';
+import '../../../core/network/callable_client.dart';
 
 import '../application/assistance_volunteer_boundary.dart';
 import '../application/proxy_resident_boundary.dart';
@@ -11,20 +11,19 @@ typedef ProxyResidentCallableInvoker = Future<Object?> Function(
 /// All proxy-resident reads and writes use server-authorized callable Functions.
 final class FirebaseProxyResidentBoundary
     implements ProxyResidentBoundary, AssistanceVolunteerBoundary {
-  const FirebaseProxyResidentBoundary(this.functions) : _invoker = null;
+  const FirebaseProxyResidentBoundary(this.client) : _invoker = null;
   const FirebaseProxyResidentBoundary.withInvoker(this._invoker)
-    : functions = null;
+    : client = null;
 
-  final FirebaseFunctions? functions;
+  final CallableClient? client;
   final ProxyResidentCallableInvoker? _invoker;
 
   Future<Object?> _call(String name, Map<String, Object?> data) async {
     final invoker = _invoker;
     if (invoker != null) return invoker(name, data);
-    final value = functions;
+    final value = client;
     if (value == null) throw StateError('Callable client unavailable.');
-    final result = await value.httpsCallable(name).call(data);
-    return result.data;
+    return value.call(name, data);
   }
 
   @override

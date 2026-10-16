@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:cloud_functions/cloud_functions.dart';
+import '../../../core/network/callable_client.dart';
 
 import '../../evidence/application/task_evidence_boundary.dart';
 
@@ -11,20 +11,20 @@ import '../application/task_response_boundary.dart';
 /// Firebase callable adapter. Task responses never use direct Firestore writes.
 final class FirebaseTaskResponseBoundary
     implements TaskResponseBoundary, TaskEvidenceBoundary {
-  const FirebaseTaskResponseBoundary(this.functions);
+  const FirebaseTaskResponseBoundary(this.client);
 
-  final FirebaseFunctions functions;
+  final CallableClient client;
 
   @override
   Future<ResidentTaskList> listResidentActiveTasks({
     required String sessionToken,
   }) async {
     final result = await _mapCallable(
-      () => functions.httpsCallable('listResidentActiveTasks').call(
-        <String, Object?>{'sessionToken': sessionToken},
-      ),
+      () => client.call('listResidentActiveTasks', <String, Object?>{
+        'sessionToken': sessionToken,
+      }),
     );
-    final wire = _wireMap(result.data, 'resident task list');
+    final wire = _wireMap(result, 'resident task list');
     return ResidentTaskList(
       items: _wireList(
         wire['items'],
@@ -42,16 +42,14 @@ final class FirebaseTaskResponseBoundary
     required String commandId,
   }) async {
     final result = await _mapCallable(
-      () => functions.httpsCallable('recordResidentTaskResponse').call(
-        <String, Object?>{
-          'sessionToken': sessionToken,
-          'taskId': taskId,
-          'choice': choice == ParticipationChoice.join ? 'JOINED' : 'DECLINED',
-          'commandId': commandId,
-        },
-      ),
+      () => client.call('recordResidentTaskResponse', <String, Object?>{
+        'sessionToken': sessionToken,
+        'taskId': taskId,
+        'choice': choice == ParticipationChoice.join ? 'JOINED' : 'DECLINED',
+        'commandId': commandId,
+      }),
     );
-    return TaskResponseRecord.fromWire(_wireMap(result.data, 'task response'));
+    return TaskResponseRecord.fromWire(_wireMap(result, 'task response'));
   }
 
   @override
@@ -63,17 +61,15 @@ final class FirebaseTaskResponseBoundary
     String? evidenceId,
   }) async {
     final result = await _mapCallable(
-      () => functions.httpsCallable('submitTaskCompletion').call(
-        <String, Object?>{
-          'sessionToken': sessionToken,
-          'taskId': taskId,
-          'note': note,
-          'commandId': commandId,
-          'evidenceId': evidenceId,
-        },
-      ),
+      () => client.call('submitTaskCompletion', <String, Object?>{
+        'sessionToken': sessionToken,
+        'taskId': taskId,
+        'note': note,
+        'commandId': commandId,
+        'evidenceId': evidenceId,
+      }),
     );
-    return TaskResponseRecord.fromWire(_wireMap(result.data, 'task response'));
+    return TaskResponseRecord.fromWire(_wireMap(result, 'task response'));
   }
 
   @override
@@ -91,16 +87,14 @@ final class FirebaseTaskResponseBoundary
       );
     }
     final result = await _mapCallable(
-      () => functions.httpsCallable('uploadResidentTaskEvidence').call(
-        <String, Object?>{
-          'sessionToken': sessionToken,
-          'taskId': taskId,
-          'requestId': requestId,
-          'imageBase64': base64Encode(sanitizedJpegBytes),
-        },
-      ),
+      () => client.call('uploadResidentTaskEvidence', <String, Object?>{
+        'sessionToken': sessionToken,
+        'taskId': taskId,
+        'requestId': requestId,
+        'imageBase64': base64Encode(sanitizedJpegBytes),
+      }),
     );
-    final wire = _wireMap(result.data, 'evidence upload');
+    final wire = _wireMap(result, 'evidence upload');
     final evidenceId = wire['evidenceId'];
     if (evidenceId is! String ||
         !RegExp(r'^[a-f0-9]{40}$').hasMatch(evidenceId)) {
@@ -116,15 +110,13 @@ final class FirebaseTaskResponseBoundary
     required String commandId,
   }) async {
     final result = await _mapCallable(
-      () => functions.httpsCallable('deleteResidentTaskEvidence').call(
-        <String, Object?>{
-          'sessionToken': sessionToken,
-          'evidenceId': evidenceId,
-          'commandId': commandId,
-        },
-      ),
+      () => client.call('deleteResidentTaskEvidence', <String, Object?>{
+        'sessionToken': sessionToken,
+        'evidenceId': evidenceId,
+        'commandId': commandId,
+      }),
     );
-    final wire = _wireMap(result.data, 'evidence deletion');
+    final wire = _wireMap(result, 'evidence deletion');
     if (wire['deleted'] != true) {
       throw const FormatException('Invalid deletion response.');
     }
@@ -135,11 +127,11 @@ final class FirebaseTaskResponseBoundary
     required String evidenceId,
   }) async {
     final result = await _mapCallable(
-      () => functions.httpsCallable('getTaskEvidenceForVerification').call(
-        <String, Object?>{'evidenceId': evidenceId},
-      ),
+      () => client.call('getTaskEvidenceForVerification', <String, Object?>{
+        'evidenceId': evidenceId,
+      }),
     );
-    final wire = _wireMap(result.data, 'evidence review');
+    final wire = _wireMap(result, 'evidence review');
     if (wire['evidenceId'] != evidenceId ||
         wire['contentType'] != 'image/jpeg') {
       throw const FormatException('Invalid evidence review response.');
@@ -158,11 +150,9 @@ final class FirebaseTaskResponseBoundary
   @override
   Future<TaskVerificationQueue> listPendingVerifications() async {
     final result = await _mapCallable(
-      () => functions
-          .httpsCallable('listPendingTaskVerifications')
-          .call(<String, Object?>{}),
+      () => client.call('listPendingTaskVerifications', <String, Object?>{}),
     );
-    final wire = _wireMap(result.data, 'verification queue');
+    final wire = _wireMap(result, 'verification queue');
     return TaskVerificationQueue(
       items: _wireList(
         wire['items'],
@@ -178,21 +168,22 @@ final class FirebaseTaskResponseBoundary
     required String commandId,
   }) async {
     final result = await _mapCallable(
-      () => functions.httpsCallable('verifyTaskCompletion').call(
-        <String, Object?>{'responseId': responseId, 'commandId': commandId},
-      ),
+      () => client.call('verifyTaskCompletion', <String, Object?>{
+        'responseId': responseId,
+        'commandId': commandId,
+      }),
     );
-    return TaskResponseRecord.fromWire(_wireMap(result.data, 'task response'));
+    return TaskResponseRecord.fromWire(_wireMap(result, 'task response'));
   }
 
   @override
   Future<TaskResponseRecap> getResponseRecap({required String taskId}) async {
     final result = await _mapCallable(
-      () => functions.httpsCallable('getTaskResponseRecap').call(
-        <String, Object?>{'taskId': taskId},
-      ),
+      () => client.call('getTaskResponseRecap', <String, Object?>{
+        'taskId': taskId,
+      }),
     );
-    return TaskResponseRecap.fromWire(_wireMap(result.data, 'task recap'));
+    return TaskResponseRecap.fromWire(_wireMap(result, 'task recap'));
   }
 }
 
@@ -201,24 +192,23 @@ final class FirebaseTaskResponseBoundary
 final class FirebaseTaskResponseErrorMapper {
   const FirebaseTaskResponseErrorMapper._();
 
-  static Exception? map(FirebaseFunctionsException error) =>
-      switch (error.code) {
-        'unavailable' ||
-        'deadline-exceeded' => const TransientTaskNetworkUnavailableException(),
-        'failed-precondition' ||
-        'not-found' ||
-        'already-exists' => TaskResponseConflictException(code: error.code),
-        'permission-denied' ||
-        'unauthenticated' ||
-        'invalid-argument' => TaskResponseRejectedException(code: error.code),
-        _ => null,
-      };
+  static Exception? map(CallableException error) => switch (error.code) {
+    'unavailable' ||
+    'deadline-exceeded' => const TransientTaskNetworkUnavailableException(),
+    'failed-precondition' ||
+    'not-found' ||
+    'already-exists' => TaskResponseConflictException(code: error.code),
+    'permission-denied' ||
+    'unauthenticated' ||
+    'invalid-argument' => TaskResponseRejectedException(code: error.code),
+    _ => null,
+  };
 }
 
 Future<T> _mapCallable<T>(Future<T> Function() call) async {
   try {
     return await call();
-  } on FirebaseFunctionsException catch (error) {
+  } on CallableException catch (error) {
     final mapped = FirebaseTaskResponseErrorMapper.map(error);
     if (mapped == null) rethrow;
     throw mapped;
