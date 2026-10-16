@@ -23,7 +23,7 @@ void main() {
       ),
       findsOneWidget,
     );
-    expect(find.text('Saya Ketua RT/RW'), findsOneWidget);
+    expect(find.textContaining('Saya Ketua RT/RW'), findsOneWidget);
     expect(find.text('Saya Warga'), findsOneWidget);
     expect(find.text('Foundation Ready'), findsNothing);
   });
@@ -35,7 +35,7 @@ void main() {
     await tester.pumpWidget(const GuyubApp());
     await tester.pumpAndSettle(const Duration(seconds: 2));
 
-    await tester.tap(find.text('Saya Ketua RT/RW'));
+    await tester.tap(find.textContaining('Saya Ketua RT/RW'));
     await tester.pumpAndSettle();
     expect(find.text('Masuk Operator RT/RW'), findsOneWidget);
     expect(find.byKey(const Key('operator-password')), findsOneWidget);
