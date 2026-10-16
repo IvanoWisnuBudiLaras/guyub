@@ -75,8 +75,8 @@ final class RoleSelectionScreen extends StatelessWidget {
                           Navigator.of(context).pushNamed('/resident/entry'),
                     ),
                     SizedBox(height: isCompact ? 24 : 32),
-                    // Darurat button (outline)
-                    TextButton.icon(
+                    // Darurat button (outline merah penuh lebar)
+                    OutlinedButton.icon(
                       key: const Key('emergency-directory-entry'),
                       onPressed: () =>
                           Navigator.of(context).pushNamed('/emergency'),
@@ -85,8 +85,10 @@ final class RoleSelectionScreen extends StatelessWidget {
                         size: 20,
                       ),
                       label: const Text('Informasi Darurat'),
-                      style: TextButton.styleFrom(
+                      style: OutlinedButton.styleFrom(
                         foregroundColor: context.appColors.danger,
+                        side: BorderSide(color: context.appColors.danger),
+                        minimumSize: const Size.fromHeight(48),
                       ),
                     ),
                     SizedBox(height: isCompact ? 16 : 32),
