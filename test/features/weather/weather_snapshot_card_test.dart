@@ -8,12 +8,14 @@ void main() {
   testWidgets('cached BMKG context shows offline status and both timestamps', (
     tester,
   ) async {
+    // Relative to now: a fixed date becomes stale once the age limit passes.
+    final now = DateTime.now();
     final store = _FakeWeatherStore(
       WeatherSnapshot(
         id: 'snapshot-test',
         communityId: 'rt-test',
-        sourceUpdatedAt: DateTime.utc(2026, 10, 4, 8),
-        fetchedAt: DateTime.utc(2026, 10, 4, 8, 5),
+        sourceUpdatedAt: now.subtract(const Duration(minutes: 5)),
+        fetchedAt: now.subtract(const Duration(minutes: 4)),
         rainfallMm: 12.5,
         maximumAgeSeconds: 604800,
       ),
