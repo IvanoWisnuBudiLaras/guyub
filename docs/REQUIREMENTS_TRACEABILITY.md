@@ -35,7 +35,7 @@ This file reports repository evidence. It does not convert a domain unit test in
 | AT-012 | VERIFIED | Functions unit/emulator and Flutter tests show hazardous proposal text remains review context only; the RT maps a SUBMITTED proposal to an approved-template DRAFT whose immutable instructions exclude that text, or marks it NEEDS_OFFICIAL_REPORT; resident active-task listing stays empty until a separate authorized activation. Flutter controller tests verify an unchanged retry after a fresh controller reuses the scoped ID, persists only ID/fingerprint metadata, and clears after server success. |
 | AT-013 | VERIFIED | The RT-scoped emergency directory supplies configured routes; Flutter validates HTTPS (no credentials/non-default ports) or telephone numbers, shows explicit actions only when configured, and handles unavailable/unconfigured/failed handoff states. Widget and Functions service tests pass. Pilot owners must still verify and provision real official channels. |
 | AT-014 | VERIFIED | Same-RT operator updates now support proxy and self-enrolled profiles, preserving existing choices and keeping reported completion pending verification. The create command ID/payload persists in secure storage across controller restart and is bound to its RT; cross-RT retry is blocked. A server-confirmed cancellation/reconciliation clears local payload only after checking whether creation committed; tombstones prevent delayed replay. The 200-resident list cap is disclosed; a failed deletion remains visible for retry. Flutter and Functions Emulator tests cover these cases. |
-| AT-015 | PARTIAL | `listRtTaskHistory` is paginated, derives scope from active operator membership, excludes DRAFT/resident-level data, and returns immutable snapshots plus ACTIVE/CLOSED/CANCELLED timestamps. Explicit same-RT closure is audited and never implies completion verification. `listTaskLifecycleEvents` exposes only event type/time after audit-consistency checks. Java 21 CI passes Emulator coverage for close replay, resident exclusion, cross-RT denial, same-RT replacement access, and private audit records. Flutter tests cover confirmation, accessible status/event labels, pagination, and aggregate recap. Physical pilot handover/usability validation remains open. |
+| AT-015 | VERIFIED | `listRtTaskHistory` is paginated, derives scope from active operator membership, excludes DRAFT/resident-level data, and returns immutable snapshots plus ACTIVE/CLOSED/CANCELLED timestamps. Explicit same-RT closure is audited and never implies completion verification. `listTaskLifecycleEvents` exposes only event type/time after audit-consistency checks. Java 21 CI passes Emulator coverage for close replay, resident exclusion, cross-RT denial, same-RT replacement access, and private audit records. Flutter tests cover confirmation, accessible status/event labels, pagination, and aggregate recap. The path is now also driven in the real app: `e2e/tests/rt-history.e2e.ts` opens history, sees the ACTIVE task with its immutable template version, closes it from the active list after confirming, and then sees history report `Ditutup` with a timeline of `Diaktifkan`/`Ditutup`. Physical pilot handover/usability validation remains open. |
 | AT-016 | PARTIAL | Active-only formatter/widget tests verify locked template text, voluntary wording, no internal identifiers, and a copy-boundary call. Android clipboard behavior has not been device-tested; no message is sent. |
 | AT-017 | PARTIAL | Callable-only same-RT list/cancellation, hash-only command IDs, deterministic audit, concurrent/same-command replay, cross-RT denial, and canceled-task exclusion pass Functions service/Emulator tests; confirmation/navigation widget tests pass. Physical pilot usability validation remains open. |
 | AT-018 | PARTIAL | Offline no-note completion is queued with a stable idempotency key, replayed through the callable, and remains pending until RT verification; unit tests pass. Full emulator/device validation remains open. |
@@ -109,11 +109,12 @@ helper starts failing after roughly four tests — so they are run separately.
 | `operator-flow` | 4/4 | Operator sign-in, reviewed safe catalog, draft slots and locked instructions, and the draft-is-inert-until-activated path |
 | `offline-active-task` | 3/3 | AT-006 / O-01 — cached task and locked safety text readable with airplane mode on across a restart |
 | `task-cycle` | 1/1 | AT-005 — resident submits, stays pending, operator verifies, queue drains |
+| `rt-history` | 1/1 | AT-015 — RT-owned history, explicit closure, lifecycle timeline |
 | `offline-emergency` | 2/2 | AT-007 — Darurat opens offline and states its own status |
 
 What this does **not** cover: directory *content* rendering offline (no verified pilot
-contacts are provisioned), and the remaining operator screens (history, weather
-suggestions, resident proposals, proxy assistance, evidence review).
+contacts are provisioned), and the remaining operator screens (weather suggestions,
+resident proposals, proxy assistance, evidence review).
 - Two host prerequisites are documented in the repository, not in CI: `agent-device`'s
   daemon needs PowerShell 7 reachable as `powershell.exe` (Windows PowerShell 5.1 exceeds
   its 2s process-identity probe), and local Android builds need
@@ -150,7 +151,7 @@ Verification (2026-10-15):
   scheduled job runs with the shared secret.
 - `flutter test test/core/network/http_adapter_contract_test.dart` — 3/3 against the real
   Node adapter, so the Dart client and the adapter agree on the wire format.
-- `flutter test` — 235/235 (3 skipped). Emulator suites — 20/20. Service tests — 104/104. Rules — 5/5. e2e (four suites, run separately) — 10/10.
+- `flutter test` — 235/235 (3 skipped). Emulator suites — 20/20. Service tests — 104/104. Rules — 5/5. e2e (five suites, run separately) — 11/11.
 
 App Check is now enforced in `invoke()`, the single choke point both runtimes share, so a
 new adapter cannot omit it; `functions/src/runtime_env.js` holds the one definition of the
