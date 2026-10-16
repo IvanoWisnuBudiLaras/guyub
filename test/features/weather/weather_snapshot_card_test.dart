@@ -8,12 +8,14 @@ void main() {
   testWidgets('cached BMKG context shows offline status and both timestamps', (
     tester,
   ) async {
+    final now = DateTime.now();
+    final recent = now.subtract(const Duration(hours: 2));
     final store = _FakeWeatherStore(
       WeatherSnapshot(
         id: 'snapshot-test',
         communityId: 'rt-test',
-        sourceUpdatedAt: DateTime.utc(2026, 10, 4, 8),
-        fetchedAt: DateTime.utc(2026, 10, 4, 8, 5),
+        sourceUpdatedAt: recent,
+        fetchedAt: recent.add(const Duration(minutes: 5)),
         rainfallMm: 12.5,
         maximumAgeSeconds: 604800,
       ),
