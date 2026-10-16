@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/widgets/app_logo.dart';
 import '../../application/resident_session.dart';
 import '../../application/resident_session_controller.dart';
 import '../../../assistance/application/assistance_volunteer_boundary.dart';
@@ -595,16 +594,60 @@ final class _ResidentSessionHomeScreenState
       loading: _loadingTasks,
       error: _taskLoadError,
       onRetry: _loadTasks,
-      onTaskTap: (task) {
-        // Navigate ke detail tugas (akan diimplementasikan di commit berikutnya)
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Detail tugas: ${task.templateSnapshot.title}'),
-            duration: const Duration(seconds: 1),
-          ),
-        );
+      onTaskTap: (task) => _openTaskDetail(task),
+      onTaskJoin: (task) => _joinTask(task),
+    );
+  }
+
+  Future<void> _openTaskDetail(ResidentTaskRecord task) async {
+    final controller = taskResponseController;
+    if (controller == null) return;
+
+    await Navigator.of(context).pushNamed(
+      '/resident/task-detail',
+      arguments: {
+        'session': _session,
+        'controller': controller,
+        'task': task,
+        'isCached': _taskList?.isCached ?? false,
+        'lastSyncedAt': _taskList?.lastSyncedAt,
       },
     );
+    
+    // Reload tasks after returning from detail
+    await _loadTasks();
+  }
+
+  Future<void> _joinTask(ResidentTaskRecord task) async {
+    final controller = taskResponseController;
+    if (controller == null) return;
+
+    try {
+      await controller.recordParticipation(
+        taskId: task.taskId,
+        choice: ParticipationChoice.join,
+        session: _session,
+      );
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Anda telah memilih ikut dalam tugas ini'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+        await _loadTasks();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Gagal menyimpan pilihan. Coba lagi nanti.'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    }
   }
 
   Widget _buildDaruratTab(BuildContext context) {

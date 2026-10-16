@@ -13,6 +13,7 @@ class TaskListTab extends StatelessWidget {
     required this.error,
     required this.onRetry,
     required this.onTaskTap,
+    this.onTaskJoin,
     super.key,
   });
 
@@ -21,6 +22,7 @@ class TaskListTab extends StatelessWidget {
   final String? error;
   final VoidCallback onRetry;
   final void Function(ResidentTaskRecord) onTaskTap;
+  final void Function(ResidentTaskRecord)? onTaskJoin;
 
   @override
   Widget build(BuildContext context) {
@@ -100,6 +102,9 @@ class TaskListTab extends StatelessWidget {
         return TaskCard(
           task: task,
           onTap: () => onTaskTap(task),
+          onJoin: task.participation == ParticipationState.unresponded && onTaskJoin != null
+              ? () => onTaskJoin!(task)
+              : null,
         );
       },
     );

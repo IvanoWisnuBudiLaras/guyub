@@ -9,11 +9,13 @@ class TaskCard extends StatelessWidget {
   const TaskCard({
     required this.task,
     required this.onTap,
+    this.onJoin,
     super.key,
   });
 
   final ResidentTaskRecord task;
   final VoidCallback onTap;
+  final VoidCallback? onJoin;
 
   @override
   Widget build(BuildContext context) {
@@ -77,107 +79,185 @@ class TaskCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         side: BorderSide(color: borderColor, width: 1.5),
       ),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header: urgency + deadline
-              Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          InkWell(
+            onTap: onTap,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Urgency badge
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: urgencyColor.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      urgencyLabel,
-                      style: TextStyle(
-                        color: urgencyColor,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
+                  // Header: urgency + deadline
+                  Row(
+                    children: [
+                      // Urgency badge
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: urgencyColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          urgencyLabel,
+                          style: TextStyle(
+                            color: urgencyColor,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                       ),
-                    ),
+                      const SizedBox(width: 8),
+                      // Deadline
+                      Expanded(
+                        child: Text(
+                          _formatDeadline(timeRemaining),
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: context.appColors.textSecondary,
+                              ),
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 8),
-                  // Deadline
-                  Expanded(
-                    child: Text(
-                      _formatDeadline(timeRemaining),
+                  const SizedBox(height: 12),
+                  // Title
+                  Text(
+                    template.title,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  if (template.coreInstruction.isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      template.coreInstruction,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: context.appColors.textSecondary,
                           ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              // Title
-              Text(
-                template.title,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-              if (template.coreInstruction.isNotEmpty) ...[
-                const SizedBox(height: 6),
-                Text(
-                  template.coreInstruction,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: context.appColors.textSecondary,
-                      ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-              const SizedBox(height: 12),
-              // Footer: status + action
-              Row(
-                children: [
+                  ],
+                  const SizedBox(height: 12),
                   // Status badge
-                  Icon(statusIcon, size: 16, color: statusColor),
-                  const SizedBox(width: 4),
-                  Text(
-                    statusLabel,
-                    style: TextStyle(
-                      color: statusColor,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const Spacer(),
-                  // Action hint
                   Row(
-                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
-                        'Detail',
-                        style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                              color: context.appColors.primary,
-                              fontWeight: FontWeight.w600,
-                            ),
-                      ),
+                      Icon(statusIcon, size: 16, color: statusColor),
                       const SizedBox(width: 4),
-                      Icon(
-                        Icons.arrow_forward,
-                        size: 14,
-                        color: context.appColors.primary,
+                      Text(
+                        statusLabel,
+                        style: TextStyle(
+                          color: statusColor,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ],
                   ),
                 ],
               ),
-            ],
+            ),
           ),
-        ),
+          // Action buttons
+          Container(
+            decoration: BoxDecoration(
+              border: Border(
+                top: BorderSide(
+                  color: context.appColors.border.withOpacity(0.5),
+                ),
+              ),
+            ),
+            child: Row(
+              children: [
+                // Button sesuai status
+                if (task.participation == ParticipationState.unresponded &&
+                    onJoin != null) ...[
+                  Expanded(
+                    child: InkWell(
+                      onTap: onJoin,
+                      borderRadius: const BorderRadius.only(
+                        bottomLeft: Radius.circular(12),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.check_circle_outline,
+                              size: 18,
+                              color: context.appColors.success,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Ikut',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .labelLarge
+                                  ?.copyWith(
+                                    color: context.appColors.success,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  Container(
+                    width: 1,
+                    height: 44,
+                    color: context.appColors.border.withOpacity(0.5),
+                  ),
+                ],
+                // Tombol Detail selalu ada
+                Expanded(
+                  child: InkWell(
+                    onTap: onTap,
+                    borderRadius: BorderRadius.only(
+                      bottomRight: const Radius.circular(12),
+                      bottomLeft: task.participation ==
+                              ParticipationState.unresponded
+                          ? Radius.zero
+                          : const Radius.circular(12),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.article_outlined,
+                            size: 18,
+                            color: context.appColors.primary,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Detail',
+                            style: Theme.of(context)
+                                .textTheme
+                                .labelLarge
+                                ?.copyWith(
+                                  color: context.appColors.primary,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
