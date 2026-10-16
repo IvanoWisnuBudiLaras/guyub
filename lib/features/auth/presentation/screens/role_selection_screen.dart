@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/widgets/app_logo.dart';
-import '../../../../core/widgets/primary_button.dart';
-import '../../../../core/widgets/secondary_button.dart';
 import '../../../../core/theme/app_colors.dart';
 
 /// Entry point that keeps operator and resident paths visually distinct.
@@ -43,34 +41,27 @@ final class RoleSelectionScreen extends StatelessWidget {
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
                 const SizedBox(height: 24),
-                // Operator card (biru)
-                PrimaryButton(
+                // Operator card (kartu biru primary)
+                _RoleCard(
                   key: const Key('role-selection-operator'),
-                  label: 'Saya Ketua RT/RW',
+                  title: 'Saya Ketua RT/RW atau Pendamping',
+                  description:
+                      'Kelola tugas, pantau kesiapan warga, koordinasi banjir',
                   icon: Icons.admin_panel_settings_outlined,
-                  onPressed: () =>
-                      Navigator.of(context).pushNamed('/operator/login'),
+                  actionLabel: 'MASUK DENGAN AKUN',
+                  isPrimary: true,
+                  onTap: () => Navigator.of(context).pushNamed('/operator/login'),
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  'Masuk dengan akun',
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-                const SizedBox(height: 24),
-                // Warga card (outline)
-                SecondaryButton(
+                const SizedBox(height: 16),
+                // Warga card (kartu outline)
+                _RoleCard(
                   key: const Key('role-selection-resident'),
-                  label: 'Saya Warga',
+                  title: 'Saya Warga',
+                  description: 'Ikuti tugas kesiapan banjir di RT Anda',
                   icon: Icons.home_outlined,
-                  onPressed: () =>
-                      Navigator.of(context).pushNamed('/resident/entry'),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Masuk dengan kode RT',
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodySmall,
+                  actionLabel: 'MASUK DENGAN KODE RT',
+                  isPrimary: false,
+                  onTap: () => Navigator.of(context).pushNamed('/resident/entry'),
                 ),
                 const SizedBox(height: 32),
                 // Darurat button (outline)
@@ -107,4 +98,109 @@ final class RoleSelectionScreen extends StatelessWidget {
       ),
     ),
   );
+}
+
+/// Kartu besar untuk role selection (meniru proposal Figma).
+class _RoleCard extends StatelessWidget {
+  const _RoleCard({
+    required this.title,
+    required this.description,
+    required this.icon,
+    required this.actionLabel,
+    required this.isPrimary,
+    required this.onTap,
+    super.key,
+  });
+
+  final String title;
+  final String description;
+  final IconData icon;
+  final String actionLabel;
+  final bool isPrimary;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final bgColor = isPrimary ? colors.primary : Colors.white;
+    final fgColor = isPrimary ? Colors.white : colors.textPrimary;
+    final borderColor = isPrimary ? colors.primary : colors.border;
+
+    return Material(
+      color: bgColor,
+      borderRadius: BorderRadius.circular(16),
+      elevation: isPrimary ? 2 : 0,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            border: Border.all(color: borderColor, width: 1.5),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Icon in semi-transparent box
+              Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  color: isPrimary
+                      ? Colors.white.withOpacity(0.2)
+                      : colors.primary.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  icon,
+                  size: 32,
+                  color: isPrimary ? Colors.white : colors.primary,
+                ),
+              ),
+              const SizedBox(height: 16),
+              // Title
+              Text(
+                title,
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      color: fgColor,
+                      fontWeight: FontWeight.w600,
+                    ),
+              ),
+              const SizedBox(height: 8),
+              // Description
+              Text(
+                description,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: isPrimary
+                          ? Colors.white.withOpacity(0.9)
+                          : colors.textSecondary,
+                    ),
+              ),
+              const SizedBox(height: 20),
+              // Action footer
+              Row(
+                children: [
+                  Text(
+                    actionLabel,
+                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                          color: fgColor,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 0.5,
+                        ),
+                  ),
+                  const SizedBox(width: 4),
+                  Icon(
+                    Icons.arrow_forward,
+                    size: 16,
+                    color: fgColor,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }

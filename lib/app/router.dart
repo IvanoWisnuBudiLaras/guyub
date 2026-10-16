@@ -73,7 +73,10 @@ final class AppRouter {
     switch (settings.name) {
       case splash:
         return MaterialPageRoute<void>(
-          builder: (_) => const SplashScreen(),
+          builder: (_) => SplashScreen(
+            operatorAuthBoundary: operatorAuthBoundary,
+            residentSessionController: residentSessionController,
+          ),
           settings: settings,
         );
       case initial:
