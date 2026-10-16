@@ -140,3 +140,54 @@ test(
     ).toBeVisible({ timeout: 30_000 });
   },
 );
+
+test(
+  'a draft is not active until the operator explicitly confirms it',
+  async ({ app, screen }) => {
+    await signInOperator(app, screen);
+    await screen.getByText('Buka Katalog Tugas Aman').tap();
+    await expect(screen.getByText(TEMPLATE_ROW)).toBeVisible({
+      timeout: 30_000,
+    });
+    await screen.getByText('Pilih template').tap();
+    await expect(screen.getByText('Siapkan Draf Tugas')).toBeVisible({
+      timeout: 30_000,
+    });
+
+    // Fill the one required slot. The Material pickers open on a valid default
+    // (today, one hour ahead), so accepting them as-is yields a future deadline.
+    await screen.getByText('Pilih batas waktu').tap();
+    await screen.getByText('OK').tap();
+    await screen.getByText('OK').tap();
+
+    await screen.getByText('Lanjut ke konfirmasi').tap();
+
+    // The confirmation screen is the human checkpoint before distribution.
+    await expect(screen.getByText('Konfirmasi Aktivasi Tugas')).toBeVisible({
+      timeout: 30_000,
+    });
+    // AT-001: creating a draft never activates or distributes anything.
+    await expect(
+      screen.getByText('Draf belum aktif dan belum dibagikan.'),
+    ).toBeVisible();
+    // The locked instructions are restated at the point of decision.
+    await expect(screen.getByText(SAFETY_TEXT)).toBeVisible();
+
+    // AT-016: the WhatsApp summary is copy-only and active-only, so a draft
+    // must not offer it at all.
+    await expect(
+      screen.getByText('Salin teks untuk WhatsApp'),
+    ).not.toBeVisible();
+
+    // Activation is an explicit, separate operator action.
+    await screen.getByText('Konfirmasi dan aktifkan').tap();
+    await expect(screen.getByText('Tugas aktif untuk RT ini.')).toBeVisible({
+      timeout: 30_000,
+    });
+
+    // Only now does the copy-only distribution path appear.
+    await expect(
+      screen.getByText('Salin teks untuk WhatsApp'),
+    ).toBeVisible();
+  },
+);
