@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/app_logo.dart';
 import '../../application/resident_session.dart';
 import '../../application/resident_session_controller.dart';
 import '../../../assistance/application/assistance_volunteer_boundary.dart';
@@ -52,6 +54,7 @@ final class _ResidentSessionHomeScreenState
   bool _syncForCurrentConnection = false;
   bool _needsWeatherReload = false;
   int _weatherRevision = 0;
+  int _selectedTabIndex = 0; // Bottom navigation state
 
   ResidentSession get session => _session;
   ResidentSessionController get controller => widget.controller;
@@ -211,158 +214,417 @@ final class _ResidentSessionHomeScreenState
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(
-      title: const Text('Ruang Warga'),
-      actions: [
-        IconButton(
-          key: const Key('resident-sign-out'),
-          tooltip: 'Keluar',
-          onPressed: () async {
-            await taskPushNotificationsController
-                ?.unregisterResidentBeforeSignOut(session);
-            taskPushNotificationsController?.clearActiveTarget();
-            await controller.signOut();
-            if (context.mounted) {
-              Navigator.of(context).pushNamedAndRemoveUntil('/', (_) => false);
-            }
-          },
-          icon: const Icon(Icons.logout),
-        ),
-      ],
-    ),
-    body: SingleChildScrollView(
-      child: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.home_outlined, size: 48),
-              const SizedBox(height: 12),
-              Text(
-                'Warga • ${session.rtLabel}',
-                style: Theme.of(context).textTheme.titleLarge,
+  Widget build(BuildContext context) {
+    final screenHeight = MediaQuery.of(context).size.height;
+    final isCompact = screenHeight < 700;
+
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: _selectedTabIndex == 0
+          ? null
+          : AppBar(
+              backgroundColor: Colors.white,
+              elevation: 0,
+              title: Text(
+                _selectedTabIndex == 1
+                    ? 'Daftar Tugas'
+                    : 'Informasi Darurat',
               ),
-              const SizedBox(height: 8),
-              Text(session.communityName),
-              const SizedBox(height: 8),
-              Text('Halo, ${session.nickname}'),
-              if (session.isOfflineSnapshot) ...[
-                const SizedBox(height: 16),
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Column(
-                      children: [
-                        const Text(
-                          'Mode offline. Sesi dan informasi tugas tersimpan '
-                          'belum diverifikasi ulang. Status tugas mungkin '
-                          'sudah berubah.',
-                        ),
-                        const SizedBox(height: 8),
-                        OutlinedButton.icon(
-                          key: const Key('resident-reconnect-sync'),
-                          onPressed: _syncing ? null : _restoreAndSync,
-                          icon: const Icon(Icons.sync),
-                          label: Text(
-                            _syncing
-                                ? 'Memeriksa status…'
-                                : 'Periksa koneksi dan sinkronkan',
-                          ),
-                        ),
-                      ],
+              actions: _buildAppBarActions(context),
+            ),
+      body: IndexedStack(
+        index: _selectedTabIndex,
+        children: [
+          // Tab 0: Beranda
+          _buildBerandaTab(context, isCompact),
+          // Tab 1: Tugas (placeholder untuk sekarang)
+          _buildTugasTab(context),
+          // Tab 2: Darurat (placeholder untuk sekarang)
+          _buildDaruratTab(context),
+        ],
+      ),
+      bottomNavigationBar: _buildBottomNavigation(context),
+    );
+  }
+
+  List<Widget> _buildAppBarActions(BuildContext context) {
+    return [
+      IconButton(
+        key: const Key('resident-sign-out'),
+        tooltip: 'Keluar',
+        onPressed: () async {
+          await taskPushNotificationsController
+              ?.unregisterResidentBeforeSignOut(session);
+          taskPushNotificationsController?.clearActiveTarget();
+          await controller.signOut();
+          if (context.mounted) {
+            Navigator.of(context).pushNamedAndRemoveUntil('/', (_) => false);
+          }
+        },
+        icon: const Icon(Icons.logout),
+      ),
+    ];
+  }
+
+  Widget _buildBerandaTab(BuildContext context, bool isCompact) {
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Header dengan sapaan + badge RT
+          _buildBerandaHeader(context, isCompact),
+          Padding(
+            padding: EdgeInsets.all(isCompact ? 16 : 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Offline warning (jika offline)
+                if (session.isOfflineSnapshot) ...[
+                  _buildOfflineWarning(context),
+                  SizedBox(height: isCompact ? 12 : 16),
+                ],
+                // Weather card
+                if (weatherSnapshotStore != null) ...[
+                  WeatherSnapshotCard(
+                    key: ValueKey<int>(_weatherRevision),
+                    store: weatherSnapshotStore!,
+                    communityId: session.communityId,
+                    onRefresh: weatherSnapshotSyncController == null
+                        ? null
+                        : _weatherRefresh,
+                  ),
+                  SizedBox(height: isCompact ? 12 : 16),
+                ],
+                // Ringkasan Tugas Saya (placeholder untuk sekarang)
+                _buildTaskSummaryPlaceholder(context, isCompact),
+                SizedBox(height: isCompact ? 12 : 16),
+                // Push notification opt-in
+                if (taskPushNotificationsController != null &&
+                    taskResponseController != null &&
+                    !session.isOfflineSnapshot) ...[
+                  TaskPushOptInCard.forResident(
+                    controller: taskPushNotificationsController!,
+                    session: session,
+                  ),
+                  SizedBox(height: isCompact ? 12 : 16),
+                ],
+                // Shortcuts
+                _buildShortcuts(context, isCompact),
+                SizedBox(height: isCompact ? 12 : 16),
+                // Hapus data (hanya jika online)
+                if (!session.isOfflineSnapshot) ...[
+                  TextButton.icon(
+                    key: const Key('resident-delete-data'),
+                    onPressed: () => _confirmAndDeleteOwnData(context),
+                    icon: const Icon(Icons.delete_outline),
+                    label: const Text('Hapus Data Saya'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: context.appColors.textSecondary,
                     ),
                   ),
-                ),
+                ],
               ],
-              const SizedBox(height: 16),
-              OutlinedButton.icon(
-                key: const Key('resident-emergency-directory'),
-                onPressed: () =>
-                    Navigator.of(context)
-                        .pushNamed('/emergency', arguments: session),
-                icon: const Icon(Icons.health_and_safety_outlined),
-                label: const Text('Informasi Darurat'),
-              ),
-              if (weatherSnapshotStore != null) ...[
-                const SizedBox(height: 12),
-                WeatherSnapshotCard(
-                  key: ValueKey<int>(_weatherRevision),
-                  store: weatherSnapshotStore!,
-                  communityId: session.communityId,
-                  onRefresh: weatherSnapshotSyncController == null
-                      ? null
-                      : _weatherRefresh,
-                ),
-              ],
-              if (taskPushNotificationsController != null &&
-                  taskResponseController != null &&
-                  !session.isOfflineSnapshot) ...[
-                const SizedBox(height: 12),
-                TaskPushOptInCard.forResident(
-                  controller: taskPushNotificationsController!,
-                  session: session,
-                ),
-              ],
-              const SizedBox(height: 24),
-              Text(
-                taskResponseController == null
-                    ? 'Sesi warga Anda terverifikasi. Layanan tugas belum terhubung.'
-                    : taskPushNotificationsController == null
-                    ? 'Lihat tugas aktif yang telah disetujui operator RT. '
-                          'Notifikasi push belum tersedia pada perangkat ini.'
-                    : 'Lihat tugas aktif yang telah disetujui operator RT. '
-                          'Notifikasi push hanya pemberitahuan tambahan.',
-                textAlign: TextAlign.center,
-              ),
-              if (taskResponseController != null) ...[
-                const SizedBox(height: 20),
-                FilledButton.icon(
-                  key: const Key('resident-task-list'),
-                  onPressed: () =>
-                      Navigator.of(context)
-                          .pushNamed('/resident/tasks', arguments: session),
-                  icon: const Icon(Icons.checklist),
-                  label: const Text('Lihat Tugas Kesiapsiagaan'),
-                ),
-              ],
-              if (assistanceVolunteerController != null &&
-                  !session.isOfflineSnapshot) ...[
-                const SizedBox(height: 12),
-                OutlinedButton.icon(
-                  key: const Key('resident-assistance-volunteer'),
-                  onPressed: () => Navigator.of(context)
-                      .pushNamed('/resident/assistance', arguments: session),
-                  icon: const Icon(Icons.volunteer_activism_outlined),
-                  label: const Text('Kesediaan Membantu'),
-                ),
-              ],
-              if (residentProposalController != null &&
-                  !session.isOfflineSnapshot) ...[
-                const SizedBox(height: 12),
-                OutlinedButton.icon(
-                  key: const Key('resident-propose-task'),
-                  onPressed: () =>
-                      Navigator.of(context)
-                          .pushNamed('/resident/proposals', arguments: session),
-                  icon: const Icon(Icons.lightbulb_outline),
-                  label: const Text('Usulkan Persiapan Warga'),
-                ),
-              ],
-              if (!session.isOfflineSnapshot) ...[
-                const SizedBox(height: 32),
-                TextButton.icon(
-                  key: const Key('resident-delete-data'),
-                  onPressed: () => _confirmAndDeleteOwnData(context),
-                  icon: const Icon(Icons.delete_outline),
-                  label: const Text('Hapus Data Saya'),
-                ),
-              ],
-            ],
+            ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBerandaHeader(BuildContext context, bool isCompact) {
+    return Container(
+      padding: EdgeInsets.fromLTRB(
+        isCompact ? 16 : 20,
+        isCompact ? 48 : 56,
+        isCompact ? 16 : 20,
+        isCompact ? 16 : 20,
+      ),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            context.appColors.primary,
+            context.appColors.primary.withOpacity(0.85),
+          ],
         ),
       ),
-    ),
-  );
+      child: SafeArea(
+        bottom: false,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Badge RT
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.white.withOpacity(0.3)),
+              ),
+              child: Text(
+                session.rtLabel,
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            // Sapaan
+            Text(
+              'Halo, ${session.nickname}',
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                  ),
+            ),
+            const SizedBox(height: 4),
+            // Community name
+            Text(
+              session.communityName,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Colors.white.withOpacity(0.9),
+                  ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOfflineWarning(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: context.appColors.warning.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: context.appColors.warning.withOpacity(0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.cloud_off_outlined,
+                color: context.appColors.warning,
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Mode offline',
+                  style: TextStyle(
+                    color: context.appColors.warning,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Sesi dan informasi tugas tersimpan belum diverifikasi ulang. '
+            'Status tugas mungkin sudah berubah.',
+            style: TextStyle(fontSize: 13),
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            key: const Key('resident-reconnect-sync'),
+            onPressed: _syncing ? null : _restoreAndSync,
+            icon: const Icon(Icons.sync, size: 18),
+            label: Text(
+              _syncing ? 'Memeriksa status…' : 'Sinkronkan sekarang',
+              style: const TextStyle(fontSize: 13),
+            ),
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTaskSummaryPlaceholder(BuildContext context, bool isCompact) {
+    // Placeholder untuk Ringkasan Tugas Saya
+    // Akan diimplementasikan di commit berikutnya
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: context.appColors.border),
+      ),
+      child: Padding(
+        padding: EdgeInsets.all(isCompact ? 12 : 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Tugas Saya',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              taskResponseController == null
+                  ? 'Layanan tugas belum terhubung.'
+                  : 'Memuat ringkasan tugas…',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: context.appColors.textSecondary,
+                  ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildShortcuts(BuildContext context, bool isCompact) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Kesediaan Membantu
+        if (assistanceVolunteerController != null &&
+            !session.isOfflineSnapshot) ...[
+          OutlinedButton.icon(
+            key: const Key('resident-assistance-volunteer'),
+            onPressed: () => Navigator.of(context)
+                .pushNamed('/resident/assistance', arguments: session),
+            icon: const Icon(Icons.volunteer_activism_outlined),
+            label: const Text('Kesediaan Membantu'),
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size.fromHeight(48),
+            ),
+          ),
+          SizedBox(height: isCompact ? 8 : 12),
+        ],
+        // Usulkan Persiapan
+        if (residentProposalController != null &&
+            !session.isOfflineSnapshot) ...[
+          OutlinedButton.icon(
+            key: const Key('resident-propose-task'),
+            onPressed: () => Navigator.of(context)
+                .pushNamed('/resident/proposals', arguments: session),
+            icon: const Icon(Icons.lightbulb_outline),
+            label: const Text('Usulkan Persiapan Warga'),
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size.fromHeight(48),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildTugasTab(BuildContext context) {
+    // Placeholder untuk tab Tugas
+    // Akan diimplementasikan di commit berikutnya
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.checklist,
+              size: 64,
+              color: context.appColors.textSecondary,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Daftar Tugas',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              taskResponseController == null
+                  ? 'Layanan tugas belum terhubung.'
+                  : 'Implementasi daftar tugas akan ditambahkan.',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: context.appColors.textSecondary,
+                  ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDaruratTab(BuildContext context) {
+    // Placeholder untuk tab Darurat
+    // Akan diimplementasikan di commit berikutnya
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.health_and_safety_outlined,
+              size: 64,
+              color: context.appColors.danger,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Informasi Darurat',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Implementasi informasi darurat akan ditambahkan.',
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            FilledButton.icon(
+              onPressed: () => Navigator.of(context)
+                  .pushNamed('/emergency', arguments: session),
+              icon: const Icon(Icons.arrow_forward),
+              label: const Text('Buka Halaman Darurat Lengkap'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBottomNavigation(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        border: Border(
+          top: BorderSide(color: context.appColors.border),
+        ),
+      ),
+      child: BottomNavigationBar(
+        currentIndex: _selectedTabIndex,
+        onTap: (index) => setState(() => _selectedTabIndex = index),
+        selectedItemColor: context.appColors.primary,
+        unselectedItemColor: context.appColors.textSecondary,
+        selectedFontSize: 12,
+        unselectedFontSize: 12,
+        type: BottomNavigationBarType.fixed,
+        elevation: 0,
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home_outlined),
+            activeIcon: Icon(Icons.home),
+            label: 'Beranda',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.checklist_outlined),
+            activeIcon: Icon(Icons.checklist),
+            label: 'Tugas',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.health_and_safety_outlined),
+            activeIcon: Icon(Icons.health_and_safety),
+            label: 'Darurat',
+          ),
+        ],
+      ),
+    );
+  }
 }
