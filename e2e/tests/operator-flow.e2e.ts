@@ -96,3 +96,47 @@ test('the operator opens the reviewed safe catalog', async ({ app, screen }) => 
   await expect(screen.getByText(SAFETY_TEXT)).toBeVisible();
 
 });
+
+test(
+  'the draft shows the locked instructions and only offers the allowed slots',
+  async ({ app, screen }) => {
+    await signInOperator(app, screen);
+    await screen.getByText('Buka Katalog Tugas Aman').tap();
+    await expect(screen.getByText(TEMPLATE_ROW)).toBeVisible({
+      timeout: 30_000,
+    });
+
+    await screen.getByText('Pilih template').tap();
+
+    // AT-003: the core and safety instructions come from the reviewed template
+    // and are shown locked — the operator cannot author them. The card renders
+    // its heading, both instructions, and the KESELAMATAN label inside a single
+    // accessibility node, so each is matched as a substring.
+    await expect(screen.getByText('Siapkan Draf Tugas')).toBeVisible({
+      timeout: 30_000,
+    });
+    await expect(
+      screen.getByText(/Instruksi template terkunci/),
+    ).toBeVisible();
+    await expect(screen.getByText(SAFETY_TEXT)).toBeVisible();
+    await expect(
+      screen.getByText(/Simpan dokumen penting di wadah yang mudah dijangkau/),
+    ).toBeVisible();
+    await expect(screen.getByText(/KESELAMATAN/)).toBeVisible();
+
+    // The only operator-editable fields are the two safe slots. There is no
+    // free-text instruction or address input anywhere on the screen.
+    await expect(screen.getByText('Bagian yang dapat diatur')).toBeVisible();
+    await expect(screen.getByText('Pilih batas waktu')).toBeVisible();
+    await expect(
+      screen.getByText('Jenis lokasi umum (opsional)'),
+    ).toBeVisible();
+
+    // A draft cannot be created before a deadline is chosen: the deadline is
+    // the one slot the server requires.
+    await screen.getByText('Lanjut ke konfirmasi').tap();
+    await expect(
+      screen.getByText('Pilih batas waktu di masa depan.'),
+    ).toBeVisible({ timeout: 30_000 });
+  },
+);
