@@ -564,37 +564,44 @@ final class _ResidentSessionHomeScreenState
   }
 
   Widget _buildTugasTab(BuildContext context) {
-    // Placeholder untuk tab Tugas
-    // Akan diimplementasikan di commit berikutnya
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.checklist,
-              size: 64,
-              color: context.appColors.textSecondary,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Daftar Tugas',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              taskResponseController == null
-                  ? 'Layanan tugas belum terhubung.'
-                  : 'Implementasi daftar tugas akan ditambahkan.',
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: context.appColors.textSecondary,
-                  ),
-            ),
-          ],
+    if (taskResponseController == null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.checklist,
+                size: 64,
+                color: context.appColors.textSecondary,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Layanan Tugas Belum Terhubung',
+                style: Theme.of(context).textTheme.titleLarge,
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
         ),
-      ),
+      );
+    }
+
+    return _TaskListTab(
+      taskList: _taskList,
+      loading: _loadingTasks,
+      error: _taskLoadError,
+      onRetry: _loadTasks,
+      onTaskTap: (task) {
+        // Navigate ke detail tugas (akan diimplementasikan di commit berikutnya)
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Detail tugas: ${task.templateSnapshot.title}'),
+            duration: const Duration(seconds: 1),
+          ),
+        );
+      },
     );
   }
 
@@ -902,5 +909,297 @@ class _StatItem extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+
+/// Tab Daftar Tugas
+class _TaskListTab extends StatelessWidget {
+  const _TaskListTab({
+    required this.taskList,
+    required this.loading,
+    required this.error,
+    required this.onRetry,
+    required this.onTaskTap,
+  });
+
+  final ResidentTaskList? taskList;
+  final bool loading;
+  final String? error;
+  final VoidCallback onRetry;
+  final void Function(ResidentTaskRecord) onTaskTap;
+
+  @override
+  Widget build(BuildContext context) {
+    if (loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (error != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.error_outline,
+                size: 64,
+                color: context.appColors.danger,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                error!,
+                textAlign: TextAlign.center,
+                style: TextStyle(color: context.appColors.danger),
+              ),
+              const SizedBox(height: 16),
+              FilledButton.icon(
+                onPressed: onRetry,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Coba Lagi'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final tasks = taskList?.items ?? [];
+
+    if (tasks.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.check_circle_outline,
+                size: 64,
+                color: context.appColors.textSecondary.withOpacity(0.5),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Belum Ada Tugas Aktif',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Tugas kesiapsiagaan dari RT Anda akan muncul di sini.',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: context.appColors.textSecondary,
+                    ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return ListView.separated(
+      padding: const EdgeInsets.all(16),
+      itemCount: tasks.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 12),
+      itemBuilder: (context, index) {
+        final task = tasks[index];
+        return _TaskCard(
+          task: task,
+          onTap: () => onTaskTap(task),
+        );
+      },
+    );
+  }
+}
+
+/// Kartu tugas di list
+class _TaskCard extends StatelessWidget {
+  const _TaskCard({
+    required this.task,
+    required this.onTap,
+  });
+
+  final ResidentTaskRecord task;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final template = task.templateSnapshot;
+    final now = DateTime.now();
+    final timeRemaining = task.deadline.difference(now);
+    final isUrgent = timeRemaining.inHours < 24 && timeRemaining.inHours >= 0;
+    final isPastDeadline = timeRemaining.isNegative;
+
+    // Tentukan warna border berdasarkan urgency
+    Color borderColor;
+    Color urgencyColor;
+    String urgencyLabel;
+
+    if (isPastDeadline) {
+      borderColor = context.appColors.danger;
+      urgencyColor = context.appColors.danger;
+      urgencyLabel = 'Terlewat';
+    } else if (isUrgent) {
+      borderColor = context.appColors.warning;
+      urgencyColor = context.appColors.warning;
+      urgencyLabel = 'Mendesak';
+    } else {
+      borderColor = context.appColors.border;
+      urgencyColor = context.appColors.primary;
+      urgencyLabel = 'Normal';
+    }
+
+    // Status badge
+    String statusLabel;
+    Color statusColor;
+    IconData statusIcon;
+
+    if (task.participation == ParticipationState.joined) {
+      if (task.completion == CompletionState.verifiedComplete) {
+        statusLabel = 'Selesai';
+        statusColor = context.appColors.success;
+        statusIcon = Icons.check_circle;
+      } else if (task.completion == CompletionState.pendingRtVerification) {
+        statusLabel = 'Menunggu Verifikasi';
+        statusColor = context.appColors.warning;
+        statusIcon = Icons.schedule;
+      } else {
+        statusLabel = 'Saya Ikut';
+        statusColor = context.appColors.primary;
+        statusIcon = Icons.task_alt;
+      }
+    } else if (task.participation == ParticipationState.declined) {
+      statusLabel = 'Tidak Ikut';
+      statusColor = context.appColors.textSecondary;
+      statusIcon = Icons.cancel_outlined;
+    } else {
+      statusLabel = 'Belum Dijawab';
+      statusColor = context.appColors.textSecondary;
+      statusIcon = Icons.help_outline;
+    }
+
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: borderColor, width: 1.5),
+      ),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header: urgency + deadline
+              Row(
+                children: [
+                  // Urgency badge
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: urgencyColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      urgencyLabel,
+                      style: TextStyle(
+                        color: urgencyColor,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  // Deadline
+                  Expanded(
+                    child: Text(
+                      _formatDeadline(timeRemaining),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: context.appColors.textSecondary,
+                          ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              // Title
+              Text(
+                template.title,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              if (template.coreInstruction.isNotEmpty) ...[
+                const SizedBox(height: 6),
+                Text(
+                  template.coreInstruction,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: context.appColors.textSecondary,
+                      ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+              const SizedBox(height: 12),
+              // Footer: status + action
+              Row(
+                children: [
+                  // Status badge
+                  Icon(statusIcon, size: 16, color: statusColor),
+                  const SizedBox(width: 4),
+                  Text(
+                    statusLabel,
+                    style: TextStyle(
+                      color: statusColor,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const Spacer(),
+                  // Action hint
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Detail',
+                        style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                              color: context.appColors.primary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                      ),
+                      const SizedBox(width: 4),
+                      Icon(
+                        Icons.arrow_forward,
+                        size: 14,
+                        color: context.appColors.primary,
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _formatDeadline(Duration timeRemaining) {
+    if (timeRemaining.isNegative) {
+      return 'Batas waktu terlewat';
+    }
+    if (timeRemaining.inDays > 0) {
+      return '${timeRemaining.inDays} hari lagi';
+    }
+    if (timeRemaining.inHours > 0) {
+      return '${timeRemaining.inHours} jam lagi';
+    }
+    return '${timeRemaining.inMinutes} menit lagi';
   }
 }
