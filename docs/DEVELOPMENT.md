@@ -126,6 +126,7 @@ tenaganya — snapshot helper Android mulai gagal setelah sekitar empat tes.
 | `tests/offline-active-task.e2e.ts` | Tugas + instruksi keselamatan terbaca saat mode pesawat |
 | `tests/rt-history.e2e.ts` | Riwayat tugas RT, penutupan eksplisit, linimasa peristiwa |
 | `tests/resident-proposal.e2e.ts` | Usulan warga tetap inert dan sampai ke RT sebagai konteks tinjauan |
+| `tests/helper-consent.e2e.ts` | Kesediaan membantu bersifat sukarela, di balik konfirmasi consent eksplisit |
 | `tests/offline-emergency.e2e.ts` | Rute Darurat terbuka offline tanpa mengarang data |
 
 **Menulis tes baru:** `Key` milik widget Flutter tidak terlihat oleh driver, dan banyak

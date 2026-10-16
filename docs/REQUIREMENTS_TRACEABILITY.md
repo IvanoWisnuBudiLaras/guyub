@@ -111,6 +111,7 @@ helper starts failing after roughly four tests — so they are run separately.
 | `task-cycle` | 1/1 | AT-005 — resident submits, stays pending, operator verifies, queue drains |
 | `rt-history` | 1/1 | AT-015 — RT-owned history, explicit closure, lifecycle timeline |
 | `resident-proposal` | 1/1 | AT-012 / INV-08 — a proposal stays inert and reaches the operator as review context |
+| `helper-consent` | 1/1 | AT-020 / INV-03 — voluntary opt-in behind an explicit consent confirmation |
 | `offline-emergency` | 2/2 | AT-007 — Darurat opens offline and states its own status |
 
 What this does **not** cover: directory *content* rendering offline (no verified pilot
@@ -152,7 +153,7 @@ Verification (2026-10-15):
   scheduled job runs with the shared secret.
 - `flutter test test/core/network/http_adapter_contract_test.dart` — 3/3 against the real
   Node adapter, so the Dart client and the adapter agree on the wire format.
-- `flutter test` — 235/235 (3 skipped). Emulator suites — 20/20. Service tests — 104/104. Rules — 5/5. e2e (six suites, run separately) — 12/12.
+- `flutter test` — 235/235 (3 skipped). Emulator suites — 20/20. Service tests — 104/104. Rules — 5/5. e2e (seven suites, run separately) — 13/13.
 
 App Check is now enforced in `invoke()`, the single choke point both runtimes share, so a
 new adapter cannot omit it; `functions/src/runtime_env.js` holds the one definition of the
