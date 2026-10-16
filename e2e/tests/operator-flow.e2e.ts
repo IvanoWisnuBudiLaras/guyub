@@ -19,6 +19,9 @@ const OPERATOR_EMAIL = 'operator@guyub.test';
 const OPERATOR_PASSWORD = 'test-password-123';
 const RT_ID = 'rt-e2e';
 const TEMPLATE_TITLE = 'Persiapan rumah tangga';
+// The catalog card renders the title twice in one accessibility node, joined
+// with the version line, so an exact match misses.
+const TEMPLATE_ROW = new RegExp(TEMPLATE_TITLE);
 const SAFETY_TEXT = new RegExp(
   'Jangan mendekati air banjir atau instalasi listrik basah',
 );
@@ -40,51 +43,28 @@ async function signInOperator(
 ) {
   await app.open();
 
-  // Role selection is shown when no session was restored.
-  if (await screen.getByText('Saya Ketua RT/RW atau Pendamping').isVisible()) {
-    await screen.getByText('Saya Ketua RT/RW atau Pendamping').tap();
-  }
+  await expect(
+    screen.getByText('Saya Ketua RT/RW atau Pendamping'),
+  ).toBeVisible({ timeout: 30_000 });
+  await screen.getByText('Saya Ketua RT/RW atau Pendamping').tap();
 
-  // A restored session goes straight to the home screen; only sign in when the
-  // form is actually on screen.
-  if (!(await screen.getByText('Ruang Operator').isVisible())) {
-    await expect(screen.getByPlaceholder('Email')).toBeVisible({
-      timeout: 30_000,
-    });
-    await screen.getByPlaceholder('Email').fill(OPERATOR_EMAIL);
-    await screen.getByPlaceholder('Kata sandi').fill(OPERATOR_PASSWORD);
-    await screen.getByText('Masuk').tap();
-  }
+  // The login screen restores a stored session asynchronously when it opens, so
+  // it can briefly show the form and then navigate to the home screen. Let the
+  // restore settle before deciding which screen we are on — otherwise the fill
+  // below races against that navigation and fails.
+  await new Promise((resolve) => setTimeout(resolve, 5_000));
+  if (await screen.getByText('Ruang Operator').isVisible()) return;
+
+  await expect(screen.getByPlaceholder('Email')).toBeVisible({
+    timeout: 30_000,
+  });
+  await screen.getByPlaceholder('Email').fill(OPERATOR_EMAIL);
+  await screen.getByPlaceholder('Kata sandi').fill(OPERATOR_PASSWORD);
+  await screen.getByText('Masuk').tap();
 
   await expect(screen.getByText('Ruang Operator')).toBeVisible({
     timeout: 30_000,
   });
-}
-
-// Returns to role selection so the next test starts signed out. The operator
-// flow is several screens deep, so this walks back to the home screen first —
-// the sign-out control lives only there.
-async function signOutOperator(
-  app: { open: () => Promise<void> },
-  screen: Screen,
-) {
-  await app.open();
-
-  // Bounded: a restored session may land on the home screen, or deeper.
-  for (let attempt = 0; attempt < 4; attempt += 1) {
-    if (await screen.getByText('Saya Ketua RT/RW atau Pendamping').isVisible()) {
-      return;
-    }
-    if (await screen.getByText('Ruang Operator').isVisible()) {
-      await screen.getByText('Keluar').tap();
-      break;
-    }
-    await screen.getByText('Back').tap();
-  }
-
-  await expect(
-    screen.getByText('Saya Ketua RT/RW atau Pendamping'),
-  ).toBeVisible({ timeout: 30_000 });
 }
 
 test('an operator signs in and reaches the operator home', async ({
@@ -97,7 +77,6 @@ test('an operator signs in and reaches the operator home', async ({
   await expect(screen.getByText('Ketua RT/RW')).toBeVisible();
   await expect(screen.getByText(`RT ${RT_ID}`)).toBeVisible();
 
-  await signOutOperator(app, screen);
 });
 
 test('the operator opens the reviewed safe catalog', async ({ app, screen }) => {
@@ -109,12 +88,11 @@ test('the operator opens the reviewed safe catalog', async ({ app, screen }) => 
   await expect(screen.getByText('Katalog Tugas Aman')).toBeVisible({
     timeout: 30_000,
   });
-  await expect(screen.getByText(TEMPLATE_TITLE)).toBeVisible({
+  await expect(screen.getByText(TEMPLATE_ROW)).toBeVisible({
     timeout: 30_000,
   });
 
   // Its locked instructions render in the catalog, before any draft exists.
   await expect(screen.getByText(SAFETY_TEXT)).toBeVisible();
 
-  await signOutOperator(app, screen);
 });

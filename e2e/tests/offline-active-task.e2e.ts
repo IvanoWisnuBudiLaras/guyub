@@ -48,14 +48,22 @@ async function openTaskList(
   if (restart) await app.restart();
   else await app.open();
 
-  // Role selection is shown when no session was restored.
   if (await screen.getByText('Saya Warga').isVisible()) {
     await screen.getByText('Saya Warga').tap();
   }
 
-  // Either the enrollment form appears, or a stored session is restored and the
-  // home screen appears. The runner clears app data before the suite, so on the
-  // first test the form is what shows; later tests may restore a session.
+  // The entry screen restores a stored session asynchronously when it opens, so
+  // it can briefly show the enrollment form and then navigate to the home
+  // screen. Let the restore settle before deciding which screen we are on —
+  // otherwise the fill below races against that navigation.
+  await new Promise((resolve) => setTimeout(resolve, 5_000));
+
+  // A restored session lands on the home screen; the task list is one tap on.
+  if (await screen.getByText('Lihat Tugas Kesiapsiagaan').isVisible()) {
+    await screen.getByText('Lihat Tugas Kesiapsiagaan').tap();
+    return;
+  }
+
   await expect(
     screen.getByPlaceholder('Kode RT'),
   ).toBeVisible({ timeout: 30_000 });
