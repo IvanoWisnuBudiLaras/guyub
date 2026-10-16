@@ -27,7 +27,7 @@ This file reports repository evidence. It does not convert a domain unit test in
 | AT-004 | VERIFIED | Resident UI presents balanced JOIN/DECLINE actions and states that decline has no penalty; callable persistence accepts either state and rejects changes; domain, widget, Functions Emulator replay tests. |
 | AT-005 | VERIFIED | Completion callable creates only `PENDING_RT_VERIFICATION`; password-authenticated same-RT operator verification is a separate transaction with one audit record. Emulator tests cover replay, concurrency, cross-RT denial, and server-authored verifier/time. |
 | AT-006 | PARTIAL | Authorized task snapshots, locked safety text, and scope-isolated offline reads are covered by unit/widget tests. Android airplane-mode reopen/retry testing remains outstanding. |
-| AT-007 | PARTIAL | Session-scoped callable, strict revisioned cache, signed-out Darurat route, RT label, last-sync/verification times, and no-seed state are covered by tests. Verified pilot contacts/assembly points and device testing remain external. |
+| AT-007 | PARTIAL | Session-scoped callable, strict revisioned cache, signed-out Darurat route, RT label, last-sync/verification times, and no-seed state are covered by tests. Android airplane-mode validation is now automated for the route itself: an `e2e` test opens Darurat with airplane mode enabled and asserts offline mode plus an honest empty state (no fabricated directory). Directory *content* rendering offline is still unverified because no pilot contacts/assembly points are provisioned. Verified pilot values and route provisioning remain external. |
 | AT-008 | PARTIAL | Resident/operator snapshot callables derive RT from a live resident session or active operator membership and return only normalized fields. Flutter caches per RT, renders cache before refresh, preserves it on fetch failure, and labels configured-expired/unknown freshness; widget, scope, and Emulator tests pass. BMKG source provisioning and Android airplane-mode validation remain open. |
 | AT-009 | VERIFIED | Functions service and emulator tests assert that a resident profile contains only minimal RT-scoped fields; NIK, full address, and precise GPS fields are absent. Proposal text and completion notes reject DMS, decimal-degree (with dot/comma and hemisphere prefix/suffix), and labeled coordinates, as well as multi-separator NIK sequences across both proposal and completion workflows (#39, #47). |
 | AT-010 | VERIFIED | Client/server sanitizers strip metadata; unit tests inspect a synthetic geotagged JPEG, and Java 21 Functions/Storage Emulator CI inspects private stored bytes and denies direct access. Production bucket configuration remains a deployment blocker. |
@@ -67,7 +67,7 @@ This file reports repository evidence. It does not convert a domain unit test in
 
 | ID | Status | Evidence / gap |
 |---|---|---|
-| O-01 | PARTIAL | Authorized task snapshots/safety text are locally cached and displayed with last-sync time; airplane-mode device validation remains open. |
+| O-01 | PARTIAL | Authorized task snapshots/safety text are locally cached and displayed with last-sync time. Device validation for the offline *emergency* path is now automated via `e2e` (airplane mode, honest empty state); airplane-mode validation for the cached **task** path remains open and depends on AT-006's seeded campaign. |
 | O-02 | PARTIAL | JOIN is durably queued with a stable command ID and replayed by authorized list refresh; unit/widget tests pass, device validation remains. |
 | O-03 | PARTIAL | DECLINE is durably queued with a stable command ID and replayed by authorized list refresh; unit/widget tests pass, device validation remains. |
 | O-04 | PARTIAL | Audited server cancellation removes the task from operator/resident active results; replay/cross-RT denial/one-audit behavior passes Functions Emulator tests. Queued commands remain and surface typed conflicts in UI tests; physical Android reconnect validation remains open. |
@@ -87,11 +87,74 @@ This file reports repository evidence. It does not convert a domain unit test in
 
 Commands run on this branch:
 
-- `./tool/verify.sh` — passed on `docs/refresh-implementation-status`: Dart format (119 files, none changed), `flutter analyze` (no issues), all 228 Flutter tests, and `flutter build apk --debug` (`build/app/outputs/flutter-apk/app-debug.apk`).
-- `MISE_DATA_DIR=/mnt/windows/.mise-data mise exec java@21 node@22 -- ./tool/test_functions.sh` — passed: 90 Functions service tests plus 20 Functions/Auth/Firestore/Storage Emulator integration suites.
+- (historical, `docs/refresh-implementation-status`) `./tool/verify.sh` — passed: Dart format (119 files, none changed), `flutter analyze` (no issues), all 228 Flutter tests, and `flutter build apk --debug` (`build/app/outputs/flutter-apk/app-debug.apk`).
+- (historical, `docs/refresh-implementation-status`) `MISE_DATA_DIR=/mnt/windows/.mise-data mise exec java@21 node@22 -- ./tool/test_functions.sh` — passed: 90 Functions service tests plus 20 Functions/Auth/Firestore/Storage Emulator integration suites.
 - `MISE_DATA_DIR=/mnt/windows/.mise-data mise exec java@21 node@22 -- ./tool/test_firestore_rules.sh` — all 5 Firestore rules tests passed.
 - `npm ci --prefix functions` — completed with 0 reported vulnerabilities.
-- No Android device/emulator was available; no device-level visual check is claimed.
+- No Android device/emulator was available at that time; no device-level visual check is claimed there. Device-level validation is now available and used — see below.
+
+### Android device-level validation (2026-10-15)
+
+An Android emulator (API 36, AVD `guyub_e2e`) is now available and an `e2e` mobile suite
+runs against the installed debug APK:
+
+- `npx e2e run` (in `e2e/`) — 2/2 passed: role selection renders both roles and the Darurat
+  entry, and the Darurat route opens with **airplane mode enabled**, reporting offline mode
+  and an honest empty state rather than a fabricated directory.
+- This advances AT-007 and O-01 from purely manual to partly automated. It does **not**
+  verify directory *content* offline (no verified pilot contacts are provisioned) and it
+  does not cover AT-006, which needs a seeded RT, catalog, and active campaign plus a
+  resident session.
+- The suite is deterministic and needs no model: `e2e/e2e.config.ts` declares no `agents`
+  block, so the run makes no model calls.
+- Two host prerequisites are documented in the repository, not in CI: `agent-device`'s
+  daemon needs PowerShell 7 reachable as `powershell.exe` (Windows PowerShell 5.1 exceeds
+  its 2s process-identity probe), and local Android builds need
+  `-Pkotlin.incremental=false` because the pub cache and the project sit on different
+  drives. Neither applies to the ubuntu CI runner.
+
+### Runtime-portability work (uncommitted, on this working tree)
+
+The Cloud Functions runtime has no free tier on the Firebase Spark plan, so the callable
+layer was made runtime-portable. **No tracked behaviour changed**: all 20 Emulator tests
+and all 93 service tests still pass through the Cloud Functions path, and `firestore.rules`
+and `storage.rules` are untouched.
+
+- `functions/src/index.js` — reduced from 578 to 97 lines. It now declares only the runtime
+  shape (callable options, the 5 schedules); all behaviour moved to `functions/src/app.js`.
+- `functions/src/app.js` (new) — the runtime-agnostic core: service graph plus a single
+  `invoke(name, ctx)` entry point. Imports no `firebase-functions`.
+- `functions/src/dispatch.js` (new) — the canonical callable registry: 41 rows for the
+  callables that share one argument shape, each with its service, method, auth mode, and
+  options. Both adapters are generated from this list, so they cannot drift.
+- `functions/server/http_adapter.js` (new) — a dependency-free Node HTTP adapter exposing
+  the same 46 callables plus the 5 scheduled jobs.
+- `lib/core/network/callable_client.dart`, `firebase_callable_client.dart`,
+  `http_callable_client.dart` (new) — one `CallableClient` seam behind all 9 Dart
+  boundaries. `CallableException` preserves the gRPC code names (`permission-denied`,
+  `unavailable`, …) that offline and retry handling matches on.
+
+Verification (2026-10-15):
+
+- `./tool/test_callable_adapters.sh` — 17/17: seam, App Check choke point, and the full
+  operator → resident → verification journey driven through the HTTP adapter with the
+  emulator suite behind it. Includes the negative cases that matter: a resident cannot
+  verify their own completion (S-07), a forged `rtId` is refused (S-02), and every
+  scheduled job runs with the shared secret.
+- `flutter test test/core/network/http_adapter_contract_test.dart` — 3/3 against the real
+  Node adapter, so the Dart client and the adapter agree on the wire format.
+- `flutter test` — 235/235. Emulator suites — 20/20. Service tests — 93/93. Rules — 5/5.
+
+App Check is now enforced in `invoke()`, the single choke point both runtimes share, so a
+new adapter cannot omit it; `functions/src/runtime_env.js` holds the one definition of the
+demo-emulator bypass that `callable_options.js` and `app.js` both read.
+
+Two known gaps in this work, neither affecting the Cloud Functions path:
+
+- FCM delivery is untested through the HTTP adapter (no emulator equivalent; needs real
+  credentials). The Cloud Functions path is unchanged and remains the verified one.
+- No external cron is wired to `POST /tasks/<name>` yet. `GUYUB_TASK_SECRET` must be set
+  in production or the task endpoints stay closed (fail-closed, but must be configured).
 
 ## Manual/external validation still required
 
@@ -128,3 +191,14 @@ The following cross-PR findings and architectural blockers must be resolved or f
 7. **FR-TWO-003 / P-05 (RT-assisted resident deletion verification procedure):**
    - RT operator deletion fallback requires offline identity verification before execution to prevent unauthorized operator-initiated deletions.
    - Status: Pilot operational protocol must be defined by community stakeholders.
+
+8. **Spark plan cannot deploy Cloud Functions (deployment blocker, not a code defect):**
+   - Cloud Functions for Firebase requires the Blaze pricing plan. On Spark there is no free
+     tier for it at all, so the 46 callables and 5 scheduled jobs have nowhere to deploy.
+     Firestore, Auth, FCM, and Storage remain free on Spark; only the compute layer is gated.
+   - Status: The callable layer is now runtime-portable (see "Runtime-portability work" under
+     Verification evidence), so it can be served by a standalone Node host while Firestore,
+     Auth, FCM, and Storage stay on Firebase. Choosing and provisioning that host is an
+     external decision. FCM still requires Firebase regardless, so no option removes Firebase
+     entirely. Deploying on Blaze with a spend cap on Cloud Run functions is the alternative
+     that requires no code change.
