@@ -1,0 +1,143 @@
+name: Release APK
+
+# Builds a release APK and attaches it to a GitHub Release, so a pilot build can
+# be downloaded from the repository without a Play Store listing.
+#
+# Triggered by pushing a version tag, e.g.:
+#   git tag v0.1.0-pilot && git push origin v0.1.0-pilot
+#
+# Required repository secrets (Settings > Secrets and variables > Actions):
+#   FIREBASE_API_KEY                Firebase client config. Not a credential —
+#   FIREBASE_APP_ID                 it ships inside every installed app — but
+#   FIREBASE_MESSAGING_SENDER_ID    kept out of source control per SEC-06.
+#   FIREBASE_PROJECT_ID
+# Optional, for a properly signed APK:
+#   ANDROID_KEYSTORE_BASE64         base64 of the release .jks
+#   ANDROID_KEYSTORE_PASSWORD
+#   ANDROID_KEY_ALIAS
+#   ANDROID_KEY_PASSWORD
+#
+# Without the signing secrets the APK is signed with the debug keystore. That
+# build runs, but it is NOT suitable for distribution: the debug keystore is
+# public and shared, so anyone can sign an APK Android accepts as an update to
+# this app. The job warns about this rather than failing, so a pilot build is
+# still possible before the release keystore exists.
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release-apk:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.3'
+          channel: stable
+          cache: true
+
+      - name: Fail early if the Firebase config is missing
+        run: |
+          missing=""
+          for name in FIREBASE_API_KEY FIREBASE_APP_ID FIREBASE_MESSAGING_SENDER_ID FIREBASE_PROJECT_ID; do
+            if [ -z "${!name}" ]; then missing="$missing $name"; fi
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::Missing repository secrets:$missing"
+            echo "A release APK built without them fails closed at startup:"
+            echo "firebase_options.dart throws StateError and the app shows"
+            echo "'Akses warga belum tersedia' instead of the enrollment form."
+            exit 1
+          fi
+        env:
+          FIREBASE_API_KEY: ${{ secrets.FIREBASE_API_KEY }}
+          FIREBASE_APP_ID: ${{ secrets.FIREBASE_APP_ID }}
+          FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.FIREBASE_MESSAGING_SENDER_ID }}
+          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+
+      - name: Write the release keystore when provided
+        id: signing
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "signed=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::No ANDROID_KEYSTORE_BASE64 secret: signing with the debug keystore. The APK runs but must not be distributed — the debug key is public."
+            exit 0
+          fi
+          echo "$KEYSTORE_BASE64" | base64 -d > android/app/guyub-release.jks
+          # One echo per line: a heredoc inside an indented YAML block keeps
+          # the indentation, and key.properties would then carry leading spaces
+          # in its values, which the keystore reader treats as part of them.
+          echo "storeFile=guyub-release.jks" > android/key.properties
+          echo "storePassword=$KEYSTORE_PASSWORD" >> android/key.properties
+          echo "keyAlias=$KEY_ALIAS" >> android/key.properties
+          echo "keyPassword=$KEY_PASSWORD" >> android/key.properties
+          echo "signed=true" >> "$GITHUB_OUTPUT"
+
+      - run: flutter pub get
+
+      # The gate the repository requires before anything ships.
+      - run: ./tool/verify.sh
+      - run: ./tool/test_firestore_rules.sh
+      - run: ./tool/test_functions.sh
+      - run: ./tool/test_callable_adapters.sh
+
+      - name: Build the release APK
+        env:
+          FIREBASE_API_KEY: ${{ secrets.FIREBASE_API_KEY }}
+          FIREBASE_APP_ID: ${{ secrets.FIREBASE_APP_ID }}
+          FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.FIREBASE_MESSAGING_SENDER_ID }}
+          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+        run: |
+          flutter build apk --release \
+            --dart-define=FIREBASE_API_KEY="$FIREBASE_API_KEY" \
+            --dart-define=FIREBASE_APP_ID="$FIREBASE_APP_ID" \
+            --dart-define=FIREBASE_MESSAGING_SENDER_ID="$FIREBASE_MESSAGING_SENDER_ID" \
+            --dart-define=FIREBASE_PROJECT_ID="$FIREBASE_PROJECT_ID"
+
+      - name: Record the fingerprint and size
+        run: |
+          apk=build/app/outputs/flutter-apk/app-release.apk
+          {
+            echo "### Guyub.id ${GITHUB_REF_NAME}"
+            echo
+            echo "- APK: \`$(basename "$apk")\` ($(du -h "$apk" | cut -f1))"
+            echo "- Signing: ${{ steps.signing.outputs.signed == 'true' && 'release keystore' || 'DEBUG keystore — not for distribution' }}"
+            echo "- Signer certificate SHA-256:"
+            echo
+            echo '```'
+            keytool -printcert -jarfile "$apk" | grep -E "SHA256:|Owner:" || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Attach the APK to the release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: build/app/outputs/flutter-apk/app-release.apk
+          generate_release_notes: true
+          body: |
+            Pilot build of Guyub.id. Android 9 or newer.
+
+            Install by opening the APK on the device and allowing installation
+            from this source when Android asks.
+
+            ${{ steps.signing.outputs.signed == 'true'
+              && 'This build is signed with the project release key.'
+              || 'This build is signed with the Android **debug** key, so Android will show an untrusted-source warning and it must not be treated as an official release.' }}

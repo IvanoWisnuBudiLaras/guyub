@@ -149,3 +149,45 @@ Dua hal ini hanya berlaku saat mengembangkan di Windows; CI (ubuntu) tidak terpe
    `android/`. Jangan masukkan flag ini ke `android/gradle.properties`: di CI keduanya satu
    drive, jadi flag itu hanya memperlambat tanpa manfaat.
 
+## Membangun APK rilis dan membagikannya
+
+APK pilot dibagikan lewat GitHub Release, bukan Play Store. Dorong tag versi:
+
+```bash
+git tag v0.1.0-pilot && git push origin v0.1.0-pilot
+```
+
+`.github/workflows/release-apk.yml` menjalankan seluruh gerbang verifikasi, membangun
+APK rilis, dan melampirkannya ke Release beserta sidik jari sertifikat penandatangannya.
+
+**Secret repositori yang wajib ada** (Settings > Secrets and variables > Actions):
+`FIREBASE_API_KEY`, `FIREBASE_APP_ID`, `FIREBASE_MESSAGING_SENDER_ID`,
+`FIREBASE_PROJECT_ID`. Keempatnya konfigurasi klien Firebase, bukan kredensial — nilainya
+memang ikut terpasang di setiap aplikasi — tetapi tetap di luar source control sesuai
+SEC-06. Tanpa keempatnya APK gagal total saat dijalankan: `firebase_options.dart`
+melempar `StateError` dan aplikasi menampilkan "Akses warga belum tersedia", bukan form
+pendaftaran. Workflow berhenti lebih awal dengan pesan yang menjelaskan itu.
+
+**Secret opsional untuk penandatanganan rilis:** `ANDROID_KEYSTORE_BASE64`,
+`ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`.
+
+Tanpa secret penandatanganan, APK ditandatangani dengan keystore **debug**. Build itu
+berjalan, tetapi **tidak layak dibagikan**: keystore debug bersifat publik dan sama di
+semua mesin, sehingga siapa pun dapat menandatangani APK yang akan diterima Android
+sebagai pembaruan aplikasi ini. Workflow memberi peringatan alih-alih gagal, supaya build
+pilot tetap mungkin dilakukan sebelum keystore rilis disiapkan.
+
+Untuk membuat keystore rilis:
+
+```bash
+keytool -genkey -v -keystore guyub-release.jks -keyalg RSA -keysize 2048 -validity 10000 -alias guyub
+base64 -w0 guyub-release.jks   # tempel sebagai ANDROID_KEYSTORE_BASE64
+```
+
+Simpan `.jks` dan kata sandinya di tempat aman di luar repositori. Kehilangannya berarti
+tidak bisa lagi menerbitkan pembaruan untuk aplikasi yang sudah terpasang.
+
+App Check juga belum didaftarkan untuk rilis: `bootstrap.dart` memakai
+`AndroidPlayIntegrityProvider`, yang menuntut aplikasi terdaftar di Firebase App Check
+dengan sidik jari sertifikat yang cocok. Selama itu belum ada, callable dari build rilis
+akan ditolak — pilot masih perlu dijalankan terhadap emulator.
