@@ -14,6 +14,8 @@ void main() {
     AppConfig.initialize(AppConfig.test());
 
     await tester.pumpWidget(const GuyubApp());
+    // Splash screen dengan delayed navigation (1.5 detik)
+    await tester.pumpAndSettle(const Duration(seconds: 2));
 
     expect(
       find.byWidgetPredicate(
@@ -21,7 +23,7 @@ void main() {
       ),
       findsOneWidget,
     );
-    expect(find.text('Saya Ketua RT/RW atau Pendamping'), findsOneWidget);
+    expect(find.text('Saya Ketua RT/RW'), findsOneWidget);
     expect(find.text('Saya Warga'), findsOneWidget);
     expect(find.text('Foundation Ready'), findsNothing);
   });
@@ -31,8 +33,9 @@ void main() {
   ) async {
     AppConfig.initialize(AppConfig.test());
     await tester.pumpWidget(const GuyubApp());
+    await tester.pumpAndSettle(const Duration(seconds: 2));
 
-    await tester.tap(find.text('Saya Ketua RT/RW atau Pendamping'));
+    await tester.tap(find.text('Saya Ketua RT/RW'));
     await tester.pumpAndSettle();
     expect(find.text('Masuk Operator RT/RW'), findsOneWidget);
     expect(find.byKey(const Key('operator-password')), findsOneWidget);
@@ -49,6 +52,7 @@ void main() {
   ) async {
     AppConfig.initialize(AppConfig.test());
     await tester.pumpWidget(const GuyubApp());
+    await tester.pumpAndSettle(const Duration(seconds: 2));
 
     await tester.tap(find.byKey(const Key('emergency-directory-entry')));
     await tester.pumpAndSettle();

@@ -30,6 +30,7 @@ void main() {
       );
       AppConfig.initialize(AppConfig.test());
       await tester.pumpWidget(GuyubApp(residentSessionController: controller));
+      await tester.pumpAndSettle(const Duration(seconds: 2));
 
       await tester.tap(find.text('Saya Warga'));
       await tester.pumpAndSettle();
@@ -64,6 +65,7 @@ void main() {
     );
     AppConfig.initialize(AppConfig.test());
     await tester.pumpWidget(GuyubApp(residentSessionController: controller));
+    await tester.pumpAndSettle(const Duration(seconds: 2));
     await tester.tap(find.text('Saya Warga'));
     await tester.pumpAndSettle();
 
@@ -81,6 +83,7 @@ void main() {
       );
       AppConfig.initialize(AppConfig.test());
       await tester.pumpWidget(GuyubApp(residentSessionController: controller));
+      await tester.pumpAndSettle(const Duration(seconds: 2));
       await tester.tap(find.text('Saya Warga'));
       await tester.pumpAndSettle();
 
@@ -278,6 +281,7 @@ void main() {
     );
     AppConfig.initialize(AppConfig.test());
     await tester.pumpWidget(GuyubApp(residentSessionController: controller));
+    await tester.pumpAndSettle(const Duration(seconds: 2));
     await tester.tap(find.text('Saya Warga'));
     await tester.pumpAndSettle();
 
