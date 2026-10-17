@@ -1,4 +1,5 @@
 import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 import '../../features/assistance/application/assistance_volunteer_boundary.dart';
@@ -55,10 +56,8 @@ final class StandaloneDemoEngine {
       version: 1,
       title: 'Siapkan Tas Siaga & Dokumen Penting',
       category: 'HOUSEHOLD_PREPARATION',
-      coreInstruction:
-          'Kumpulkan dokumen KK, KTP, ijazah, surat berharga, obat pribadi, senter, dan pakaian ganti ke dalam tas tahan air.',
-      safetyInstruction:
-          'Jangan meletakkan dokumen berharga di lantai dasar. Letakkan tas di area mudah dijangkau saat darurat.',
+      coreInstruction: 'Kumpulkan dokumen KK, KTP, ijazah, surat berharga, obat pribadi, senter, dan pakaian ganti ke dalam tas tahan air.',
+      safetyInstruction: 'Jangan meletakkan dokumen berharga di lantai dasar. Letakkan tas di area mudah dijangkau saat darurat.',
       estimatedDurationMinutes: 30,
     );
 
@@ -67,10 +66,8 @@ final class StandaloneDemoEngine {
       version: 1,
       title: 'Pembersihan Saluran Air Depan Rumah',
       category: 'DRAINAGE_MAINTENANCE',
-      coreInstruction:
-          'Angkat sampah daun dan plastik yang menyumbat grill saluran depan rumah secara mandiri.',
-      safetyInstruction:
-          'DILARANG masuk ke dalam gorong-gorong atau mendekati arus air deras. Gunakan sarung tangan dan alat bantu garuk.',
+      coreInstruction: 'Angkat sampah daun dan plastik yang menyumbat grill saluran depan rumah secara mandiri.',
+      safetyInstruction: 'DILARANG masuk ke dalam gorong-gorong atau mendekati arus air deras. Gunakan sarung tangan dan alat bantu garuk.',
       estimatedDurationMinutes: 45,
     );
 
@@ -79,10 +76,8 @@ final class StandaloneDemoEngine {
       version: 1,
       title: 'Tanam Bibit Pohon Resapan Lingkungan',
       category: 'GREENING',
-      coreInstruction:
-          'Tanam bibit pohon pelindung/resapan di halaman atau area resapan yang telah ditentukan RT.',
-      safetyInstruction:
-          'Pastikan tidak menggali dekat instalasi pipa air atau kabel listrik tanah.',
+      coreInstruction: 'Tanam bibit pohon pelindung/resapan di halaman atau area resapan yang telah ditentukan RT.',
+      safetyInstruction: 'Pastikan tidak menggali dekat instalasi pipa air atau kabel listrik tanah.',
       estimatedDurationMinutes: 60,
     );
 
@@ -165,7 +160,8 @@ final class StandaloneDemoEngine {
         taskTitle: templateTasSiaga.title,
         nickname: 'Budi (No. 08)',
         submittedAt: now.subtract(const Duration(minutes: 25)),
-        completionNote: 'Tas siaga dan berkas penting sudah diamankan di lantai 2.',
+        completionNote:
+            'Tas siaga dan berkas penting sudah diamankan di lantai 2.',
       ),
     );
 
@@ -174,7 +170,8 @@ final class StandaloneDemoEngine {
       ResidentProposalRecord(
         proposalId: 'a1b2c3d4e5f60718293a4b5c6d7e8f901a2b3c4d',
         title: 'Usul Peninggian Tanggul Selokan Gang 2',
-        description: 'Genangan sering meluap saat hujan deras lebih dari 1 jam.',
+        description:
+            'Genangan sering meluap saat hujan deras lebih dari 1 jam.',
         category: ResidentProposalCategory.environmentalCleanup,
         state: 'SUBMITTED',
         submittedAt: now.subtract(const Duration(hours: 5)),
@@ -301,7 +298,8 @@ final class StandaloneDemoEngine {
   WeatherSnapshotBoundary createWeatherSnapshotBoundary() => _weather;
 
   // --- Proxy Resident Boundary ---
-  ProxyResidentBoundary createProxyBoundary() => _DemoProxyResidentBoundary(this);
+  ProxyResidentBoundary createProxyBoundary() =>
+      _DemoProxyResidentBoundary(this);
 
   // --- Assistance Volunteer Boundary ---
   AssistanceVolunteerBoundary createVolunteerBoundary() =>
@@ -338,7 +336,9 @@ final class _DemoOperatorAuthBoundary implements OperatorAuthBoundary {
     if (engine.activeOperator != null) {
       return Result.ok(engine.activeOperator!);
     }
-    return const Result.err(AuthError(message: 'Belum ada sesi operator tersimpan.'));
+    return const Result.err(
+      AuthError(message: 'Belum ada sesi operator tersimpan.'),
+    );
   }
 
   @override
@@ -406,43 +406,37 @@ final class _DemoTaskCampaignBoundary implements TaskCampaignBoundary {
 
   @override
   Future<List<TaskTemplate>> listApprovedTemplates() async => [
-        TaskTemplate(
-          id: 'tas_siaga_keluarga',
-          version: 1,
-          title: 'Siapkan Tas Siaga & Dokumen Penting',
-          category: 'HOUSEHOLD_PREPARATION',
-          coreInstruction:
-              'Kumpulkan dokumen KK, KTP, ijazah, surat berharga, obat pribadi, senter, dan pakaian ganti ke dalam tas tahan air.',
-          safetyInstruction:
-              'Jangan meletakkan dokumen berharga di lantai dasar. Letakkan tas di area mudah dijangkau saat darurat.',
-          enabled: true,
-          estimatedDurationMinutes: 30,
-        ),
-        TaskTemplate(
-          id: 'bersihkan_saluran_depan',
-          version: 1,
-          title: 'Pembersihan Saluran Air Depan Rumah',
-          category: 'DRAINAGE_MAINTENANCE',
-          coreInstruction:
-              'Angkat sampah daun dan plastik yang menyumbat grill saluran depan rumah secara mandiri.',
-          safetyInstruction:
-              'DILARANG masuk ke dalam gorong-gorong atau mendekati arus air deras. Gunakan sarung tangan dan alat bantu garuk.',
-          enabled: true,
-          estimatedDurationMinutes: 45,
-        ),
-        TaskTemplate(
-          id: 'penanaman_pohon_resapan',
-          version: 1,
-          title: 'Tanam Bibit Pohon Resapan Lingkungan',
-          category: 'GREENING',
-          coreInstruction:
-              'Tanam bibit pohon pelindung/resapan di halaman atau area resapan yang telah ditentukan RT.',
-          safetyInstruction:
-              'Pastikan tidak menggali dekat instalasi pipa air atau kabel listrik tanah.',
-          enabled: true,
-          estimatedDurationMinutes: 60,
-        ),
-      ];
+    TaskTemplate(
+      id: 'tas_siaga_keluarga',
+      version: 1,
+      title: 'Siapkan Tas Siaga & Dokumen Penting',
+      category: 'HOUSEHOLD_PREPARATION',
+      coreInstruction: 'Kumpulkan dokumen KK, KTP, ijazah, surat berharga, obat pribadi, senter, dan pakaian ganti ke dalam tas tahan air.',
+      safetyInstruction: 'Jangan meletakkan dokumen berharga di lantai dasar. Letakkan tas di area mudah dijangkau saat darurat.',
+      enabled: true,
+      estimatedDurationMinutes: 30,
+    ),
+    TaskTemplate(
+      id: 'bersihkan_saluran_depan',
+      version: 1,
+      title: 'Pembersihan Saluran Air Depan Rumah',
+      category: 'DRAINAGE_MAINTENANCE',
+      coreInstruction: 'Angkat sampah daun dan plastik yang menyumbat grill saluran depan rumah secara mandiri.',
+      safetyInstruction: 'DILARANG masuk ke dalam gorong-gorong atau mendekati arus air deras. Gunakan sarung tangan dan alat bantu garuk.',
+      enabled: true,
+      estimatedDurationMinutes: 45,
+    ),
+    TaskTemplate(
+      id: 'penanaman_pohon_resapan',
+      version: 1,
+      title: 'Tanam Bibit Pohon Resapan Lingkungan',
+      category: 'GREENING',
+      coreInstruction: 'Tanam bibit pohon pelindung/resapan di halaman atau area resapan yang telah ditentukan RT.',
+      safetyInstruction: 'Pastikan tidak menggali dekat instalasi pipa air atau kabel listrik tanah.',
+      enabled: true,
+      estimatedDurationMinutes: 60,
+    ),
+  ];
 
   @override
   Future<TaskCampaignRecord> createDraft({
@@ -479,7 +473,9 @@ final class _DemoTaskCampaignBoundary implements TaskCampaignBoundary {
     required String campaignId,
     required String commandId,
   }) async {
-    final index = engine._campaigns.indexWhere((c) => c.campaignId == campaignId);
+    final index = engine._campaigns.indexWhere(
+      (c) => c.campaignId == campaignId,
+    );
     if (index != -1) {
       final old = engine._campaigns[index];
       final updated = TaskCampaignRecord(
@@ -506,8 +502,7 @@ final class _DemoTaskResponseBoundary implements TaskResponseBoundary {
   @override
   Future<ResidentTaskList> listResidentActiveTasks({
     required String sessionToken,
-  }) async =>
-      ResidentTaskList(items: engine._residentTasks, isPartial: false);
+  }) async => ResidentTaskList(items: engine._residentTasks, isPartial: false);
 
   @override
   Future<TaskResponseRecord> recordResidentTaskResponse({
@@ -564,9 +559,7 @@ final class _DemoTaskResponseBoundary implements TaskResponseBoundary {
   }
 
   @override
-  Future<TaskResponseRecap> getResponseRecap({
-    required String taskId,
-  }) async =>
+  Future<TaskResponseRecap> getResponseRecap({required String taskId}) async =>
       TaskResponseRecap(
         taskId: taskId,
         rtId: 'rt-01-demo',
@@ -600,8 +593,7 @@ final class _DemoEvidenceBoundary implements TaskEvidenceBoundary {
   @override
   Future<Uint8List> getTaskEvidenceForVerification({
     required String evidenceId,
-  }) async =>
-      Uint8List(0);
+  }) async => Uint8List(0);
 }
 
 final class _DemoResidentProposalBoundary implements ResidentProposalBoundary {
@@ -633,15 +625,11 @@ final class _DemoResidentProposalBoundary implements ResidentProposalBoundary {
   @override
   Future<List<ResidentProposalRecord>> listMyProposals({
     required String sessionToken,
-  }) async =>
-      engine._proposals;
+  }) async => engine._proposals;
 
   @override
   Future<ResidentProposalQueue> listResidentProposals() async =>
-      ResidentProposalQueue(
-        items: engine._proposals,
-        isPartial: false,
-      );
+      ResidentProposalQueue(items: engine._proposals, isPartial: false);
 
   @override
   Future<ResidentProposalRecord> reviewResidentProposal({
@@ -649,7 +637,9 @@ final class _DemoResidentProposalBoundary implements ResidentProposalBoundary {
     required String decision,
     required String commandId,
   }) async {
-    final index = engine._proposals.indexWhere((p) => p.proposalId == proposalId);
+    final index = engine._proposals.indexWhere(
+      (p) => p.proposalId == proposalId,
+    );
     if (index != -1) {
       final old = engine._proposals[index];
       final updated = ResidentProposalRecord(
@@ -738,14 +728,13 @@ final class _DemoTreePointBoundary implements TreePointBoundary {
     required TreePointDecision decision,
     String? rejectionReason,
     required String commandId,
-  }) async =>
-      TreePointVerificationResult(
-        treePointId: treePointId,
-        status: decision == TreePointDecision.approve
-            ? TreePointStatus.verified
-            : TreePointStatus.rejected,
-        verifiedAt: DateTime.now(),
-      );
+  }) async => TreePointVerificationResult(
+    treePointId: treePointId,
+    status: decision == TreePointDecision.approve
+        ? TreePointStatus.verified
+        : TreePointStatus.rejected,
+    verifiedAt: DateTime.now(),
+  );
 
   @override
   Future<void> deleteTreePoint({
@@ -761,71 +750,69 @@ final class _DemoEmergencyDirectoryBoundary
   @override
   Future<EmergencyDirectoryResponse> getEmergencyDirectory({
     required String sessionToken,
-  }) async =>
-      EmergencyDirectoryResponse.fromWire({
-        'state': 'ACTIVE',
-        'version': 1,
-        'lastVerifiedAt': DateTime.now().toUtc().toIso8601String(),
-        'emergencyContacts': [
-          {
-            'serviceName': 'Pemadam Kebakaran & Evakuasi',
-            'telephoneNumber': '113',
-            'isOfficial': true,
-          },
-          {
-            'serviceName': 'BPBD Kabupaten Tulungagung',
-            'telephoneNumber': '0355-327799',
-            'isOfficial': true,
-          },
-          {
-            'serviceName': 'Puskesmas Kedungwaru',
-            'telephoneNumber': '0355-321456',
-            'isOfficial': true,
-          },
-          {
-            'serviceName': 'Polsek Kedungwaru',
-            'telephoneNumber': '0355-321110',
-            'isOfficial': true,
-          },
-          {
-            'serviceName': 'Ambulans PMI',
-            'telephoneNumber': '118',
-            'isOfficial': true,
-          },
-        ],
-        'assemblyPoints': [
-          {
-            'name': 'Balai RW 02 Kedungwaru (Posko Utama)',
-            'isVerified': true,
-          },
-          {
-            'name': 'Lapangan Desa Kedungwaru (Titik Kumpul Terbuka)',
-            'isVerified': true,
-          },
-        ],
-        'officialReportChannels': [
-          {
-            'name': 'Kanal Laporan Resmi Kelurahan & Siaga Bencana',
-            'url': 'https://tulungagung.go.id',
-          },
-        ],
-      });
+  }) async => EmergencyDirectoryResponse.fromWire({
+    'state': 'ACTIVE',
+    'version': 1,
+    'lastVerifiedAt': DateTime.now().toUtc().toIso8601String(),
+    'emergencyContacts': [
+      {
+        'serviceName': 'Pemadam Kebakaran & Evakuasi',
+        'telephoneNumber': '113',
+        'isOfficial': true,
+      },
+      {
+        'serviceName': 'BPBD Kabupaten Tulungagung',
+        'telephoneNumber': '0355-327799',
+        'isOfficial': true,
+      },
+      {
+        'serviceName': 'Puskesmas Kedungwaru',
+        'telephoneNumber': '0355-321456',
+        'isOfficial': true,
+      },
+      {
+        'serviceName': 'Polsek Kedungwaru',
+        'telephoneNumber': '0355-321110',
+        'isOfficial': true,
+      },
+      {
+        'serviceName': 'Ambulans PMI',
+        'telephoneNumber': '118',
+        'isOfficial': true,
+      },
+    ],
+    'assemblyPoints': [
+      {'name': 'Balai RW 02 Kedungwaru (Posko Utama)', 'isVerified': true},
+      {
+        'name': 'Lapangan Desa Kedungwaru (Titik Kumpul Terbuka)',
+        'isVerified': true,
+      },
+    ],
+    'officialReportChannels': [
+      {
+        'name': 'Kanal Laporan Resmi Kelurahan & Siaga Bencana',
+        'url': 'https://tulungagung.go.id',
+      },
+    ],
+  });
 }
 
 final class _DemoWeatherBoundary
     implements WeatherSuggestionBoundary, WeatherSnapshotBoundary {
   @override
   Future<List<WeatherSuggestion>> listWeatherSuggestions() async => [
-        WeatherSuggestion(
-          id: 'sug-bmkg-01',
-          sourceSnapshotId: 'snap-01',
-          ruleId: 'RULE_HEAVY_RAIN',
-          recommendedTemplateIds: const ['tas_siaga_keluarga', 'bersihkan_saluran_depan'],
-          createdAt: DateTime.now().subtract(const Duration(minutes: 40)),
-          explanation:
-              'BMKG mendeteksi potensi hujan sedang hingga lebat disertai kilat/petir di wilayah Tulungagung sore ini.',
-        ),
-      ];
+    WeatherSuggestion(
+      id: 'sug-bmkg-01',
+      sourceSnapshotId: 'snap-01',
+      ruleId: 'RULE_HEAVY_RAIN',
+      recommendedTemplateIds: const [
+        'tas_siaga_keluarga',
+        'bersihkan_saluran_depan',
+      ],
+      createdAt: DateTime.now().subtract(const Duration(minutes: 40)),
+      explanation: 'BMKG mendeteksi potensi hujan sedang hingga lebat disertai kilat/petir di wilayah Tulungagung sore ini.',
+    ),
+  ];
 
   @override
   Future<void> ignoreWeatherSuggestion({required String suggestionId}) async {}
@@ -834,16 +821,17 @@ final class _DemoWeatherBoundary
   Future<WeatherSnapshot?> getForOperator() async => _demoSnapshot();
 
   @override
-  Future<WeatherSnapshot?> getForResident({required String sessionToken}) async =>
-      _demoSnapshot();
+  Future<WeatherSnapshot?> getForResident({
+    required String sessionToken,
+  }) async => _demoSnapshot();
 
   WeatherSnapshot _demoSnapshot() => WeatherSnapshot(
-        id: 'snap-01',
-        communityId: 'rt-01-demo',
-        sourceUpdatedAt: DateTime.now().subtract(const Duration(minutes: 20)),
-        fetchedAt: DateTime.now().subtract(const Duration(minutes: 10)),
-        rainfallMm: 35.5,
-      );
+    id: 'snap-01',
+    communityId: 'rt-01-demo',
+    sourceUpdatedAt: DateTime.now().subtract(const Duration(minutes: 20)),
+    fetchedAt: DateTime.now().subtract(const Duration(minutes: 10)),
+    rainfallMm: 35.5,
+  );
 }
 
 final class _DemoProxyResidentBoundary implements ProxyResidentBoundary {
@@ -853,8 +841,7 @@ final class _DemoProxyResidentBoundary implements ProxyResidentBoundary {
   @override
   Future<String> cancelPendingProxyResidentCreate({
     required String requestId,
-  }) async =>
-      'CANCELLED';
+  }) async => 'CANCELLED';
 
   @override
   Future<ProxyResidentRecord> createProxyResident({
@@ -895,12 +882,11 @@ final class _DemoProxyResidentBoundary implements ProxyResidentBoundary {
   Future<ProxyTaskStatusRecord> getProxyTaskStatus({
     required String residentId,
     required String taskId,
-  }) async =>
-      const ProxyTaskStatusRecord(
-        taskId: 'camp-demo-01',
-        participationState: 'JOINED',
-        completionState: 'NOT_SUBMITTED',
-      );
+  }) async => const ProxyTaskStatusRecord(
+    taskId: 'camp-demo-01',
+    participationState: 'JOINED',
+    completionState: 'NOT_SUBMITTED',
+  );
 
   @override
   Future<ProxyTaskStatusRecord> updateProxyTaskStatus({
@@ -910,12 +896,11 @@ final class _DemoProxyResidentBoundary implements ProxyResidentBoundary {
     required bool completionReported,
     required bool residentConsentConfirmed,
     required String commandId,
-  }) async =>
-      ProxyTaskStatusRecord(
-        taskId: taskId,
-        participationState: participationState,
-        completionState: completionReported ? 'VERIFIED' : 'NOT_SUBMITTED',
-      );
+  }) async => ProxyTaskStatusRecord(
+    taskId: taskId,
+    participationState: participationState,
+    completionState: completionReported ? 'VERIFIED' : 'NOT_SUBMITTED',
+  );
 
   @override
   Future<ProxyAssistanceUpdate> updateProxyAssistance({
@@ -924,7 +909,9 @@ final class _DemoProxyResidentBoundary implements ProxyResidentBoundary {
     required bool residentConsentConfirmed,
     required String commandId,
   }) async {
-    final index = engine._proxyResidents.indexWhere((p) => p.residentId == residentId);
+    final index = engine._proxyResidents.indexWhere(
+      (p) => p.residentId == residentId,
+    );
     if (index != -1) {
       final old = engine._proxyResidents[index];
       engine._proxyResidents[index] = ProxyResidentRecord(
@@ -957,12 +944,11 @@ final class _DemoAssistanceVolunteerBoundary
   @override
   Future<ResidentVolunteerData> getVolunteerData({
     required String sessionToken,
-  }) async =>
-      ResidentVolunteerData(
-        willingToHelp: true,
-        assignments: const [],
-        isPartial: false,
-      );
+  }) async => ResidentVolunteerData(
+    willingToHelp: true,
+    assignments: const [],
+    isPartial: false,
+  );
 
   @override
   Future<bool> updateVolunteerConsent({
@@ -970,8 +956,7 @@ final class _DemoAssistanceVolunteerBoundary
     required bool willingToHelp,
     required bool residentConsentConfirmed,
     required String commandId,
-  }) async =>
-      willingToHelp;
+  }) async => willingToHelp;
 
   @override
   Future<HelperAssignmentResult> respondToHelperAssignment({
@@ -980,10 +965,8 @@ final class _DemoAssistanceVolunteerBoundary
     required String decision,
     required bool residentConsentConfirmed,
     required String commandId,
-  }) async =>
-      HelperAssignmentResult(
-        assignmentId: assignmentId,
-        state: decision == 'ACCEPT' ? 'ACCEPTED' : 'DECLINED',
-      );
+  }) async => HelperAssignmentResult(
+    assignmentId: assignmentId,
+    state: decision == 'ACCEPT' ? 'ACCEPTED' : 'DECLINED',
+  );
 }
-

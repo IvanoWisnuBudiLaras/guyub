@@ -261,7 +261,11 @@ final class _StatusCard extends StatelessWidget {
               child: const Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.offline_bolt_outlined, size: 12, color: GuyubTokens.yellowText),
+                  Icon(
+                    Icons.offline_bolt_outlined,
+                    size: 12,
+                    color: GuyubTokens.yellowText,
+                  ),
                   SizedBox(width: 4),
                   Text(
                     'Offline',
@@ -279,10 +283,7 @@ final class _StatusCard extends StatelessWidget {
               child: Text(
                 'Mode offline • menampilkan direktori yang tersimpan di perangkat.',
                 key: const Key('emergency-directory-status'),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                ),
+                style: const TextStyle(color: Colors.white, fontSize: 12),
               ),
             ),
           ],

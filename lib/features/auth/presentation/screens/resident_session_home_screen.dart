@@ -283,10 +283,7 @@ final class _ResidentSessionHomeScreenState
                 children: [
                   GuyubWordmark(),
                   SizedBox(width: 8),
-                  Text(
-                    'Guyub.id',
-                    style: TextStyle(fontSize: 0, height: 0),
-                  ),
+                  Text('Guyub.id', style: TextStyle(fontSize: 0, height: 0)),
                 ],
               )
             : Text(
@@ -510,10 +507,9 @@ final class _ResidentSessionHomeScreenState
       onViewAll: () => setState(() => _selectedTabIndex = 1),
       onRetry: _loadTasks,
       onProposeTask: residentProposalController != null
-          ? () => Navigator.of(context).pushNamed(
-              '/resident/proposals',
-              arguments: session,
-            )
+          ? () =>
+                Navigator.of(context)
+                    .pushNamed('/resident/proposals', arguments: session)
           : null,
     );
   }

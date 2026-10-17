@@ -32,7 +32,11 @@ final class GuyubSmallLabel extends StatelessWidget {
 
 /// Kolom dengan label kecil di atas field (gaya form mockup).
 final class GuyubLabeledField extends StatelessWidget {
-  const GuyubLabeledField({required this.label, required this.child, super.key});
+  const GuyubLabeledField({
+    required this.label,
+    required this.child,
+    super.key,
+  });
 
   final String label;
   final Widget child;
@@ -190,10 +194,7 @@ final class _DashedBorderPainter extends CustomPainter {
       ..strokeWidth = 1.2;
     final path = Path()
       ..addRRect(
-        RRect.fromRectAndRadius(
-          Offset.zero & size,
-          const Radius.circular(10),
-        ),
+        RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(10)),
       );
     for (final PathMetric metric in path.computeMetrics()) {
       var distance = 0.0;

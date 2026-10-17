@@ -1508,8 +1508,9 @@ final class _TaskVerificationQueueScreenState
       var alreadyVerified = false;
       try {
         final updatedQueue = await widget.controller.listPendingVerifications();
-        alreadyVerified =
-            !updatedQueue.items.any((item) => item.responseId == record.responseId);
+        alreadyVerified = !updatedQueue.items.any(
+          (item) => item.responseId == record.responseId,
+        );
       } catch (_) {
         // Safe fail-closed
       }
@@ -1517,7 +1518,9 @@ final class _TaskVerificationQueueScreenState
         ScaffoldMessenger.of(context).hideCurrentSnackBar();
         if (alreadyVerified) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Penyelesaian telah diverifikasi RT.')),
+            const SnackBar(
+              content: Text('Penyelesaian telah diverifikasi RT.'),
+            ),
           );
         } else {
           ScaffoldMessenger.of(context).showSnackBar(

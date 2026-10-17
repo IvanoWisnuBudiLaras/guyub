@@ -69,9 +69,8 @@ final class TaskSummaryCard extends StatelessWidget {
         children: [
           Text(
             'Memuat tugas…',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: context.appColors.textSecondary,
-            ),
+            style: Theme.of(context).textTheme.bodySmall
+                ?.copyWith(color: context.appColors.textSecondary),
           ),
         ],
       );

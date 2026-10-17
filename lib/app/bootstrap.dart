@@ -317,13 +317,12 @@ Future<void> bootstrap(AppConfig config) async {
       readResidentSessionToken: residentVault.read,
     );
   }
-    emergencyDirectoryController = EmergencyDirectoryController(
-      boundary:
-          emergencyDirectoryBoundary ??
-          _UnavailableEmergencyDirectoryBoundary(),
-      cache: EmergencyDirectoryCache(localStore),
-      vault: residentVault,
-    );
+  emergencyDirectoryController = EmergencyDirectoryController(
+    boundary:
+        emergencyDirectoryBoundary ?? _UnavailableEmergencyDirectoryBoundary(),
+    cache: EmergencyDirectoryCache(localStore),
+    vault: residentVault,
+  );
 
   runApp(
     await createBootstrapApp(

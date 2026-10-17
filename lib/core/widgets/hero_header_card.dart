@@ -129,10 +129,8 @@ final class HeroHeaderCard extends StatelessWidget {
           const SizedBox(height: 14),
           Text(
             title,
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-              color: titleColor,
-              fontWeight: FontWeight.w800,
-            ),
+            style: Theme.of(context).textTheme.titleLarge
+                ?.copyWith(color: titleColor, fontWeight: FontWeight.w800),
           ),
           if (subtitle case final text?) ...[
             const SizedBox(height: 2),

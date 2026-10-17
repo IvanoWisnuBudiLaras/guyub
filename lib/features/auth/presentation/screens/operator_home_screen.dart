@@ -115,8 +115,9 @@ final class _OperatorHomeScreenState extends State<OperatorHomeScreen> {
         if (mounted) {
           setState(() {
             _pendingVerificationsCount = queue.items.length;
-            _firstPendingRecord =
-                queue.items.isNotEmpty ? queue.items.first : null;
+            _firstPendingRecord = queue.items.isNotEmpty
+                ? queue.items.first
+                : null;
           });
         }
       } catch (_) {
@@ -146,8 +147,9 @@ final class _OperatorHomeScreenState extends State<OperatorHomeScreen> {
         if (mounted) {
           setState(() {
             _vulnerableResidentsCount = count;
-            _totalHouseholdsCount =
-                list.residents.isNotEmpty ? list.residents.length : null;
+            _totalHouseholdsCount = list.residents.isNotEmpty
+                ? list.residents.length
+                : null;
           });
         }
       } catch (_) {
@@ -160,8 +162,9 @@ final class _OperatorHomeScreenState extends State<OperatorHomeScreen> {
       try {
         int totalVerified = 0;
         for (final task in _activeTasks) {
-          final recap =
-              await responseController.getResponseRecap(taskId: task.taskId);
+          final recap = await responseController.getResponseRecap(
+            taskId: task.taskId,
+          );
           totalVerified += recap.verifiedCompleteCount;
         }
         if (mounted) {
@@ -331,8 +334,7 @@ final class _OperatorHomeScreenState extends State<OperatorHomeScreen> {
           if (!hasCampaignBoundary) ...[
             const AlertBanner.warning(
               title: 'Katalog Belum Terhubung',
-              message:
-                  'Akses operator terverifikasi. Katalog tugas belum terhubung.',
+              message: 'Akses operator terverifikasi. Katalog tugas belum terhubung.',
               icon: Icons.cloud_off_outlined,
             ),
             const SizedBox(height: 10),
@@ -542,9 +544,7 @@ final class _OperatorHomeScreenState extends State<OperatorHomeScreen> {
       communityLabel: hasCommunityName
           ? 'RT ${profile.communityId}'
           : profile.humanizedCommunityName,
-      secondaryCommunityLabel: hasCommunityName
-          ? profile.communityName
-          : null,
+      secondaryCommunityLabel: hasCommunityName ? profile.communityName : null,
       title: '$greeting, $displayName',
       dateText: _formatTodayDate(),
     );
@@ -563,8 +563,7 @@ final class _OperatorHomeScreenState extends State<OperatorHomeScreen> {
       final nearest = _activeTasks
           .map((t) => t.deadline)
           .reduce((a, b) => a.isBefore(b) ? a : b);
-      targetText =
-          'Target: ${IndonesianDateFormatter.formatDateOnly(nearest)}';
+      targetText = 'Target: ${IndonesianDateFormatter.formatDateOnly(nearest)}';
     }
 
     return Container(
@@ -843,8 +842,10 @@ final class _OperatorHomeScreenState extends State<OperatorHomeScreen> {
                       '/operator/tasks/verification',
                       arguments: widget.profile,
                     ),
-                    child: const Text('Buka Antrean',
-                        style: TextStyle(fontSize: 12)),
+                    child: const Text(
+                      'Buka Antrean',
+                      style: TextStyle(fontSize: 12),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -881,8 +882,10 @@ final class _OperatorHomeScreenState extends State<OperatorHomeScreen> {
     ActiveTaskCampaignRecord task,
   ) {
     final colors = context.appColors;
-    final hoursLeft =
-        task.deadline.difference(DateTime.now()).inHours.clamp(0, 999);
+    final hoursLeft = task.deadline
+        .difference(DateTime.now())
+        .inHours
+        .clamp(0, 999);
     final daysLeft = task.deadline.difference(DateTime.now()).inDays;
     final timeRemaining = daysLeft > 1
         ? '$daysLeft hari lagi'

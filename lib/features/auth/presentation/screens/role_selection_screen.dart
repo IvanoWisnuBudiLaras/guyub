@@ -130,8 +130,7 @@ final class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                     key: const Key('role-selection-operator'),
                     title: 'Saya Ketua RT/RW',
                     semanticTitle: 'Saya Ketua RT/RW atau Pendamping',
-                    description:
-                        'Kelola Tugas, pantau kesiapan warga, koordinasi banjir',
+                    description: 'Kelola Tugas, pantau kesiapan warga, koordinasi banjir',
                     icon: Icons.assignment_outlined,
                     actionLabel: 'MASUK DENGAN AKUN',
                     isPrimary: true,
