@@ -1496,9 +1496,8 @@ final class _TaskVerificationQueueScreenState
                         ],
                         Text(
                           record.taskTitle,
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(fontWeight: FontWeight.bold),
                         ),
                         const SizedBox(height: 6),
                         Row(
@@ -1508,9 +1507,8 @@ final class _TaskVerificationQueueScreenState
                             Expanded(
                               child: Text(
                                 'Dikirim oleh ${record.nickname}',
-                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                ),
+                                style: Theme.of(context).textTheme.bodyMedium
+                                    ?.copyWith(fontWeight: FontWeight.w600),
                               ),
                             ),
                           ],
@@ -1522,7 +1520,9 @@ final class _TaskVerificationQueueScreenState
                           Container(
                             padding: const EdgeInsets.all(10),
                             decoration: BoxDecoration(
-                              color: Theme.of(context).colorScheme.surfaceContainerLow,
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .surfaceContainerLow,
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text('Catatan: $note'),
@@ -1647,9 +1647,8 @@ final class TaskResponseRecapScreen extends StatelessWidget {
             const SizedBox(height: 12),
             Text(
               recap.taskTitle,
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+              style: Theme.of(context).textTheme.titleLarge
+                  ?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
             MetricStrip(

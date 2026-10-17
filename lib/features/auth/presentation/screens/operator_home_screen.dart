@@ -430,7 +430,8 @@ final class _OperatorHomeScreenState extends State<OperatorHomeScreen> {
 
   Widget _buildOperatorHeader(BuildContext context) {
     final profile = widget.profile;
-    final hasCommunityName = profile.communityName != null &&
+    final hasCommunityName =
+        profile.communityName != null &&
         profile.communityName!.trim().isNotEmpty;
 
     return HeroHeaderCard(

@@ -268,7 +268,7 @@ final class _ResidentEntryScreenState extends State<ResidentEntryScreen> {
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                          color: context.appColors.danger.withValues(alpha: 0.1),
+                        color: context.appColors.danger.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(
                           color: context.appColors.danger.withValues(

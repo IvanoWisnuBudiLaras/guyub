@@ -120,9 +120,8 @@ final class _TaskDraftScreenState extends State<TaskDraftScreen> {
         const SizedBox(height: 16),
         Text(
           'Bagian yang dapat diatur',
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.bold,
-          ),
+          style: Theme.of(context).textTheme.titleMedium
+              ?.copyWith(fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 8),
         SizedBox(
@@ -144,8 +143,7 @@ final class _TaskDraftScreenState extends State<TaskDraftScreen> {
           initialValue: _locationReference,
           decoration: const InputDecoration(
             labelText: 'Jenis lokasi umum (opsional)',
-            helperText:
-                'Pilih kategori saja; alamat dan instruksi bebas tidak diterima.',
+            helperText: 'Pilih kategori saja; alamat dan instruksi bebas tidak diterima.',
             helperMaxLines: 3,
             border: OutlineInputBorder(),
           ),

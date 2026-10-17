@@ -260,9 +260,7 @@ final class _HistoryTaskCardState extends State<_HistoryTaskCard> {
       margin: const EdgeInsets.only(bottom: 12),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(
-          color: Theme.of(context).colorScheme.outlineVariant,
-        ),
+        side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -300,9 +298,8 @@ final class _HistoryTaskCardState extends State<_HistoryTaskCard> {
             const SizedBox(height: 12),
             Text(
               task.templateSnapshot.title,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+              style: Theme.of(context).textTheme.titleMedium
+                  ?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
             Text('Versi template: ${task.templateSnapshot.version}'),
@@ -417,9 +414,8 @@ final class _HistoryTaskCardState extends State<_HistoryTaskCard> {
             children: [
               Text(
                 'Perubahan yang dicatat server:',
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
+                style: Theme.of(context).textTheme.titleSmall
+                    ?.copyWith(fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 12),
               for (var i = 0; i < events.length; i++) ...[
@@ -432,7 +428,8 @@ final class _HistoryTaskCardState extends State<_HistoryTaskCard> {
                           width: 24,
                           height: 24,
                           decoration: BoxDecoration(
-                            color: _eventColor(events[i].eventType).withValues(alpha: 0.15),
+                            color: _eventColor(events[i].eventType)
+                                .withValues(alpha: 0.15),
                             shape: BoxShape.circle,
                             border: Border.all(
                               color: _eventColor(events[i].eventType),
@@ -459,9 +456,8 @@ final class _HistoryTaskCardState extends State<_HistoryTaskCard> {
                         padding: const EdgeInsets.only(top: 2),
                         child: Text(
                           '${_eventLabel(events[i].eventType)}: ${_formatDate(events[i].occurredAt)}',
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            fontWeight: FontWeight.w500,
-                          ),
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(fontWeight: FontWeight.w500),
                         ),
                       ),
                     ),

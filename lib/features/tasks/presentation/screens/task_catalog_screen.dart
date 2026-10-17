@@ -182,20 +182,26 @@ final class _TemplateCard extends StatelessWidget {
             const SizedBox(height: 12),
             Text(
               template.title,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+              style: Theme.of(context).textTheme.titleMedium
+                  ?.copyWith(fontWeight: FontWeight.bold),
             ),
             if (template.estimatedDurationMinutes != null) ...[
               const SizedBox(height: 4),
               Row(
                 children: [
-                  Icon(Icons.timer_outlined, size: 15, color: colors.textSecondary),
+                  Icon(
+                    Icons.timer_outlined,
+                    size: 15,
+                    color: colors.textSecondary,
+                  ),
                   const SizedBox(width: 4),
                   Expanded(
                     child: Text(
                       'Estimasi ${template.estimatedDurationMinutes} menit',
-                      style: TextStyle(fontSize: 12, color: colors.textSecondary),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: colors.textSecondary,
+                      ),
                     ),
                   ),
                 ],

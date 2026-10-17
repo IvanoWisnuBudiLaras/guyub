@@ -227,8 +227,7 @@ final class _WeatherSuggestionReviewScreenState
               if (data.suggestions.isEmpty)
                 const _ReviewMessage(
                   key: Key('weather-suggestions-empty'),
-                  message:
-                      'Belum ada saran cuaca untuk RT ini. Tidak ada tugas yang dibuat otomatis.',
+                  message: 'Belum ada saran cuaca untuk RT ini. Tidak ada tugas yang dibuat otomatis.',
                 )
               else
                 for (final suggestion in data.suggestions) ...[
@@ -300,9 +299,7 @@ final class _SuggestionCard extends StatelessWidget {
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(
-          color: Theme.of(context).colorScheme.outlineVariant,
-        ),
+        side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -311,9 +308,8 @@ final class _SuggestionCard extends StatelessWidget {
           children: [
             Text(
               'Saran BMKG · Menunggu tinjauan',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+              style: Theme.of(context).textTheme.titleMedium
+                  ?.copyWith(fontWeight: FontWeight.w600),
             ),
             if (suggestion.rainfallMm != null) ...[
               const SizedBox(height: 8),
@@ -337,8 +333,7 @@ final class _SuggestionCard extends StatelessWidget {
                 child: TintedInfoBox.warning(
                   key: const Key('weather-suggestion-stale'),
                   title: 'Data Kedaluwarsa',
-                  text:
-                      'Saran ini memakai data yang sudah lama. Jangan gunakan untuk menyiapkan tugas.',
+                  text: 'Saran ini memakai data yang sudah lama. Jangan gunakan untuk menyiapkan tugas.',
                 ),
               )
             else if (recommended.isEmpty)
@@ -354,7 +349,9 @@ final class _SuggestionCard extends StatelessWidget {
               for (final template in recommended)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 2),
-                  child: Text('• ${template.title} · versi ${template.version}'),
+                  child: Text(
+                    '• ${template.title} · versi ${template.version}',
+                  ),
                 ),
             ],
             const SizedBox(height: 12),

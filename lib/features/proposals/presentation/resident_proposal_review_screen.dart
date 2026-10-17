@@ -158,8 +158,7 @@ final class _ResidentProposalReviewScreenState
       Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         child: TintedInfoBox.info(
-          text:
-              'Usulan bukan tugas aktif. RT hanya dapat memilih template aman untuk membuat draf. Teks usulan tidak menjadi instruksi, dan aktivasi memerlukan konfirmasi operator terpisah.',
+          text: 'Usulan bukan tugas aktif. RT hanya dapat memilih template aman untuk membuat draf. Teks usulan tidak menjadi instruksi, dan aktivasi memerlukan konfirmasi operator terpisah.',
         ),
       ),
       if (_error != null)
@@ -282,9 +281,7 @@ final class _ProposalCard extends StatelessWidget {
     margin: const EdgeInsets.only(bottom: 12),
     shape: RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(16),
-      side: BorderSide(
-        color: Theme.of(context).colorScheme.outlineVariant,
-      ),
+      side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
     ),
     child: Padding(
       padding: const EdgeInsets.all(16),
@@ -330,9 +327,8 @@ final class _ProposalCard extends StatelessWidget {
           const SizedBox(height: 12),
           Text(
             proposal.title,
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
+            style: Theme.of(context).textTheme.titleMedium
+                ?.copyWith(fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 6),
           Text('Dari: ${proposal.submitterNickname ?? 'Warga'}'),
@@ -415,10 +411,7 @@ final class _ProposalCard extends StatelessWidget {
                         : const Icon(Icons.archive_outlined, size: 18),
                     const SizedBox(width: 8),
                     const Flexible(
-                      child: Text(
-                        'Tutup usulan',
-                        textAlign: TextAlign.center,
-                      ),
+                      child: Text('Tutup usulan', textAlign: TextAlign.center),
                     ),
                   ],
                 ),

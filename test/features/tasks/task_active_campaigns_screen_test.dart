@@ -320,33 +320,34 @@ void main() {
     expect(find.text('Tidak ada tugas aktif untuk RT ini.'), findsNothing);
   });
 
-  testWidgets('active task card copies a reviewed summary for WhatsApp sharing', (
-    tester,
-  ) async {
-    final boundary = _ActiveBoundary();
-    final copyBoundary = _FakeCopyBoundary();
-    await _mount(tester, boundary, copyBoundary: copyBoundary);
+  testWidgets(
+    'active task card copies a reviewed summary for WhatsApp sharing',
+    (tester) async {
+      final boundary = _ActiveBoundary();
+      final copyBoundary = _FakeCopyBoundary();
+      await _mount(tester, boundary, copyBoundary: copyBoundary);
 
-    final copyButton = find.byKey(Key('task-copy-whatsapp-$_taskId'));
-    await tester.drag(find.byType(ListView), const Offset(0, -600));
-    await tester.pumpAndSettle();
-    expect(copyButton, findsOneWidget);
+      final copyButton = find.byKey(Key('task-copy-whatsapp-$_taskId'));
+      await tester.drag(find.byType(ListView), const Offset(0, -600));
+      await tester.pumpAndSettle();
+      expect(copyButton, findsOneWidget);
 
-    await tester.tap(copyButton);
-    await tester.pumpAndSettle();
+      await tester.tap(copyButton);
+      await tester.pumpAndSettle();
 
-    expect(copyBoundary.copiedText, isNotNull);
-    expect(copyBoundary.copiedText, contains(_snapshot.title));
-    expect(copyBoundary.copiedText, contains(_snapshot.coreInstruction));
-    expect(copyBoundary.copiedText, contains(_snapshot.safetyInstruction));
-    expect(
-      copyBoundary.copiedText,
-      contains('Keikutsertaan bersifat sukarela'),
-    );
-    expect(copyBoundary.copiedText, contains('bukan peringatan resmi'));
-    expect(
-      find.textContaining('Teks disalin. Periksa kembali'),
-      findsOneWidget,
-    );
-  });
+      expect(copyBoundary.copiedText, isNotNull);
+      expect(copyBoundary.copiedText, contains(_snapshot.title));
+      expect(copyBoundary.copiedText, contains(_snapshot.coreInstruction));
+      expect(copyBoundary.copiedText, contains(_snapshot.safetyInstruction));
+      expect(
+        copyBoundary.copiedText,
+        contains('Keikutsertaan bersifat sukarela'),
+      );
+      expect(copyBoundary.copiedText, contains('bukan peringatan resmi'));
+      expect(
+        find.textContaining('Teks disalin. Periksa kembali'),
+        findsOneWidget,
+      );
+    },
+  );
 }

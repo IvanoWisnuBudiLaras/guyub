@@ -927,22 +927,23 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('TaskCampaignConfirmationScreen under 360x640 and textScale 2.0', (
-      tester,
-    ) async {
-      final controller = TaskCampaignController(_FakeTaskBoundary());
-      await tester.pumpApp(
-        TaskCampaignConfirmationScreen(
-          profile: _profile,
-          campaign: _campaignRecord,
-          controller: controller,
-        ),
-        screenSize: smallScreen,
-        textScaleFactor: largeTextScale,
-      );
-      await tester.pumpAndSettle();
-      expect(tester.takeException(), isNull);
-    });
+    testWidgets(
+      'TaskCampaignConfirmationScreen under 360x640 and textScale 2.0',
+      (tester) async {
+        final controller = TaskCampaignController(_FakeTaskBoundary());
+        await tester.pumpApp(
+          TaskCampaignConfirmationScreen(
+            profile: _profile,
+            campaign: _campaignRecord,
+            controller: controller,
+          ),
+          screenSize: smallScreen,
+          textScaleFactor: largeTextScale,
+        );
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+      },
+    );
 
     testWidgets('TaskActiveCampaignsScreen under 360x640 and textScale 2.0', (
       tester,
@@ -979,10 +980,7 @@ void main() {
         vault: _FakeVault(),
       );
       await tester.pumpApp(
-        TaskVerificationQueueScreen(
-          profile: _profile,
-          controller: controller,
-        ),
+        TaskVerificationQueueScreen(profile: _profile, controller: controller),
         screenSize: smallScreen,
         textScaleFactor: largeTextScale,
       );
@@ -990,40 +988,42 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('ResidentProposalReviewScreen under 360x640 and textScale 2.0', (
-      tester,
-    ) async {
-      final controller = ResidentProposalReviewController(
-        boundary: _FakeProposalBoundary(),
-      );
-      await tester.pumpApp(
-        ResidentProposalReviewScreen(
-          profile: _profile,
-          controller: controller,
-        ),
-        screenSize: smallScreen,
-        textScaleFactor: largeTextScale,
-      );
-      await tester.pumpAndSettle();
-      expect(tester.takeException(), isNull);
-    });
+    testWidgets(
+      'ResidentProposalReviewScreen under 360x640 and textScale 2.0',
+      (tester) async {
+        final controller = ResidentProposalReviewController(
+          boundary: _FakeProposalBoundary(),
+        );
+        await tester.pumpApp(
+          ResidentProposalReviewScreen(
+            profile: _profile,
+            controller: controller,
+          ),
+          screenSize: smallScreen,
+          textScaleFactor: largeTextScale,
+        );
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+      },
+    );
 
-    testWidgets('WeatherSuggestionReviewScreen under 360x640 and textScale 2.0', (
-      tester,
-    ) async {
-      final controller = TaskCampaignController(_FakeTaskBoundary());
-      await tester.pumpApp(
-        WeatherSuggestionReviewScreen(
-          profile: _profile,
-          suggestionBoundary: _FakeSuggestionBoundary(),
-          taskCampaignController: controller,
-        ),
-        screenSize: smallScreen,
-        textScaleFactor: largeTextScale,
-      );
-      await tester.pumpAndSettle();
-      expect(tester.takeException(), isNull);
-    });
+    testWidgets(
+      'WeatherSuggestionReviewScreen under 360x640 and textScale 2.0',
+      (tester) async {
+        final controller = TaskCampaignController(_FakeTaskBoundary());
+        await tester.pumpApp(
+          WeatherSuggestionReviewScreen(
+            profile: _profile,
+            suggestionBoundary: _FakeSuggestionBoundary(),
+            taskCampaignController: controller,
+          ),
+          screenSize: smallScreen,
+          textScaleFactor: largeTextScale,
+        );
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+      },
+    );
 
     testWidgets('ProxyResidentScreen under 360x640 and textScale 2.0', (
       tester,
