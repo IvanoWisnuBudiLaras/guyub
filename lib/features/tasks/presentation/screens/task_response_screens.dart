@@ -17,6 +17,8 @@ import '../../../../core/utils/indonesian_date_formatter.dart';
 import '../../../../core/widgets/task_category_presentation.dart';
 import '../../../../core/widgets/inline_action_button.dart';
 import '../../../../core/widgets/tinted_info_box.dart';
+import '../../../../core/widgets/section_card.dart';
+import '../../../../core/widgets/info_row.dart';
 
 typedef PickEvidenceImage = Future<Uint8List?> Function();
 
@@ -755,104 +757,185 @@ final class _ResidentTaskDetailScreenState
               ),
             )
           : null,
-      body: ListView(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
-        children: [
-          // Header info: RT label + offline banner
-          Text(
-            'Warga • ${widget.session.rtLabel}',
-            style: Theme.of(context).textTheme.labelLarge
-                ?.copyWith(color: context.appColors.textSecondary),
-          ),
-          if (widget.isCached) ...[
-            const SizedBox(height: 8),
-            _ResidentTaskOfflineBanner(lastSyncedAt: widget.lastSyncedAt),
-          ],
-          const SizedBox(height: 12),
-
-          // Title & Category
-          Text(
-            _task.templateSnapshot.title,
-            style: Theme.of(context).textTheme.headlineSmall
-                ?.copyWith(fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 8),
-          TaskCategoryChip(category: _task.templateSnapshot.category),
-          const SizedBox(height: 12),
-
-          // Time & Location info - compact
-          Row(
-            children: [
-              if (_task.templateSnapshot.estimatedDurationMinutes != null) ...[
-                Icon(
-                  Icons.schedule_outlined,
-                  size: 16,
-                  color: context.appColors.textSecondary,
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  _formatDuration(
-                    _task.templateSnapshot.estimatedDurationMinutes!,
-                  ),
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-                const SizedBox(width: 12),
-              ],
-              Icon(
-                isPastDeadline ? Icons.error_outline : Icons.event_outlined,
-                size: 16,
-                color: isPastDeadline
-                    ? context.appColors.danger
-                    : isUrgent
-                    ? const Color(0xFFB45309)
-                    : context.appColors.textSecondary,
-              ),
-              const SizedBox(width: 4),
-              Expanded(
-                child: Text(
-                  '${_formatDate(_task.deadline)}${isPastDeadline ? "" : " (${_formatTimeRemaining(timeRemaining)})"}',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    fontWeight: isUrgent || isPastDeadline
-                        ? FontWeight.w600
-                        : null,
-                    color: isPastDeadline
-                        ? context.appColors.danger
-                        : isUrgent
-                        ? const Color(0xFFB45309)
-                        : null,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          if (_task.locationReference case final location?) ...[
-            const SizedBox(height: 6),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // 1. Header chip kecil: Warga • RT [Label] [CommunityName]
             Row(
               children: [
-                Icon(
-                  Icons.location_on_outlined,
-                  size: 16,
-                  color: context.appColors.textSecondary,
-                ),
-                const SizedBox(width: 4),
-                Expanded(
-                  child: Text(
-                    TaskLocationReferences.label(location),
-                    style: Theme.of(context).textTheme.bodySmall,
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: context.appColors.primarySoft,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: context.appColors.primary.withValues(alpha: 0.2),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.location_city_outlined,
+                        size: 13,
+                        color: context.appColors.primary,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Warga • ${widget.session.rtLabel} ${widget.session.communityName}'.trim(),
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                              color: context.appColors.primary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
+            if (widget.isCached) ...[
+              const SizedBox(height: 8),
+              _ResidentTaskOfflineBanner(lastSyncedAt: widget.lastSyncedAt),
+            ],
+            const SizedBox(height: 12),
+
+            // 2. Kartu Header (chip kategori + judul + badge status)
+            SectionCard(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(16),
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    TaskCategoryChip(category: _task.templateSnapshot.category),
+                    _buildStatusBadge(context, _task),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  _task.templateSnapshot.title,
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        height: 1.3,
+                      ),
+                ),
+              ],
+            ),
+
+            // 3. Kartu "Waktu" (estimasi, batas waktu Indonesia, sisa waktu)
+            SectionCard(
+              title: 'Waktu Pelaksanaan',
+              icon: Icons.schedule_outlined,
+              margin: const EdgeInsets.only(bottom: 12),
+              children: [
+                if (_task.templateSnapshot.estimatedDurationMinutes != null)
+                  InfoRow(
+                    icon: Icons.timer_outlined,
+                    label: 'Estimasi',
+                    value: _formatDuration(
+                      _task.templateSnapshot.estimatedDurationMinutes!,
+                    ),
+                  ),
+                InfoRow(
+                  icon: Icons.event_outlined,
+                  label: 'Batas Waktu',
+                  value: _formatDate(_task.deadline),
+                ),
+                InfoRow(
+                  icon: Icons.hourglass_bottom_outlined,
+                  label: 'Sisa Waktu',
+                  value: isPastDeadline
+                      ? 'Batas waktu terlewati'
+                      : _formatTimeRemaining(timeRemaining),
+                  valueColor: isPastDeadline
+                      ? context.appColors.danger
+                      : isUrgent
+                          ? const Color(0xFFB45309)
+                          : null,
+                ),
+              ],
+            ),
+
+            // 4. Kartu "Lokasi" (label manusiawi)
+            SectionCard(
+              title: 'Lokasi Tugas',
+              icon: Icons.location_on_outlined,
+              margin: const EdgeInsets.only(bottom: 12),
+              children: [
+                InfoRow(
+                  icon: Icons.place_outlined,
+                  label: 'Titik Lokasi',
+                  value: _task.locationReference != null
+                      ? TaskLocationReferences.label(_task.locationReference!)
+                      : 'Lingkungan RT / Rumah masing-masing',
+                ),
+              ],
+            ),
+
+            // 5. Kartu instruksi & keselamatan
+            LockedTaskInstructionsCard(snapshot: _task.templateSnapshot),
+            const SizedBox(height: 16),
+
+            // 6. Action buttons / status
+            _responseActions(),
           ],
-          const SizedBox(height: 16),
+        ),
+      ),
+    );
+  }
 
-          // Instructions Card - simplified
-          LockedTaskInstructionsCard(snapshot: _task.templateSnapshot),
-          const SizedBox(height: 16),
+  Widget _buildStatusBadge(BuildContext context, ResidentTaskRecord task) {
+    final colors = context.appColors;
+    final (String label, Color fg, Color bg) = switch ((
+      task.participation,
+      task.completion,
+    )) {
+      (_, CompletionState.verifiedComplete) => (
+        'Terverifikasi RT',
+        colors.success,
+        colors.successBg,
+      ),
+      (_, CompletionState.pendingRtVerification) => (
+        'Menunggu Verifikasi',
+        const Color(0xFFB45309),
+        colors.warningBg,
+      ),
+      (ParticipationState.joined, _) => (
+        'Akan Mengikuti',
+        colors.primary,
+        colors.primarySoft,
+      ),
+      (ParticipationState.declined, _) => (
+        'Tidak Ikut',
+        colors.textSecondary,
+        colors.background,
+      ),
+      _ => (
+        'Belum Direspons',
+        colors.textSecondary,
+        colors.background,
+      ),
+    };
 
-          // Action buttons / status
-          _responseActions(),
-        ],
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: fg.withValues(alpha: 0.3)),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          color: fg,
+        ),
       ),
     );
   }

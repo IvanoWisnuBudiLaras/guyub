@@ -198,6 +198,9 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      await tester.ensureVisible(
+        find.byKey(const Key('resident-delete-attached-evidence')),
+      );
       await tester.tap(
         find.byKey(const Key('resident-delete-attached-evidence')),
       );
@@ -453,6 +456,9 @@ void main() {
     expect(find.byKey(const Key('resident-join-task')), findsNothing);
     expect(find.byKey(const Key('resident-decline-task')), findsNothing);
 
+    await tester.ensureVisible(
+      find.byKey(const Key('resident-resolve-task-sync-conflict')),
+    );
     await tester.tap(
       find.byKey(const Key('resident-resolve-task-sync-conflict')),
     );
