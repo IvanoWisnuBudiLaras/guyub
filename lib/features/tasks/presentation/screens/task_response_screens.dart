@@ -1475,6 +1475,16 @@ final class _TaskVerificationQueueScreenState
                   key: record.taskId == widget.initialTaskId
                       ? Key('verification-notification-${record.taskId}')
                       : null,
+                  elevation: 0,
+                  margin: const EdgeInsets.only(bottom: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    side: BorderSide(
+                      color: record.taskId == widget.initialTaskId
+                          ? Theme.of(context).colorScheme.primary
+                          : Theme.of(context).colorScheme.outlineVariant,
+                    ),
+                  ),
                   child: Padding(
                     padding: const EdgeInsets.all(16),
                     child: Column(
@@ -1486,57 +1496,107 @@ final class _TaskVerificationQueueScreenState
                         ],
                         Text(
                           record.taskTitle,
-                          style: Theme.of(context).textTheme.titleMedium,
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Row(
+                          children: [
+                            const Icon(Icons.person_outline, size: 16),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Dikirim oleh ${record.nickname}',
+                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
                         ),
                         const SizedBox(height: 4),
-                        Text('Dikirim oleh ${record.nickname}'),
                         Text('Waktu kirim: ${_formatDate(record.submittedAt)}'),
                         if (record.completionNote case final note?) ...[
                           const SizedBox(height: 8),
-                          Text('Catatan: $note'),
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).colorScheme.surfaceContainerLow,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text('Catatan: $note'),
+                          ),
                         ],
                         const SizedBox(height: 8),
-                        const Text('Status: Menunggu Verifikasi RT'),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFEF3C7),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: const Color(0xFFFDE68A)),
+                          ),
+                          child: const Text(
+                            'Status: Menunggu Verifikasi RT',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFFB45309),
+                            ),
+                          ),
+                        ),
                         if (record.evidenceId case final evidenceId?) ...[
-                          const SizedBox(height: 8),
-                          OutlinedButton.icon(
-                            key: Key('review-evidence-${record.responseId}'),
-                            onPressed: _busyEvidence.contains(evidenceId)
-                                ? null
-                                : () => _reviewEvidence(record),
-                            icon: const Icon(Icons.image_outlined),
-                            label: Text(
-                              _busyEvidence.contains(evidenceId)
-                                  ? 'Memuat foto…'
-                                  : 'Lihat foto bukti',
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            height: 48,
+                            child: OutlinedButton.icon(
+                              key: Key('review-evidence-${record.responseId}'),
+                              onPressed: _busyEvidence.contains(evidenceId)
+                                  ? null
+                                  : () => _reviewEvidence(record),
+                              icon: const Icon(Icons.image_outlined),
+                              label: Text(
+                                _busyEvidence.contains(evidenceId)
+                                    ? 'Memuat foto…'
+                                    : 'Lihat foto bukti',
+                              ),
                             ),
                           ),
                         ],
+                        const SizedBox(height: 12),
                         Wrap(
                           spacing: 8,
+                          runSpacing: 8,
                           children: [
-                            InlineActionButton(
-                              key: Key('verify-${record.responseId}'),
-                              onPressed:
-                                  _busyResponses.contains(record.responseId)
-                                  ? null
-                                  : () => _verify(record),
-                              icon: Icons.check_circle_outline,
-                              label: 'Tinjau dan Verifikasi',
-                              variant: InlineActionButtonVariant.tonal,
+                            SizedBox(
+                              height: 48,
+                              child: InlineActionButton(
+                                key: Key('verify-${record.responseId}'),
+                                onPressed:
+                                    _busyResponses.contains(record.responseId)
+                                    ? null
+                                    : () => _verify(record),
+                                icon: Icons.check_circle_outline,
+                                label: 'Tinjau dan Verifikasi',
+                                variant: InlineActionButtonVariant.tonal,
+                              ),
                             ),
-                            TextButton(
-                              key: Key('recap-${record.taskId}'),
-                              onPressed: () => Navigator.of(context).push(
-                                MaterialPageRoute<void>(
-                                  builder: (_) => TaskResponseRecapScreen(
-                                    profile: widget.profile,
-                                    taskId: record.taskId,
-                                    controller: widget.controller,
+                            SizedBox(
+                              height: 48,
+                              child: OutlinedButton(
+                                key: Key('recap-${record.taskId}'),
+                                onPressed: () => Navigator.of(context).push(
+                                  MaterialPageRoute<void>(
+                                    builder: (_) => TaskResponseRecapScreen(
+                                      profile: widget.profile,
+                                      taskId: record.taskId,
+                                      controller: widget.controller,
+                                    ),
                                   ),
                                 ),
+                                child: const Text('Lihat Rekap'),
                               ),
-                              child: const Text('Lihat Rekap'),
                             ),
                           ],
                         ),
@@ -1651,22 +1711,6 @@ final class TaskResponseRecapScreen extends StatelessWidget {
           ],
         );
       },
-    ),
-  );
-}
-
-final class _CountRow extends StatelessWidget {
-  const _CountRow({required this.label, required this.count});
-
-  final String label;
-  final int count;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 6),
-    child: Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [Text(label), Text('$count')],
     ),
   );
 }
