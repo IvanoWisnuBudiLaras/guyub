@@ -81,7 +81,10 @@ final class AppRouter {
         );
       case initial:
         return MaterialPageRoute<void>(
-          builder: (_) => const RoleSelectionScreen(),
+          builder: (_) => RoleSelectionScreen(
+            residentSessionController: residentSessionController,
+            operatorAuthBoundary: operatorAuthBoundary,
+          ),
           settings: settings,
         );
       case operatorLogin:

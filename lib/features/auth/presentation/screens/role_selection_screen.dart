@@ -1,11 +1,59 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/result/result.dart';
 import '../../../../core/widgets/app_logo.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../application/operator_auth_boundary.dart';
+import '../../application/operator_profile.dart';
+import '../../application/resident_session.dart';
+import '../../application/resident_session_controller.dart';
 
 /// Entry point that keeps operator and resident paths visually distinct.
-final class RoleSelectionScreen extends StatelessWidget {
-  const RoleSelectionScreen({super.key});
+final class RoleSelectionScreen extends StatefulWidget {
+  const RoleSelectionScreen({
+    this.residentSessionController,
+    this.operatorAuthBoundary,
+    super.key,
+  });
+
+  final ResidentSessionController? residentSessionController;
+  final OperatorAuthBoundary? operatorAuthBoundary;
+
+  @override
+  State<RoleSelectionScreen> createState() => _RoleSelectionScreenState();
+}
+
+final class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
+  ResidentSession? _savedResidentSession;
+  OperatorProfile? _savedOperatorProfile;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkSavedSessions();
+  }
+
+  Future<void> _checkSavedSessions() async {
+    try {
+      if (widget.residentSessionController != null) {
+        final session = await widget.residentSessionController!.restoreSession();
+        if (mounted && session != null) {
+          setState(() => _savedResidentSession = session);
+        }
+      }
+    } catch (_) {}
+
+    try {
+      if (widget.operatorAuthBoundary != null) {
+        final result =
+            await widget.operatorAuthBoundary!.restoreCurrentSession();
+        final profile = result.dataOrNull;
+        if (mounted && profile != null) {
+          setState(() => _savedOperatorProfile = profile);
+        }
+      }
+    } catch (_) {}
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -38,7 +86,38 @@ final class RoleSelectionScreen extends StatelessWidget {
                     style: Theme.of(context).textTheme.bodyLarge
                         ?.copyWith(color: context.appColors.textSecondary),
                   ),
-                  SizedBox(height: isCompact ? 32 : 48),
+                  SizedBox(height: isCompact ? 24 : 32),
+
+                  // Kartu Lanjutkan Sesi jika ada sesi tersimpan
+                  if (_savedResidentSession case final session?) ...[
+                    _ResumeSessionCard(
+                      key: const Key('resume-resident-session'),
+                      title: 'Lanjutkan sebagai ${session.nickname} (${session.rtLabel})',
+                      subtitle: session.communityName.isNotEmpty
+                          ? session.communityName
+                          : 'Sesi warga tersimpan',
+                      icon: Icons.person_outline,
+                      onTap: () => Navigator.of(context).pushReplacementNamed(
+                        '/resident/home',
+                        arguments: session,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                  if (_savedOperatorProfile case final operator?) ...[
+                    _ResumeSessionCard(
+                      key: const Key('resume-operator-session'),
+                      title: 'Lanjutkan sebagai ${operator.displayName} (${operator.rtLabel})',
+                      subtitle: operator.humanizedCommunityName,
+                      icon: Icons.admin_panel_settings_outlined,
+                      onTap: () => Navigator.of(context).pushReplacementNamed(
+                        '/operator/home',
+                        arguments: operator,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+
                   Text(
                     'Masuk sebagai siapa Anda?',
                     textAlign: TextAlign.center,
@@ -106,6 +185,100 @@ final class RoleSelectionScreen extends StatelessWidget {
                 ],
               ),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+final class _ResumeSessionCard extends StatelessWidget {
+  const _ResumeSessionCard({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.onTap,
+    super.key,
+  });
+
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: colors.primarySoft,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: colors.primary, width: 1.5),
+            boxShadow: [
+              BoxShadow(
+                color: colors.primary.withValues(alpha: 0.1),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: colors.primary,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, color: Colors.white, size: 24),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Sesi Aktif Ditemukan',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: colors.primaryDark,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF1E293B),
+                      ),
+                    ),
+                    if (subtitle.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        subtitle,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: colors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Icon(Icons.arrow_forward_ios, size: 16, color: colors.primary),
+            ],
           ),
         ),
       ),
