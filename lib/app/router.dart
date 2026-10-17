@@ -251,6 +251,7 @@ final class AppRouter {
               controller: residentSessionController,
               taskResponseController: taskResponseController,
               residentProposalController: residentProposalController,
+              emergencyDirectoryController: emergencyDirectoryController,
               weatherSnapshotStore: weatherSnapshotStore,
               weatherSnapshotSyncController: weatherSnapshotSyncController,
               assistanceVolunteerController: assistanceVolunteerController,

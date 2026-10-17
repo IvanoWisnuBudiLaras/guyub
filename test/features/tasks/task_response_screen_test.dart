@@ -115,6 +115,10 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    await tester.ensureVisible(
+      find.byKey(const Key('resident-choose-evidence')),
+    );
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('resident-choose-evidence')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('resident-evidence-preview')), findsOneWidget);

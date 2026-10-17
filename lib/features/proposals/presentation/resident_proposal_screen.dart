@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../auth/application/resident_session.dart';
 import '../../tasks/application/task_location_reference.dart';
 import '../application/resident_proposal_boundary.dart';
+import '../../../../core/widgets/tinted_info_box.dart';
 
 /// Resident proposal form. Submitted text remains a proposal and is never a task.
 final class ResidentProposalScreen extends StatefulWidget {
@@ -80,9 +81,13 @@ final class _ResidentProposalScreenState extends State<ResidentProposalScreen> {
           style: Theme.of(context).textTheme.labelLarge,
         ),
         const SizedBox(height: 12),
-        const Text(
-          'Usulan tidak otomatis menjadi tugas aktif. RT dapat memilih template aman untuk membuat draf; '
-          'teks usulan bukan instruksi, dan aktivasi tetap memerlukan konfirmasi operator.',
+        const TintedInfoBox(
+          tint: TintType.info,
+          icon: Icons.info_outline,
+          child: Text(
+            'Usulan tidak otomatis menjadi tugas aktif. RT dapat memilih template aman untuk membuat draf; '
+            'teks usulan bukan instruksi, dan aktivasi tetap memerlukan konfirmasi operator.',
+          ),
         ),
         const SizedBox(height: 16),
         TextField(
@@ -158,8 +163,17 @@ final class _ResidentProposalScreenState extends State<ResidentProposalScreen> {
           const SizedBox(height: 16),
           Card(
             key: const Key('proposal-submitted'),
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(
+                color: submitted.state == 'SUBMITTED'
+                    ? const Color(0xFFF5A623).withValues(alpha: 0.5)
+                    : Theme.of(context).colorScheme.outlineVariant,
+              ),
+            ),
             color: submitted.state == 'SUBMITTED'
-                ? Theme.of(context).colorScheme.surfaceContainerHighest
+                ? const Color(0xFFFFF4CC)
                 : Theme.of(context).colorScheme.surfaceContainerHigh,
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -172,7 +186,9 @@ final class _ResidentProposalScreenState extends State<ResidentProposalScreen> {
                         submitted.state == 'SUBMITTED'
                             ? Icons.schedule_outlined
                             : Icons.visibility_outlined,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        color: submitted.state == 'SUBMITTED'
+                            ? const Color(0xFFB45309)
+                            : Theme.of(context).colorScheme.onSurfaceVariant,
                         size: 20,
                       ),
                       const SizedBox(width: 8),
@@ -183,7 +199,10 @@ final class _ResidentProposalScreenState extends State<ResidentProposalScreen> {
                               : 'Usulan telah ditinjau RT',
                           style: Theme.of(context).textTheme.titleMedium
                               ?.copyWith(
-                                color: Theme.of(context).colorScheme.onSurface,
+                                color: submitted.state == 'SUBMITTED'
+                                    ? const Color(0xFF92400E)
+                                    : Theme.of(context).colorScheme.onSurface,
+                                fontWeight: FontWeight.w600,
                               ),
                         ),
                       ),
@@ -193,15 +212,19 @@ final class _ResidentProposalScreenState extends State<ResidentProposalScreen> {
                   Text(
                     'Usulan ini belum menjadi tugas. Tidak ada tugas yang diaktifkan atau dikirim.',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      color: submitted.state == 'SUBMITTED'
+                          ? const Color(0xFF92400E)
+                          : Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     'Usulan: ${submitted.title}',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurface,
-                      fontWeight: FontWeight.w500,
+                      color: submitted.state == 'SUBMITTED'
+                          ? const Color(0xFF78350F)
+                          : Theme.of(context).colorScheme.onSurface,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ],

@@ -13,6 +13,7 @@ import '../../application/task_response_boundary.dart';
 import '../../application/task_location_reference.dart';
 import '../widgets/locked_instructions_card.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/task_category_presentation.dart';
 
 typedef PickEvidenceImage = Future<Uint8List?> Function();
 
@@ -324,40 +325,94 @@ final class _TaskSyncIssueCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
     final isConflict = switch (issue.kind) {
       ResidentTaskSyncIssueKind.choiceConflict ||
       ResidentTaskSyncIssueKind.completionConflict ||
       ResidentTaskSyncIssueKind.taskUnavailable => true,
       _ => false,
     };
-    return Card(
-      color: isConflict
-          ? Theme.of(context).colorScheme.errorContainer
-          : Theme.of(context).colorScheme.secondaryContainer,
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (issue.taskTitle case final title?) ...[
-              Text(title, style: Theme.of(context).textTheme.titleSmall),
-              const SizedBox(height: 4),
-            ],
-            Text(_syncIssueMessage(issue)),
-            if (isConflict && onResolve != null) ...[
-              const SizedBox(height: 8),
-              Align(
-                alignment: AlignmentDirectional.centerStart,
-                child: TextButton.icon(
-                  key: const Key('resident-resolve-task-sync-conflict'),
-                  onPressed: onResolve,
-                  icon: const Icon(Icons.refresh),
-                  label: const Text('Periksa status & hapus tindakan lokal'),
+
+    return Container(
+      decoration: BoxDecoration(
+        color: isConflict ? colors.warningBg : colors.primarySoft,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isConflict
+              ? colors.warning.withValues(alpha: 0.4)
+              : colors.primary.withValues(alpha: 0.3),
+        ),
+      ),
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(
+                isConflict
+                    ? Icons.warning_amber_rounded
+                    : Icons.cloud_upload_outlined,
+                color: isConflict
+                    ? const Color(0xFFB45309)
+                    : colors.primaryDark,
+                size: 20,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (issue.taskTitle case final title?) ...[
+                      Text(
+                        title,
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: colors.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                    ],
+                    Text(
+                      _syncIssueMessage(issue),
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: colors.textPrimary,
+                        height: 1.4,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
+          ),
+          if (isConflict && onResolve != null) ...[
+            const SizedBox(height: 8),
+            Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: TextButton.icon(
+                key: const Key('resident-resolve-task-sync-conflict'),
+                onPressed: onResolve,
+                icon: Icon(Icons.refresh, size: 18, color: colors.primaryDark),
+                label: Text(
+                  'Periksa status & hapus tindakan lokal',
+                  style: TextStyle(
+                    color: colors.primaryDark,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                style: TextButton.styleFrom(
+                  foregroundColor: colors.primaryDark,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                ),
+              ),
+            ),
           ],
-        ),
+        ],
       ),
     );
   }
@@ -504,6 +559,9 @@ final class _ResidentTaskDetailScreenState
         });
       }
       if (evidenceUploadFailed) {
+        _showMessage(
+          'Foto tidak terkirim. Penyelesaian tetap dikirim tanpa foto.',
+        );
         setState(() {
           _uploadError =
               'Foto tidak terkirim. Penyelesaian tetap dikirim tanpa foto.';
@@ -641,11 +699,67 @@ final class _ResidentTaskDetailScreenState
 
     return Scaffold(
       appBar: AppBar(
+        leading: const BackButton(),
         title: const Text('Detail Tugas'),
         backgroundColor: Colors.white,
         elevation: 0,
       ),
       backgroundColor: Colors.white,
+      bottomNavigationBar:
+          _task.participation == ParticipationState.unresponded &&
+              !_task.hasSyncConflict &&
+              _task.pendingChoice == null
+          ? SafeArea(
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  border: Border(
+                    top: BorderSide(color: context.appColors.border),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.05),
+                      offset: const Offset(0, -2),
+                      blurRadius: 8,
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        key: const Key('resident-decline-task'),
+                        onPressed: _busy
+                            ? null
+                            : () => _choose(ParticipationChoice.decline),
+                        style: OutlinedButton.styleFrom(
+                          minimumSize: const Size.fromHeight(48),
+                        ),
+                        child: const Text('Tidak Ikut'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: FilledButton(
+                        key: const Key('resident-join-task'),
+                        onPressed: _busy
+                            ? null
+                            : () => _choose(ParticipationChoice.join),
+                        style: FilledButton.styleFrom(
+                          minimumSize: const Size.fromHeight(48),
+                        ),
+                        child: const Text('Saya Ikut'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          : null,
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -667,12 +781,8 @@ final class _ResidentTaskDetailScreenState
             style: Theme.of(context).textTheme.headlineSmall
                 ?.copyWith(fontWeight: FontWeight.w700),
           ),
-          const SizedBox(height: 4),
-          Text(
-            _task.templateSnapshot.category,
-            style: Theme.of(context).textTheme.bodyMedium
-                ?.copyWith(color: context.appColors.textSecondary),
-          ),
+          const SizedBox(height: 8),
+          TaskCategoryChip(category: _task.templateSnapshot.category),
           const SizedBox(height: 12),
 
           // Time & Location info - compact
@@ -699,7 +809,7 @@ final class _ResidentTaskDetailScreenState
                 color: isPastDeadline
                     ? context.appColors.danger
                     : isUrgent
-                    ? context.appColors.warning
+                    ? const Color(0xFFB45309)
                     : context.appColors.textSecondary,
               ),
               const SizedBox(width: 4),
@@ -707,10 +817,13 @@ final class _ResidentTaskDetailScreenState
                 child: Text(
                   '${_formatDate(_task.deadline)}${isPastDeadline ? "" : " (${_formatTimeRemaining(timeRemaining)})"}',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    fontWeight: isUrgent || isPastDeadline
+                        ? FontWeight.w600
+                        : null,
                     color: isPastDeadline
                         ? context.appColors.danger
                         : isUrgent
-                        ? context.appColors.warning
+                        ? const Color(0xFFB45309)
                         : null,
                   ),
                 ),
@@ -957,7 +1070,7 @@ final class _ResidentTaskDetailScreenState
           // Voluntary participation notice - compact
           Card(
             elevation: 0,
-            color: context.appColors.primary.withValues(alpha: 0.05),
+            color: context.appColors.primarySoft,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
               side: BorderSide(color: context.appColors.border),
@@ -968,37 +1081,24 @@ final class _ResidentTaskDetailScreenState
                 children: [
                   Icon(
                     Icons.volunteer_activism_outlined,
-                    color: context.appColors.primary,
+                    color: context.appColors.primaryDark,
                     size: 20,
                   ),
                   const SizedBox(width: 10),
-                  const Expanded(
+                  Expanded(
                     child: Text(
                       'Ikut atau tidak ikut adalah pilihan Anda. Menolak tidak mengurangi '
                       'hak atau layanan.',
-                      style: TextStyle(fontSize: 13),
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: context.appColors.primaryDark,
+                      ),
                     ),
                   ),
                 ],
               ),
             ),
           ),
-          const SizedBox(height: 12),
-
-          // Action buttons with equal prominence
-          FilledButton(
-            key: const Key('resident-join-task'),
-            onPressed: _busy ? null : () => _choose(ParticipationChoice.join),
-            child: const Text('Saya Ikut'),
-          ),
-          OutlinedButton(
-            key: const Key('resident-decline-task'),
-            onPressed: _busy
-                ? null
-                : () => _choose(ParticipationChoice.decline),
-            child: const Text('Tidak Ikut'),
-          ),
-
           if (_busy) ...[
             const SizedBox(height: 12),
             const Center(child: CircularProgressIndicator()),

@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/task_category_presentation.dart';
 import '../../application/task_response.dart';
 import '../../application/task_response_boundary.dart';
 
-/// Kartu tugas di list
+/// Kartu tugas di list dengan ikon kategori di sisi kiri dalam kotak tint,
+/// chip estimasi waktu, status badge, dan tombol aksi berjarak.
 class TaskCard extends StatelessWidget {
   const TaskCard({
     required this.task,
@@ -19,170 +21,243 @@ class TaskCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
     final template = task.templateSnapshot;
     final now = DateTime.now();
     final timeRemaining = task.deadline.difference(now);
     final isUrgent = timeRemaining.inHours < 24 && timeRemaining.inHours >= 0;
     final isPastDeadline = timeRemaining.isNegative;
 
-    // Tentukan warna border berdasarkan urgency
-    Color borderColor;
-    Color urgencyColor;
-    String urgencyLabel;
+    final categoryInfo = TaskCategoryPresentation.fromRaw(
+      template.category,
+      context,
+    );
 
+    // Deadline and urgency presentation
+    final Color deadlineColor;
     if (isPastDeadline) {
-      borderColor = context.appColors.danger;
-      urgencyColor = context.appColors.danger;
-      urgencyLabel = 'Terlewat';
+      deadlineColor = colors.danger;
     } else if (isUrgent) {
-      borderColor = context.appColors.warning;
-      urgencyColor = context.appColors.warning;
-      urgencyLabel = 'Mendesak';
+      deadlineColor = const Color(0xFFB45309); // Dark amber for high contrast
     } else {
-      borderColor = context.appColors.border;
-      urgencyColor = context.appColors.primary;
-      urgencyLabel = 'Normal';
+      deadlineColor = colors.textSecondary;
     }
 
-    // Status badge
-    String statusLabel;
-    Color statusColor;
-    IconData statusIcon;
+    // Status badge mapping
+    final String statusLabel;
+    final Color statusColor;
+    final Color statusBg;
+    final IconData statusIcon;
 
     if (task.participation == ParticipationState.joined) {
       if (task.completion == CompletionState.verifiedComplete) {
         statusLabel = 'Selesai';
-        statusColor = context.appColors.success;
+        statusColor = colors.success;
+        statusBg = colors.successBg;
         statusIcon = Icons.check_circle;
       } else if (task.completion == CompletionState.pendingRtVerification) {
         statusLabel = 'Menunggu Verifikasi';
-        statusColor = context.appColors.warning;
+        statusColor = const Color(0xFFB45309);
+        statusBg = colors.warningBg;
         statusIcon = Icons.schedule;
       } else {
         statusLabel = 'Saya Ikut';
-        statusColor = context.appColors.primary;
+        statusColor = colors.primary;
+        statusBg = colors.primarySoft;
         statusIcon = Icons.task_alt;
       }
     } else if (task.participation == ParticipationState.declined) {
       statusLabel = 'Tidak Ikut';
-      statusColor = context.appColors.textSecondary;
+      statusColor = colors.textSecondary;
+      statusBg = colors.background;
       statusIcon = Icons.cancel_outlined;
     } else {
       statusLabel = 'Belum Dijawab';
-      statusColor = context.appColors.textSecondary;
+      statusColor = colors.textSecondary;
+      statusBg = colors.background;
       statusIcon = Icons.help_outline;
     }
 
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: borderColor, width: 1.5),
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: colors.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           InkWell(
             onTap: onTap,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
             child: Padding(
               padding: const EdgeInsets.all(16),
-              child: Column(
+              child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Header: urgency + deadline
-                  Row(
-                    children: [
-                      // Urgency badge
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: urgencyColor.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          urgencyLabel,
-                          style: TextStyle(
-                            color: urgencyColor,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
+                  // Left side: category icon in tinted container
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: categoryInfo.tintColor,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: categoryInfo.iconColor.withValues(alpha: 0.2),
                       ),
-                      const SizedBox(width: 8),
-                      // Deadline
-                      Expanded(
-                        child: Text(
-                          _formatDeadline(timeRemaining),
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(
-                                color: context.appColors.textSecondary,
-                              ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  // Title
-                  Text(
-                    template.title,
-                    style: Theme.of(context).textTheme.titleMedium
-                        ?.copyWith(fontWeight: FontWeight.w600),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  if (template.coreInstruction.isNotEmpty) ...[
-                    const SizedBox(height: 6),
-                    Text(
-                      template.coreInstruction,
-                      style: Theme.of(context).textTheme.bodySmall
-                          ?.copyWith(color: context.appColors.textSecondary),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
                     ),
-                  ],
-                  const SizedBox(height: 12),
-                  // Status badge
-                  Row(
-                    children: [
-                      Icon(statusIcon, size: 16, color: statusColor),
-                      const SizedBox(width: 4),
-                      Text(
-                        statusLabel,
-                        style: TextStyle(
-                          color: statusColor,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
+                    child: Icon(
+                      categoryInfo.icon,
+                      color: categoryInfo.iconColor,
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+
+                  // Middle & right: Task info
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Top row: Chips (Category + Duration) & Status badge
+                        Row(
+                          children: [
+                            TaskCategoryChip(
+                              category: template.category,
+                              compact: true,
+                            ),
+                            if (template.estimatedDurationMinutes != null) ...[
+                              const SizedBox(width: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: colors.background,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: colors.border),
+                                ),
+                                child: Text(
+                                  '~${template.estimatedDurationMinutes} mnt',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: colors.textSecondary,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            ],
+                            const Spacer(),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 3,
+                              ),
+                              decoration: BoxDecoration(
+                                color: statusBg,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: statusColor.withValues(alpha: 0.25),
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    statusIcon,
+                                    size: 12,
+                                    color: statusColor,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    statusLabel,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color: statusColor,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 10),
+
+                        // Title
+                        Text(
+                          template.title,
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(
+                                fontWeight: FontWeight.w700,
+                                color: colors.textPrimary,
+                              ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 6),
+
+                        // Core instruction preview
+                        if (template.coreInstruction.isNotEmpty) ...[
+                          Text(
+                            template.coreInstruction,
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
+                                  color: colors.textSecondary,
+                                  height: 1.3,
+                                ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 8),
+                        ],
+
+                        // Deadline with high-contrast color
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.schedule,
+                              size: 14,
+                              color: deadlineColor,
+                            ),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                'Batas: ${_formatDeadline(timeRemaining)}',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: deadlineColor,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
             ),
           ),
-          // Action buttons
+
+          // Bottom action buttons with ripple
           Container(
             decoration: BoxDecoration(
               border: Border(
-                top: BorderSide(
-                  color: context.appColors.border.withValues(alpha: 0.5),
-                ),
+                top: BorderSide(color: colors.border.withValues(alpha: 0.6)),
               ),
             ),
             child: Row(
               children: [
-                // Button sesuai status
                 if (task.participation == ParticipationState.unresponded &&
                     onJoin != null) ...[
                   Expanded(
                     child: InkWell(
                       onTap: onJoin,
                       borderRadius: const BorderRadius.only(
-                        bottomLeft: Radius.circular(12),
+                        bottomLeft: Radius.circular(16),
                       ),
                       child: Padding(
                         padding: const EdgeInsets.symmetric(vertical: 12),
@@ -192,15 +267,15 @@ class TaskCard extends StatelessWidget {
                             Icon(
                               Icons.check_circle_outline,
                               size: 18,
-                              color: context.appColors.success,
+                              color: colors.success,
                             ),
                             const SizedBox(width: 6),
                             Text(
                               'Ikut',
                               style: Theme.of(context).textTheme.labelLarge
                                   ?.copyWith(
-                                    color: context.appColors.success,
-                                    fontWeight: FontWeight.w600,
+                                    color: colors.success,
+                                    fontWeight: FontWeight.w700,
                                   ),
                             ),
                           ],
@@ -211,19 +286,20 @@ class TaskCard extends StatelessWidget {
                   Container(
                     width: 1,
                     height: 44,
-                    color: context.appColors.border.withValues(alpha: 0.5),
+                    color: colors.border.withValues(alpha: 0.6),
                   ),
                 ],
-                // Tombol Detail selalu ada
                 Expanded(
                   child: InkWell(
                     onTap: onTap,
                     borderRadius: BorderRadius.only(
-                      bottomRight: const Radius.circular(12),
+                      bottomRight: const Radius.circular(16),
                       bottomLeft:
-                          task.participation == ParticipationState.unresponded
+                          task.participation ==
+                                  ParticipationState.unresponded &&
+                              onJoin != null
                           ? Radius.zero
-                          : const Radius.circular(12),
+                          : const Radius.circular(16),
                     ),
                     child: Padding(
                       padding: const EdgeInsets.symmetric(vertical: 12),
@@ -233,15 +309,15 @@ class TaskCard extends StatelessWidget {
                           Icon(
                             Icons.article_outlined,
                             size: 18,
-                            color: context.appColors.primary,
+                            color: colors.primary,
                           ),
                           const SizedBox(width: 6),
                           Text(
                             'Detail',
                             style: Theme.of(context).textTheme.labelLarge
                                 ?.copyWith(
-                                  color: context.appColors.primary,
-                                  fontWeight: FontWeight.w600,
+                                  color: colors.primary,
+                                  fontWeight: FontWeight.w700,
                                 ),
                           ),
                         ],
@@ -259,7 +335,7 @@ class TaskCard extends StatelessWidget {
 
   String _formatDeadline(Duration timeRemaining) {
     if (timeRemaining.isNegative) {
-      return 'Batas waktu terlewat';
+      return 'Terlewat';
     }
     if (timeRemaining.inDays > 0) {
       return '${timeRemaining.inDays} hari lagi';

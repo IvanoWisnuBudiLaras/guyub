@@ -3,6 +3,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:guyub/core/database/local_store.dart';
 import 'package:guyub/features/auth/application/resident_session.dart';
 import 'package:guyub/features/auth/application/resident_session_vault.dart';
+import 'package:guyub/features/auth/presentation/screens/resident_session_home_screen.dart';
+import 'package:guyub/features/auth/application/resident_session_controller.dart';
+import 'package:guyub/features/auth/application/resident_session_boundary.dart';
 import 'package:guyub/features/emergency/application/emergency_directory.dart';
 import 'package:guyub/features/emergency/application/emergency_directory_boundary.dart';
 import 'package:guyub/features/emergency/application/emergency_directory_controller.dart';
@@ -711,7 +714,191 @@ void main() {
       );
       controller.dispose();
     });
+
+    testWidgets(
+      'renders 3 contacts + 2 assembly points + 1 official channel in full page',
+      (tester) async {
+        tester.view.physicalSize = const Size(800, 1400);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+
+        final user = session();
+        final cache = EmergencyDirectoryCache(InspectableLocalStore());
+        final controller = EmergencyDirectoryController(
+          boundary: FakeEmergencyBoundary(
+            (_) async => EmergencyDirectoryResponse.fromWire(
+              activeWire(
+                contacts: [
+                  {'label': 'Ketua RT 01', 'phone': '081234567890'},
+                  {'label': 'Puskesmas Kelurahan', 'phone': '0215551234'},
+                  {'label': 'Damkar / BPBD', 'phone': '112'},
+                ],
+                assemblyPoints: [
+                  {
+                    'label': 'Balai Warga RT 01',
+                    'publicLocation': 'Jl. Guyub Raya No. 1',
+                  },
+                  {
+                    'label': 'Masjid Al-Ikhlas',
+                    'publicLocation': 'Jl. Guyub II No. 12',
+                  },
+                ],
+                officialChannels: [
+                  {
+                    'label': 'Call Center BPBD DKI',
+                    'url': 'https://bpbd.jakarta.go.id',
+                  },
+                ],
+              ),
+            ),
+          ),
+          cache: cache,
+          vault: FakeResidentSessionVault('secret-session-token'),
+        );
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: EmergencyDirectoryScreen(
+              controller: controller,
+              session: user,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // Check contacts
+        expect(find.text('Ketua RT 01'), findsOneWidget);
+        expect(find.text('081234567890'), findsOneWidget);
+        expect(find.text('Puskesmas Kelurahan'), findsOneWidget);
+        expect(find.text('0215551234'), findsOneWidget);
+        expect(find.text('Damkar / BPBD'), findsOneWidget);
+        expect(find.text('112'), findsOneWidget);
+
+        // Check assembly points
+        expect(find.text('Balai Warga RT 01'), findsOneWidget);
+        expect(find.text('Jl. Guyub Raya No. 1'), findsOneWidget);
+        expect(find.text('Masjid Al-Ikhlas'), findsOneWidget);
+        expect(find.text('Jl. Guyub II No. 12'), findsOneWidget);
+
+        // Check official report channel
+        expect(find.text('Call Center BPBD DKI'), findsOneWidget);
+        expect(find.text('https://bpbd.jakarta.go.id'), findsOneWidget);
+
+        controller.dispose();
+      },
+    );
+
+    testWidgets(
+      'renders 3 contacts + 2 assembly points + 1 official channel in Tab Darurat',
+      (tester) async {
+        tester.view.physicalSize = const Size(800, 1400);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+
+        final user = session();
+        final cache = EmergencyDirectoryCache(InspectableLocalStore());
+        final directoryController = EmergencyDirectoryController(
+          boundary: FakeEmergencyBoundary(
+            (_) async => EmergencyDirectoryResponse.fromWire(
+              activeWire(
+                contacts: [
+                  {'label': 'Ketua RT 01', 'phone': '081234567890'},
+                  {'label': 'Puskesmas Kelurahan', 'phone': '0215551234'},
+                  {'label': 'Damkar / BPBD', 'phone': '112'},
+                ],
+                assemblyPoints: [
+                  {
+                    'label': 'Balai Warga RT 01',
+                    'publicLocation': 'Jl. Guyub Raya No. 1',
+                  },
+                  {
+                    'label': 'Masjid Al-Ikhlas',
+                    'publicLocation': 'Jl. Guyub II No. 12',
+                  },
+                ],
+                officialChannels: [
+                  {
+                    'label': 'Call Center BPBD DKI',
+                    'url': 'https://bpbd.jakarta.go.id',
+                  },
+                ],
+              ),
+            ),
+          ),
+          cache: cache,
+          vault: FakeResidentSessionVault('secret-session-token'),
+        );
+
+        final residentSessionController = ResidentSessionController(
+          boundary: FakeEmergencyResidentBoundary(user),
+          vault: FakeResidentSessionVault('secret-session-token'),
+        );
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: ResidentSessionHomeScreen(
+              session: user,
+              controller: residentSessionController,
+              emergencyDirectoryController: directoryController,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // Switch to Darurat Tab (tab index 2)
+        await tester.tap(find.text('Darurat'));
+        await tester.pumpAndSettle();
+
+        // Check contacts
+        expect(find.text('Ketua RT 01'), findsOneWidget);
+        expect(find.text('081234567890'), findsOneWidget);
+        expect(find.text('Puskesmas Kelurahan'), findsOneWidget);
+        expect(find.text('0215551234'), findsOneWidget);
+        expect(find.text('Damkar / BPBD'), findsOneWidget);
+        expect(find.text('112'), findsOneWidget);
+
+        // Check assembly points
+        expect(find.text('Balai Warga RT 01'), findsOneWidget);
+        expect(find.text('Jl. Guyub Raya No. 1'), findsOneWidget);
+        expect(find.text('Masjid Al-Ikhlas'), findsOneWidget);
+        expect(find.text('Jl. Guyub II No. 12'), findsOneWidget);
+
+        // Check official report channel
+        expect(find.text('Call Center BPBD DKI'), findsOneWidget);
+        expect(find.text('https://bpbd.jakarta.go.id'), findsOneWidget);
+
+        directoryController.dispose();
+      },
+    );
   });
+}
+
+final class FakeEmergencyResidentBoundary implements ResidentSessionBoundary {
+  FakeEmergencyResidentBoundary(this.session);
+
+  final ResidentSession session;
+
+  @override
+  Future<ResidentSessionGrant> createSession({
+    required String joinCode,
+    required String nickname,
+    required String requestId,
+  }) async => ResidentSessionGrant(session: session, sessionToken: 'token');
+
+  @override
+  Future<void> deleteOwnResidentData({
+    required String sessionToken,
+    required String residentId,
+    required String communityId,
+  }) async {}
+
+  @override
+  Future<void> revokeSession(String sessionToken) async {}
+
+  @override
+  Future<ResidentSession> validateSession(String sessionToken) async => session;
 }
 
 final class FakeEmergencyBoundary implements EmergencyDirectoryBoundary {

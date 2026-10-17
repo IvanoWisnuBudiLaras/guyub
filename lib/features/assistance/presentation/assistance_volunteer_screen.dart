@@ -216,7 +216,8 @@ final class _AssistanceVolunteerScreenState
               color: Theme.of(context).colorScheme.surfaceContainerHighest,
               borderRadius: BorderRadius.circular(8),
               border: Border.all(
-                color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.5),
+                color: Theme.of(context).colorScheme.outline
+                    .withValues(alpha: 0.5),
               ),
             ),
             child: Row(

@@ -13,12 +13,14 @@ final class EmergencyDirectoryScreen extends StatefulWidget {
     required this.controller,
     this.session,
     this.onLaunchUri,
+    this.showAppBar = true,
     super.key,
   });
 
   final EmergencyDirectoryController controller;
   final ResidentSession? session;
   final Future<bool> Function(Uri uri)? onLaunchUri;
+  final bool showAppBar;
 
   @override
   State<EmergencyDirectoryScreen> createState() =>
@@ -92,6 +94,99 @@ final class _EmergencyDirectoryScreenState
     final areaName = snapshot?.communityName ?? widget.session?.communityName;
     final rtLabel = snapshot?.rtLabel ?? widget.session?.rtLabel;
 
+    final content = RefreshIndicator(
+      onRefresh: widget.controller.refresh,
+      child: ListView(
+        key: const Key('emergency-directory-list'),
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+        children: [
+          _StatusCard(state: state),
+          const SizedBox(height: 12),
+          if (areaName != null && rtLabel != null) ...[
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Data untuk wilayah',
+                      style: Theme.of(context).textTheme.labelLarge,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '$areaName • $rtLabel',
+                      key: const Key('emergency-directory-area'),
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Pastikan wilayah ini sesuai dengan lokasi Anda. '
+                      'Direktori ini tidak berlaku otomatis untuk RT lain.',
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+          if (snapshot != null) ...[
+            _SyncDetails(snapshot: snapshot),
+            const SizedBox(height: 12),
+            _ContactSection(items: directory!.emergencyContacts),
+            const SizedBox(height: 12),
+            _AssemblySection(items: directory.assemblyPoints),
+            const SizedBox(height: 12),
+            _OfficialChannelSection(
+              items: directory.officialReportChannels,
+              onLaunchUri: _openOfficialUri,
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.errorContainer
+                    .withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: Theme.of(context).colorScheme.error
+                      .withValues(alpha: 0.3),
+                  width: 1,
+                ),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    Icons.info_outline,
+                    color: Theme.of(context).colorScheme.error,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Guyub.id tidak menggantikan layanan darurat atau pelaporan resmi.',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Theme.of(context).colorScheme.onErrorContainer,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ] else ...[
+            _EmptyMessage(state: state),
+          ],
+        ],
+      ),
+    );
+
+    if (!widget.showAppBar) {
+      return content;
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Informasi Darurat'),
@@ -106,93 +201,7 @@ final class _EmergencyDirectoryScreenState
           ),
         ],
       ),
-      body: RefreshIndicator(
-        onRefresh: widget.controller.refresh,
-        child: ListView(
-          key: const Key('emergency-directory-list'),
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-          children: [
-            _StatusCard(state: state),
-            const SizedBox(height: 12),
-            if (areaName != null && rtLabel != null) ...[
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Data untuk wilayah',
-                        style: Theme.of(context).textTheme.labelLarge,
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '$areaName • $rtLabel',
-                        key: const Key('emergency-directory-area'),
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        'Pastikan wilayah ini sesuai dengan lokasi Anda. '
-                        'Direktori ini tidak berlaku otomatis untuk RT lain.',
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-            ],
-            if (snapshot != null) ...[
-              _SyncDetails(snapshot: snapshot),
-              const SizedBox(height: 12),
-              _ContactSection(items: directory!.emergencyContacts),
-              const SizedBox(height: 12),
-              _AssemblySection(items: directory.assemblyPoints),
-              const SizedBox(height: 12),
-              _OfficialChannelSection(
-                items: directory.officialReportChannels,
-                onLaunchUri: _openOfficialUri,
-              ),
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.errorContainer
-                      .withValues(alpha: 0.3),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: Theme.of(context).colorScheme.error.withValues(alpha: 0.3),
-                    width: 1,
-                  ),
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(
-                      Icons.info_outline,
-                      color: Theme.of(context).colorScheme.error,
-                      size: 20,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        'Guyub.id tidak menggantikan layanan darurat atau pelaporan resmi.',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Theme.of(context).colorScheme.onErrorContainer,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ] else ...[
-              _EmptyMessage(state: state),
-            ],
-          ],
-        ),
-      ),
+      body: content,
     );
   }
 }
@@ -357,7 +366,7 @@ final class _ContactSection extends StatelessWidget {
                             ?.copyWith(fontWeight: FontWeight.w600),
                       ),
                       const SizedBox(height: 4),
-                      SelectableText(
+                      Text(
                         item.phone,
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -547,7 +556,7 @@ final class _OfficialChannelSection extends StatelessWidget {
                           ),
                           if (item.url != null) ...[
                             const SizedBox(height: 4),
-                            SelectableText(
+                            Text(
                               item.url!,
                               style: Theme.of(context).textTheme.bodySmall
                                   ?.copyWith(
@@ -559,7 +568,7 @@ final class _OfficialChannelSection extends StatelessWidget {
                           ],
                           if (item.phone != null) ...[
                             const SizedBox(height: 4),
-                            SelectableText(
+                            Text(
                               item.phone!,
                               style: Theme.of(context).textTheme.bodySmall
                                   ?.copyWith(

@@ -267,7 +267,9 @@ final class _ResidentEntryScreenState extends State<ResidentEntryScreen> {
                         color: context.appColors.danger.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(
-                          color: context.appColors.danger.withValues(alpha: 0.3),
+                          color: context.appColors.danger.withValues(
+                            alpha: 0.3,
+                          ),
                         ),
                       ),
                       child: Row(

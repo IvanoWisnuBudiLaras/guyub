@@ -17,6 +17,8 @@ import '../../../notifications/application/task_push_notifications.dart';
 import '../../../notifications/presentation/task_push_opt_in_card.dart';
 import '../widgets/task_summary_card.dart';
 import '../../../tasks/presentation/widgets/task_list_tab.dart';
+import '../../../emergency/application/emergency_directory_controller.dart';
+import '../../../emergency/presentation/emergency_directory_screen.dart';
 
 /// Initial resident destination after backend validation of the RT join code.
 final class ResidentSessionHomeScreen extends StatefulWidget {
@@ -25,6 +27,7 @@ final class ResidentSessionHomeScreen extends StatefulWidget {
     required this.controller,
     this.taskResponseController,
     this.residentProposalController,
+    this.emergencyDirectoryController,
     this.weatherSnapshotStore,
     this.weatherSnapshotSyncController,
     this.assistanceVolunteerController,
@@ -37,6 +40,7 @@ final class ResidentSessionHomeScreen extends StatefulWidget {
   final ResidentSessionController controller;
   final TaskResponseController? taskResponseController;
   final ResidentProposalController? residentProposalController;
+  final EmergencyDirectoryController? emergencyDirectoryController;
   final WeatherSnapshotStore? weatherSnapshotStore;
   final WeatherSnapshotSyncController? weatherSnapshotSyncController;
   final AssistanceVolunteerController? assistanceVolunteerController;
@@ -68,6 +72,8 @@ final class _ResidentSessionHomeScreenState
       widget.taskResponseController;
   ResidentProposalController? get residentProposalController =>
       widget.residentProposalController;
+  EmergencyDirectoryController? get emergencyDirectoryController =>
+      widget.emergencyDirectoryController;
   WeatherSnapshotStore? get weatherSnapshotStore => widget.weatherSnapshotStore;
   WeatherSnapshotSyncController? get weatherSnapshotSyncController =>
       widget.weatherSnapshotSyncController;
@@ -452,7 +458,9 @@ final class _ResidentSessionHomeScreenState
       decoration: BoxDecoration(
         color: context.appColors.warning.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: context.appColors.warning.withValues(alpha: 0.3)),
+        border: Border.all(
+          color: context.appColors.warning.withValues(alpha: 0.3),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -668,40 +676,39 @@ final class _ResidentSessionHomeScreenState
   }
 
   Widget _buildDaruratTab(BuildContext context) {
-    // Placeholder untuk tab Darurat
-    // Akan diimplementasikan di commit berikutnya
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.health_and_safety_outlined,
-              size: 64,
-              color: context.appColors.danger,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Informasi Darurat',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Implementasi informasi darurat akan ditambahkan.',
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 24),
-            FilledButton.icon(
-              onPressed: () =>
-                  Navigator.of(context)
-                      .pushNamed('/emergency', arguments: session),
-              icon: const Icon(Icons.arrow_forward),
-              label: const Text('Buka Halaman Darurat Lengkap'),
-            ),
-          ],
+    final directoryController = emergencyDirectoryController;
+    if (directoryController == null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.health_and_safety_outlined,
+                size: 64,
+                color: context.appColors.danger,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Informasi Darurat',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Direktori darurat belum tersedia pada sesi ini.',
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
         ),
-      ),
+      );
+    }
+
+    return EmergencyDirectoryScreen(
+      controller: directoryController,
+      session: session,
+      showAppBar: false,
     );
   }
 

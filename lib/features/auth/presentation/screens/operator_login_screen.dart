@@ -158,7 +158,9 @@ final class _OperatorLoginScreenState extends State<OperatorLoginScreen> {
                         color: context.appColors.danger.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(
-                          color: context.appColors.danger.withValues(alpha: 0.3),
+                          color: context.appColors.danger.withValues(
+                            alpha: 0.3,
+                          ),
                         ),
                       ),
                       child: Row(
