@@ -154,10 +154,37 @@ final class _EmergencyDirectoryScreenState
                 items: directory.officialReportChannels,
                 onLaunchUri: _openOfficialUri,
               ),
-              const SizedBox(height: 12),
-              const Text(
-                'Guyub.id tidak menggantikan layanan darurat atau pelaporan resmi.',
-                textAlign: TextAlign.center,
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.errorContainer.withOpacity(0.3),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: Theme.of(context).colorScheme.error.withOpacity(0.3),
+                    width: 1,
+                  ),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(
+                      Icons.info_outline,
+                      color: Theme.of(context).colorScheme.error,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'Guyub.id tidak menggantikan layanan darurat atau pelaporan resmi.',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Theme.of(context).colorScheme.onErrorContainer,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ] else ...[
               _EmptyMessage(state: state),
@@ -178,59 +205,77 @@ final class _StatusCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final String message;
     final IconData icon;
+    final Color? backgroundColor;
     if (state.hasConflict && state.snapshot != null) {
       message = 'Versi direktori berbeda. Data tersimpan sebelumnya tetap ditampilkan.';
       icon = Icons.warning_amber_outlined;
+      backgroundColor = Theme.of(context).colorScheme.errorContainer.withOpacity(0.5);
     } else if (state.hasConflict) {
       message = 'Data direktori tidak konsisten dan tidak dapat ditampilkan. Coba perbarui lagi.';
       icon = Icons.warning_amber_outlined;
+      backgroundColor = Theme.of(context).colorScheme.errorContainer.withOpacity(0.5);
     } else if (state.isOffline) {
       message =
           'Mode offline • menampilkan direktori yang tersimpan di perangkat.';
       icon = Icons.cloud_off_outlined;
+      backgroundColor = Theme.of(context).colorScheme.surfaceContainerHighest;
     } else if (state.isRefreshing) {
       message = 'Memeriksa pembaruan direktori…';
       icon = Icons.sync;
+      backgroundColor = Theme.of(context).colorScheme.surfaceContainerLow;
     } else if (state.status == EmergencyDirectoryViewStatus.active) {
       message = 'Direktori tersinkron.';
       icon = Icons.cloud_done_outlined;
+      backgroundColor = Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3);
     } else if (state.status == EmergencyDirectoryViewStatus.disabled) {
       message = 'Direktori darurat untuk wilayah ini sedang dinonaktifkan.';
       icon = Icons.info_outline;
+      backgroundColor = Theme.of(context).colorScheme.surfaceContainerHighest;
     } else if (state.status == EmergencyDirectoryViewStatus.unconfigured) {
       message = 'Direktori darurat belum dikonfigurasi untuk wilayah ini.';
       icon = Icons.info_outline;
+      backgroundColor = Theme.of(context).colorScheme.surfaceContainerHighest;
     } else if (state.status == EmergencyDirectoryViewStatus.loading) {
       message = 'Memuat informasi darurat…';
       icon = Icons.sync;
+      backgroundColor = Theme.of(context).colorScheme.surfaceContainerLow;
     } else {
       message = 'Direktori belum tersedia. Periksa koneksi lalu coba lagi.';
       icon = Icons.cloud_off_outlined;
+      backgroundColor = Theme.of(context).colorScheme.surfaceContainerHighest;
     }
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(icon),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                message,
-                key: const Key('emergency-directory-status'),
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            icon,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              message,
+              key: const Key('emergency-directory-status'),
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Theme.of(context).colorScheme.onSurface,
               ),
             ),
-            if (state.isRefreshing) ...[
-              const SizedBox(width: 8),
-              const SizedBox(
-                width: 18,
-                height: 18,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
-            ],
+          ),
+          if (state.isRefreshing) ...[
+            const SizedBox(width: 8),
+            const SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
           ],
-        ),
+        ],
       ),
     );
   }
@@ -270,16 +315,83 @@ final class _ContactSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) => _DirectorySection(
     title: 'Kontak Darurat',
+    icon: Icons.phone_in_talk_outlined,
     children: [
       if (items.isEmpty)
-        const Text('Belum ada kontak darurat yang dicantumkan.')
+        Text(
+          'Belum ada kontak darurat yang dicantumkan.',
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        )
       else
         ...items.map(
-          (item) => ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.phone_outlined),
-            title: Text(item.label),
-            subtitle: SelectableText(item.phone),
+          (item) => Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surfaceContainerLow,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    Icons.phone_outlined,
+                    color: Theme.of(context).colorScheme.onPrimaryContainer,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        item.label,
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      SelectableText(
+                        item.phone,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                FilledButton.tonalIcon(
+                  onPressed: () async {
+                    final uri = Uri.parse('tel:${item.phone}');
+                    try {
+                      await launchUrl(uri);
+                    } catch (_) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Tidak dapat membuka aplikasi telepon.'),
+                          ),
+                        );
+                      }
+                    }
+                  },
+                  icon: const Icon(Icons.call, size: 18),
+                  label: const Text('Telepon'),
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
     ],
@@ -294,16 +406,62 @@ final class _AssemblySection extends StatelessWidget {
   @override
   Widget build(BuildContext context) => _DirectorySection(
     title: 'Titik Kumpul',
+    icon: Icons.place_outlined,
     children: [
       if (items.isEmpty)
-        const Text('Belum ada titik kumpul yang dicantumkan.')
+        Text(
+          'Belum ada titik kumpul yang dicantumkan.',
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        )
       else
         ...items.map(
-          (item) => ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.location_on_outlined),
-            title: Text(item.label),
-            subtitle: Text(item.publicLocation),
+          (item) => Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surfaceContainerLow,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.tertiaryContainer,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    Icons.location_on_outlined,
+                    color: Theme.of(context).colorScheme.onTertiaryContainer,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        item.label,
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        item.publicLocation,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
     ],
@@ -322,57 +480,118 @@ final class _OfficialChannelSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) => _DirectorySection(
     title: 'Kanal Pelaporan Resmi',
+    icon: Icons.account_balance_outlined,
     children: [
       if (items.isEmpty)
-        const Text(
+        Text(
           'Belum ada kanal pelaporan resmi yang dikonfigurasi untuk wilayah ini.',
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
         )
       else ...[
-        const Text(
-          'Masalah di luar kapasitas warga? Gunakan salah satu kanal resmi yang dikonfigurasi untuk RT ini.',
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Text(
+            'Masalah di luar kapasitas warga? Gunakan salah satu kanal resmi yang dikonfigurasi untuk RT ini.',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 12),
         ...List.generate(items.length, (index) {
           final item = items[index];
           final urlUri = item.safeUrlUri;
           final phoneUri = item.safePhoneUri;
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.account_balance_outlined),
-                title: Text(item.label),
-                subtitle: Column(
+          return Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surfaceContainerLow,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    if (item.url != null) SelectableText(item.url!),
-                    if (item.phone != null) SelectableText(item.phone!),
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.secondaryContainer,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(
+                        Icons.account_balance_outlined,
+                        color: Theme.of(context).colorScheme.onSecondaryContainer,
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            item.label,
+                            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          if (item.url != null) ...[
+                            const SizedBox(height: 4),
+                            SelectableText(
+                              item.url!,
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                          if (item.phone != null) ...[
+                            const SizedBox(height: 4),
+                            SelectableText(
+                              item.phone!,
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
                   ],
                 ),
-              ),
-              if (urlUri != null || phoneUri != null)
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    if (urlUri != null)
-                      OutlinedButton.icon(
-                        key: Key('official-report-url-$index'),
-                        onPressed: () => onLaunchUri(urlUri),
-                        icon: const Icon(Icons.open_in_new),
-                        label: const Text('Buka situs'),
-                      ),
-                    if (phoneUri != null)
-                      OutlinedButton.icon(
-                        key: Key('official-report-phone-$index'),
-                        onPressed: () => onLaunchUri(phoneUri),
-                        icon: const Icon(Icons.phone_outlined),
-                        label: const Text('Telepon'),
-                      ),
-                  ],
-                ),
-            ],
+                if (urlUri != null || phoneUri != null) ...[
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      if (urlUri != null)
+                        OutlinedButton.icon(
+                          key: Key('official-report-url-$index'),
+                          onPressed: () => onLaunchUri(urlUri),
+                          icon: const Icon(Icons.open_in_new, size: 18),
+                          label: const Text('Buka situs'),
+                        ),
+                      if (phoneUri != null)
+                        FilledButton.tonalIcon(
+                          key: Key('official-report-phone-$index'),
+                          onPressed: () => onLaunchUri(phoneUri),
+                          icon: const Icon(Icons.phone_outlined, size: 18),
+                          label: const Text('Telepon'),
+                        ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
           );
         }),
       ],
@@ -381,10 +600,15 @@ final class _OfficialChannelSection extends StatelessWidget {
 }
 
 final class _DirectorySection extends StatelessWidget {
-  const _DirectorySection({required this.title, required this.children});
+  const _DirectorySection({
+    required this.title,
+    required this.children,
+    this.icon,
+  });
 
   final String title;
   final List<Widget> children;
+  final IconData? icon;
 
   @override
   Widget build(BuildContext context) => Card(
@@ -393,8 +617,27 @@ final class _DirectorySection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 8),
+          Row(
+            children: [
+              if (icon != null) ...[
+                Icon(
+                  icon,
+                  color: Theme.of(context).colorScheme.primary,
+                  size: 24,
+                ),
+                const SizedBox(width: 12),
+              ],
+              Expanded(
+                child: Text(
+                  title,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
           ...children,
         ],
       ),
