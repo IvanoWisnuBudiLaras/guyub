@@ -71,6 +71,7 @@ lib/
 │   ├── history/          # Riwayat kesiapsiagaan level RT yang persisten
 │   ├── proposals/        # Usulan warga yang memerlukan review RT
 │   ├── tasks/            # Lifecycle tugas gotong royong & safe catalog
+│   ├── trees/            # Peta Komunitas Pohon Guyub & verifikasi titik resapan (Tahap T4)
 │   ├── weather/          # Integrasi BMKG Open Data & suggestion generator (Phase 4)
 │   └── README.md
 │
