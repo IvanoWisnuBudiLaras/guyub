@@ -595,7 +595,7 @@ final class _DemoEvidenceBoundary implements TaskEvidenceBoundary {
     required String requestId,
     required Uint8List sanitizedJpegBytes,
   }) async =>
-      'evidence-demo-${DateTime.now().millisecondsSinceEpoch}';
+      'demo${DateTime.now().millisecondsSinceEpoch.toRadixString(16).padLeft(36, '0')}';
 
   @override
   Future<Uint8List> getTaskEvidenceForVerification({

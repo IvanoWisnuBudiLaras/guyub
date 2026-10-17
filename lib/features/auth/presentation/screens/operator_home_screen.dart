@@ -71,6 +71,10 @@ final class _OperatorHomeScreenState extends State<OperatorHomeScreen> {
   List<ActiveTaskCampaignRecord> _activeTasks = const [];
   bool _activeTasksLoadFailed = false;
   int? _pendingVerificationsCount;
+  TaskVerificationRecord? _firstPendingRecord;
+  int? _completedTasksCount;
+  int? _totalHouseholdsCount;
+  int? _readyHouseholdsCount;
   int? _vulnerableResidentsCount;
   List<WeatherSuggestion> _weatherSuggestions = const [];
   int _weatherRevision = 0;
@@ -109,26 +113,66 @@ final class _OperatorHomeScreenState extends State<OperatorHomeScreen> {
       try {
         final queue = await responseController.listPendingVerifications();
         if (mounted) {
-          setState(() => _pendingVerificationsCount = queue.items.length);
+          setState(() {
+            _pendingVerificationsCount = queue.items.length;
+            _firstPendingRecord =
+                queue.items.isNotEmpty ? queue.items.first : null;
+          });
         }
       } catch (_) {
         // Safe fail-closed
       }
     }
 
-    // 3. Vulnerable residents
-    final proxyController = widget.proxyResidentController;
-    if (proxyController != null) {
+    // 3. Completed task history
+    if (campaignBoundary is TaskCampaignHistoryBoundary) {
       try {
-        final list = await proxyController.listProxyResidents();
-        final count = list.residents.where((r) => r.needsAssistance).length;
-        if (mounted) setState(() => _vulnerableResidentsCount = count);
+        final history = await (campaignBoundary as TaskCampaignHistoryBoundary)
+            .listRtTaskHistory(pageSize: 50);
+        if (mounted) {
+          setState(() => _completedTasksCount = history.tasks.length);
+        }
       } catch (_) {
         // Safe fail-closed
       }
     }
 
-    // 4. Weather suggestions
+    // 4. Vulnerable & Total households
+    final proxyController = widget.proxyResidentController;
+    if (proxyController != null) {
+      try {
+        final list = await proxyController.listProxyResidents();
+        final count = list.residents.where((r) => r.needsAssistance).length;
+        if (mounted) {
+          setState(() {
+            _vulnerableResidentsCount = count;
+            _totalHouseholdsCount =
+                list.residents.isNotEmpty ? list.residents.length : null;
+          });
+        }
+      } catch (_) {
+        // Safe fail-closed
+      }
+    }
+
+    // 5. Active task recaps for readiness
+    if (responseController != null && _activeTasks.isNotEmpty) {
+      try {
+        int totalVerified = 0;
+        for (final task in _activeTasks) {
+          final recap =
+              await responseController.getResponseRecap(taskId: task.taskId);
+          totalVerified += recap.verifiedCompleteCount;
+        }
+        if (mounted) {
+          setState(() => _readyHouseholdsCount = totalVerified);
+        }
+      } catch (_) {
+        // Safe fail-closed
+      }
+    }
+
+    // 6. Weather suggestions
     final weatherBoundary = widget.weatherSuggestionBoundary;
     if (weatherBoundary != null && campaignBoundary != null) {
       try {
@@ -434,7 +478,9 @@ final class _OperatorHomeScreenState extends State<OperatorHomeScreen> {
                       : null,
                 ),
                 GuyubStatTile(
-                  value: '12',
+                  value: _completedTasksCount != null
+                      ? '$_completedTasksCount'
+                      : '0',
                   label: 'Selesai',
                   color: const Color(0xFF1E293B),
                   onTap: isHistory
@@ -484,7 +530,7 @@ final class _OperatorHomeScreenState extends State<OperatorHomeScreen> {
     final greeting = guyubGreetingFor(DateTime.now());
     final displayName = profile.displayName.isNotEmpty
         ? profile.displayName
-        : 'Pak Hendra';
+        : profile.role.label;
     final hasCommunityName =
         profile.communityName != null &&
         profile.communityName!.trim().isNotEmpty;
@@ -506,6 +552,20 @@ final class _OperatorHomeScreenState extends State<OperatorHomeScreen> {
 
   Widget _buildHouseholdReadinessCard(BuildContext context) {
     final colors = context.appColors;
+    final total = _totalHouseholdsCount ?? 32;
+    final ready = _readyHouseholdsCount ?? (_completedTasksCount ?? 0);
+    final percent = total > 0 ? (ready / total).clamp(0.0, 1.0) : 0.0;
+    final percentInt = (percent * 100).round();
+    final belumSiap = (total - ready).clamp(0, 9999);
+
+    String targetText = 'Tidak ada target aktif';
+    if (_activeTasks.isNotEmpty) {
+      final nearest = _activeTasks
+          .map((t) => t.deadline)
+          .reduce((a, b) => a.isBefore(b) ? a : b);
+      targetText =
+          'Target: ${IndonesianDateFormatter.formatDateOnly(nearest)}';
+    }
 
     return Container(
       decoration: BoxDecoration(
@@ -536,7 +596,7 @@ final class _OperatorHomeScreenState extends State<OperatorHomeScreen> {
                     ),
                   ),
                   Text(
-                    '44%',
+                    '$percentInt%',
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w800,
@@ -554,9 +614,9 @@ final class _OperatorHomeScreenState extends State<OperatorHomeScreen> {
                     color: Color(0xFF1E293B),
                   ),
                   children: [
-                    const TextSpan(text: '14 '),
+                    TextSpan(text: '$ready '),
                     TextSpan(
-                      text: 'dari 32 Rumah Tangga siap',
+                      text: 'dari $total Rumah Tangga siap',
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.normal,
@@ -570,7 +630,7 @@ final class _OperatorHomeScreenState extends State<OperatorHomeScreen> {
               ClipRRect(
                 borderRadius: BorderRadius.circular(4),
                 child: LinearProgressIndicator(
-                  value: 0.44,
+                  value: percent,
                   backgroundColor: const Color(0xFFE2E8F0),
                   valueColor: AlwaysStoppedAnimation<Color>(colors.primary),
                   minHeight: 6,
@@ -581,12 +641,12 @@ final class _OperatorHomeScreenState extends State<OperatorHomeScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    '18 belum siap',
+                    '$belumSiap belum siap',
                     style: TextStyle(fontSize: 11, color: colors.textSecondary),
                   ),
-                  const Text(
-                    'Target: 28 Agustus',
-                    style: TextStyle(
+                  Text(
+                    targetText,
+                    style: const TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
                       color: Color(0xFFE11D48),
@@ -602,7 +662,7 @@ final class _OperatorHomeScreenState extends State<OperatorHomeScreen> {
   }
 
   Widget _buildVulnerableBanner(BuildContext context) {
-    final count = _vulnerableResidentsCount ?? 3;
+    final count = _vulnerableResidentsCount ?? 0;
     return Container(
       decoration: BoxDecoration(
         color: GuyubTokens.yellowFill,
@@ -664,6 +724,14 @@ final class _OperatorHomeScreenState extends State<OperatorHomeScreen> {
   }
 
   Widget _buildPendingVerificationCard(BuildContext context) {
+    final pending = _firstPendingRecord;
+    final nickname = pending?.nickname ?? 'Warga RT';
+    final taskTitle = pending?.taskTitle ?? 'Penyelesaian Tugas';
+    final timeStr = pending != null
+        ? IndonesianDateFormatter.formatCompact(pending.submittedAt)
+        : '';
+    final hasEvidence = pending?.evidenceId != null;
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -684,17 +752,17 @@ final class _OperatorHomeScreenState extends State<OperatorHomeScreen> {
                 topRight: Radius.circular(GuyubTokens.cardRadius - 1),
               ),
             ),
-            child: const Row(
+            child: Row(
               children: [
-                Icon(
+                const Icon(
                   Icons.warning_amber_rounded,
                   size: 15,
                   color: Color(0xFFB45309),
                 ),
-                SizedBox(width: 6),
+                const SizedBox(width: 6),
                 Text(
-                  'Menunggu Verifikasi',
-                  style: TextStyle(
+                  'Menunggu Verifikasi (${_pendingVerificationsCount ?? 1})',
+                  style: const TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
                     color: Color(0xFF92400E),
@@ -712,29 +780,31 @@ final class _OperatorHomeScreenState extends State<OperatorHomeScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Bu Sari',
-                        style: TextStyle(
+                      Text(
+                        nickname,
+                        style: const TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        'Periksa Jalur Evakuasi',
+                        taskTitle,
                         style: TextStyle(
                           fontSize: 12,
                           color: context.appColors.textSecondary,
                         ),
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        '15 Agu 2026, 08.15',
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: context.appColors.textSecondary,
+                      if (timeStr.isNotEmpty) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          timeStr,
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: context.appColors.textSecondary,
+                          ),
                         ),
-                      ),
+                      ],
                     ],
                   ),
                 ),
@@ -745,9 +815,11 @@ final class _OperatorHomeScreenState extends State<OperatorHomeScreen> {
                     color: const Color(0xFFE2E8F0),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Icon(
-                    Icons.image_outlined,
-                    color: Color(0xFF94A3B8),
+                  child: Icon(
+                    hasEvidence ? Icons.image_outlined : Icons.task_alt,
+                    color: hasEvidence
+                        ? const Color(0xFF0F766E)
+                        : const Color(0xFF94A3B8),
                   ),
                 ),
               ],
@@ -771,7 +843,8 @@ final class _OperatorHomeScreenState extends State<OperatorHomeScreen> {
                       '/operator/tasks/verification',
                       arguments: widget.profile,
                     ),
-                    child: const Text('Tolak', style: TextStyle(fontSize: 12)),
+                    child: const Text('Buka Antrean',
+                        style: TextStyle(fontSize: 12)),
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -790,7 +863,7 @@ final class _OperatorHomeScreenState extends State<OperatorHomeScreen> {
                       arguments: widget.profile,
                     ),
                     child: const Text(
-                      'Konfirmasi',
+                      'Tinjau & Verifikasi',
                       style: TextStyle(fontSize: 12),
                     ),
                   ),
@@ -808,6 +881,12 @@ final class _OperatorHomeScreenState extends State<OperatorHomeScreen> {
     ActiveTaskCampaignRecord task,
   ) {
     final colors = context.appColors;
+    final hoursLeft =
+        task.deadline.difference(DateTime.now()).inHours.clamp(0, 999);
+    final daysLeft = task.deadline.difference(DateTime.now()).inDays;
+    final timeRemaining = daysLeft > 1
+        ? '$daysLeft hari lagi'
+        : (hoursLeft > 0 ? '$hoursLeft jam lagi' : 'Batas waktu terlewat');
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
@@ -841,7 +920,7 @@ final class _OperatorHomeScreenState extends State<OperatorHomeScreen> {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  '8/14 warga selesai',
+                  '$timeRemaining • Batas: ${IndonesianDateFormatter.formatDateOnly(task.deadline)}',
                   style: TextStyle(fontSize: 10, color: colors.textSecondary),
                 ),
               ],

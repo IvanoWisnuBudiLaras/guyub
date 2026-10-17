@@ -1415,7 +1415,10 @@ final class _TaskVerificationQueueScreenState
   }
 
   void _reload() {
-    setState(() => _pending = widget.controller.listPendingVerifications());
+    final future = widget.controller.listPendingVerifications();
+    setState(() {
+      _pending = future;
+    });
   }
 
   Future<void> _reviewEvidence(TaskVerificationRecord record) async {
@@ -1501,11 +1504,26 @@ final class _TaskVerificationQueueScreenState
         );
       }
     } catch (_) {
+      _reload();
+      var alreadyVerified = false;
+      try {
+        final updatedQueue = await widget.controller.listPendingVerifications();
+        alreadyVerified =
+            !updatedQueue.items.any((item) => item.responseId == record.responseId);
+      } catch (_) {
+        // Safe fail-closed
+      }
       if (mounted) {
         ScaffoldMessenger.of(context).hideCurrentSnackBar();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Verifikasi gagal. Coba lagi.')),
-        );
+        if (alreadyVerified) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Penyelesaian telah diverifikasi RT.')),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Verifikasi gagal. Coba lagi.')),
+          );
+        }
       }
     } finally {
       if (mounted) setState(() => _busyResponses.remove(record.responseId));

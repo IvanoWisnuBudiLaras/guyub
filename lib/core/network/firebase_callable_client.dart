@@ -17,6 +17,9 @@ final class FirebaseCallableClient implements CallableClient {
       return result.data;
     } on FirebaseFunctionsException catch (error) {
       throw CallableException(error.code, error.message ?? '');
+    } catch (error) {
+      if (error is CallableException) rethrow;
+      throw CallableException('unknown', error.toString());
     }
   }
 }

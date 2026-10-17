@@ -192,17 +192,27 @@ final class FirebaseTaskResponseBoundary
 final class FirebaseTaskResponseErrorMapper {
   const FirebaseTaskResponseErrorMapper._();
 
-  static Exception? map(CallableException error) => switch (error.code) {
-    'unavailable' ||
-    'deadline-exceeded' => const TransientTaskNetworkUnavailableException(),
-    'failed-precondition' ||
-    'not-found' ||
-    'already-exists' => TaskResponseConflictException(code: error.code),
-    'permission-denied' ||
-    'unauthenticated' ||
-    'invalid-argument' => TaskResponseRejectedException(code: error.code),
-    _ => null,
-  };
+  static Exception? map(CallableException error) {
+    final code = error.code.toLowerCase().replaceAll('_', '-');
+    final message = error.message.toLowerCase();
+
+    if (code == 'unavailable' || code == 'deadline-exceeded') {
+      return const TransientTaskNetworkUnavailableException();
+    }
+    if (code == 'failed-precondition' ||
+        code == 'not-found' ||
+        code == 'already-exists' ||
+        message.contains('sudah diverifikasi') ||
+        message.contains('telah diverifikasi')) {
+      return TaskResponseConflictException(code: error.code);
+    }
+    if (code == 'permission-denied' ||
+        code == 'unauthenticated' ||
+        code == 'invalid-argument') {
+      return TaskResponseRejectedException(code: error.code);
+    }
+    return null;
+  }
 }
 
 Future<T> _mapCallable<T>(Future<T> Function() call) async {
