@@ -137,6 +137,16 @@ final class _OperatorHomeScreenState extends State<OperatorHomeScreen> {
     }
   }
 
+  Future<void> _navigateAndRefresh(
+    String routeName, {
+    Object? arguments,
+  }) async {
+    await Navigator.of(context).pushNamed(routeName, arguments: arguments);
+    if (mounted) {
+      await _loadDashboardData();
+    }
+  }
+
   Future<void> _refreshWeather() async {
     final sync = widget.weatherSnapshotSyncController;
     if (sync == null) return;
@@ -169,9 +179,10 @@ final class _OperatorHomeScreenState extends State<OperatorHomeScreen> {
             IconButton(
               key: const Key('operator-appbar-history'),
               tooltip: 'Riwayat Tugas',
-              onPressed: () =>
-                  Navigator.of(context)
-                      .pushNamed('/operator/tasks/history', arguments: profile),
+              onPressed: () => _navigateAndRefresh(
+                '/operator/tasks/history',
+                arguments: profile,
+              ),
               icon: const Icon(Icons.history),
             ),
           IconButton(
@@ -201,7 +212,12 @@ final class _OperatorHomeScreenState extends State<OperatorHomeScreen> {
       ),
       bottomNavigationBar: GuyubBottomNavBar(
         currentIndex: _selectedTabIndex,
-        onTap: (index) => setState(() => _selectedTabIndex = index),
+        onTap: (index) {
+          setState(() => _selectedTabIndex = index);
+          if (index == 0) {
+            unawaited(_loadDashboardData());
+          }
+        },
       ),
     );
   }
@@ -293,18 +309,22 @@ final class _OperatorHomeScreenState extends State<OperatorHomeScreen> {
               pendingVerificationsCount: _pendingVerificationsCount,
               vulnerableResidentsCount: _vulnerableResidentsCount,
               onActiveTasksTap: isManagement
-                  ? () => Navigator.of(context)
-                        .pushNamed('/operator/tasks/active', arguments: profile)
+                  ? () => _navigateAndRefresh(
+                      '/operator/tasks/active',
+                      arguments: profile,
+                    )
                   : null,
               onVerificationsTap: widget.taskResponseController != null
-                  ? () => Navigator.of(context).pushNamed(
+                  ? () => _navigateAndRefresh(
                       '/operator/tasks/verification',
                       arguments: profile,
                     )
                   : null,
               onVulnerableResidentsTap: widget.proxyResidentController != null
-                  ? () => Navigator.of(context)
-                        .pushNamed('/operator/assistance', arguments: profile)
+                  ? () => _navigateAndRefresh(
+                      '/operator/assistance',
+                      arguments: profile,
+                    )
                   : null,
             ),
             const SizedBox(height: 10),
@@ -320,9 +340,10 @@ final class _OperatorHomeScreenState extends State<OperatorHomeScreen> {
                   'pendampingan evakuasi / persiapan.',
               action: InlineActionButton(
                 variant: InlineActionButtonVariant.outlined,
-                onPressed: () =>
-                    Navigator.of(context)
-                        .pushNamed('/operator/assistance', arguments: profile),
+                onPressed: () => _navigateAndRefresh(
+                  '/operator/assistance',
+                  arguments: profile,
+                ),
                 label: 'Lihat Warga',
               ),
             ),
@@ -338,9 +359,10 @@ final class _OperatorHomeScreenState extends State<OperatorHomeScreen> {
                   '$_pendingVerificationsCount laporan tugas warga menunggu verifikasi.',
               action: InlineActionButton(
                 variant: InlineActionButtonVariant.outlined,
-                onPressed: () => Navigator.of(
-                  context,
-                ).pushNamed('/operator/tasks/verification', arguments: profile),
+                onPressed: () => _navigateAndRefresh(
+                  '/operator/tasks/verification',
+                  arguments: profile,
+                ),
                 label: 'Buka Antrean',
               ),
             ),
@@ -382,38 +404,42 @@ final class _OperatorHomeScreenState extends State<OperatorHomeScreen> {
                 ),
                 const SizedBox(height: 12),
                 OperatorActionShortcuts(
-                  onOpenCatalog: () => Navigator.of(context)
-                      .pushNamed('/operator/tasks/catalog', arguments: profile),
+                  onOpenCatalog: () => _navigateAndRefresh(
+                    '/operator/tasks/catalog',
+                    arguments: profile,
+                  ),
                   onWeatherSuggestions: widget.weatherSuggestionBoundary != null
-                      ? () => Navigator.of(context).pushNamed(
+                      ? () => _navigateAndRefresh(
                           '/operator/weather-suggestions',
                           arguments: profile,
                         )
                       : null,
                   onActiveTasks: isManagement
-                      ? () => Navigator.of(context).pushNamed(
+                      ? () => _navigateAndRefresh(
                           '/operator/tasks/active',
                           arguments: profile,
                         )
                       : null,
                   onVerification: widget.taskResponseController != null
-                      ? () => Navigator.of(context).pushNamed(
+                      ? () => _navigateAndRefresh(
                           '/operator/tasks/verification',
                           arguments: profile,
                         )
                       : null,
                   onProposalReview: widget.proposalReviewController != null
-                      ? () => Navigator.of(
-                          context,
-                        ).pushNamed('/operator/proposals', arguments: profile)
+                      ? () => _navigateAndRefresh(
+                          '/operator/proposals',
+                          arguments: profile,
+                        )
                       : null,
                   onProxyAssistance: widget.proxyResidentController != null
-                      ? () => Navigator.of(
-                          context,
-                        ).pushNamed('/operator/assistance', arguments: profile)
+                      ? () => _navigateAndRefresh(
+                          '/operator/assistance',
+                          arguments: profile,
+                        )
                       : null,
                   onTaskHistory: isHistory
-                      ? () => Navigator.of(context).pushNamed(
+                      ? () => _navigateAndRefresh(
                           '/operator/tasks/history',
                           arguments: profile,
                         )
@@ -459,9 +485,10 @@ final class _OperatorHomeScreenState extends State<OperatorHomeScreen> {
       padding: const EdgeInsets.all(12),
       margin: const EdgeInsets.only(bottom: 8),
       trailing: InlineActionButton(
-        onPressed: () =>
-            Navigator.of(context)
-                .pushNamed('/operator/tasks/active', arguments: widget.profile),
+        onPressed: () => _navigateAndRefresh(
+          '/operator/tasks/active',
+          arguments: widget.profile,
+        ),
         label: 'Lihat Semua',
         variant: InlineActionButtonVariant.tonal,
       ),

@@ -1377,6 +1377,7 @@ final class _TaskVerificationQueueScreenState
   }
 
   Future<void> _verify(TaskVerificationRecord record) async {
+    if (_busyResponses.contains(record.responseId)) return;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -1404,12 +1405,22 @@ final class _TaskVerificationQueueScreenState
       await widget.controller.verifyCompletion(responseId: record.responseId);
       _reload();
       if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Penyelesaian diverifikasi RT.')),
         );
       }
+    } on TaskResponseConflictException {
+      _reload();
+      if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Penyelesaian telah diverifikasi RT.')),
+        );
+      }
     } catch (_) {
       if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Verifikasi gagal. Coba lagi.')),
         );
@@ -1578,7 +1589,9 @@ final class _TaskVerificationQueueScreenState
                                   ? null
                                   : () => _verify(record),
                               icon: Icons.check_circle_outline,
-                              label: 'Tinjau dan Verifikasi',
+                              label: _busyResponses.contains(record.responseId)
+                                  ? 'Memverifikasi…'
+                                  : 'Tinjau dan Verifikasi',
                               variant: InlineActionButtonVariant.tonal,
                             ),
                             OutlinedButton(
