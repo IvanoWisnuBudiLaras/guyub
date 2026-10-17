@@ -72,3 +72,24 @@ Dokumen ini mencatat seluruh isu, keterbatasan teknis, dan trade-off yang ditemu
 - **Lokasi**: `C:\Users\Pongo\AppData\Local\Temp\`
 - **Gejala**: Kompilasi Flutter build APK dan test compiler menghasilkan file `.dill` sementara berukuran besar di direktori temp Windows. Saat ruang disk tersisa di bawah 300MB, Flutter test dapat memunculkan peringatan `OS Error: There is not enough space on the disk, errno = 112`.
 - **Status**: Direktori temp dibersihkan berkala; pengujian per modul berjalan stabil dan hijau.
+
+---
+
+## 4. Isu yang Telah Diselesaikan (Resolved Issues)
+
+### [RESOLVED] Anomali Desain Overflow Horizontal pada Dropdown Dukungan Warga RT
+- **Lokasi**: `lib/features/assistance/presentation/proxy_resident_screen.dart`, `task_draft_screen.dart`, `resident_proposal_review_screen.dart`
+- **Gejala**: Teks judul tugas aktif panjang seperti *"Siapkan Tas Siaga & Dokumen Penting"* memicu peringatan visual `A RIGHT OVERFLOWED BY 23 PIXELS` pada dropdown picker di dalam kartu dukungan warga.
+- **Penyebab**: `DropdownButtonFormField` belum memiliki properti `isExpanded: true` dan item teks belum dibatasi `overflow: TextOverflow.ellipsis`.
+- **Solusi**: Diterapkan `isExpanded: true` dan `overflow: TextOverflow.ellipsis` pada seluruh dropdown terkait (relawan, pilihan partisipasi, dan pemilihan tugas aktif).
+
+### [RESOLVED] Notifikasi Verifikasi Gagal dan Desinkronisasi Metrik Antrean di Dashboard Operator
+- **Lokasi**: `lib/features/tasks/presentation/screens/task_response_screens.dart`, `lib/features/auth/presentation/screens/operator_home_screen.dart`
+- **Gejala**: Saat operator memverifikasi penyelesaian tugas warga, muncul snackbar *"Verifikasi gagal. Coba lagi."* padahal backend sudah sukses memverifikasi, dan saat kembali ke Beranda (Ruang Operator), kartu antrean dan strip metrik masih menampilkan `1 Verifikasi` padahal antrean di backend sudah kosong (0).
+- **Penyebab**: 
+  1. Exception handling di `_verify` belum menangani `TaskResponseConflictException` (kode `failed-precondition`), sehingga saat request verifikasi telah diproses server (idempotency/retry/double-tap), error ditangkap sebagai kegagalan umum, bukannya konfirmasi telah terverifikasi.
+  2. Navigasi dari dashboard operator menggunakan `Navigator.pushNamed` tanpa `await` reload, sehingga saat operator kembali dari antrean verifikasi, state lokal dashboard tidak menyinkronkan data terbaru dari server.
+- **Solusi**: 
+  1. Menambahkan guard double-tap, indikator tombol busy state *"Memverifikasi…"*, pembersihan snackbar lama, dan penanganan khusus `TaskResponseConflictException` yang memanggil `_reload()` serta menampilkan *"Penyelesaian telah diverifikasi RT."*.
+  2. Mengimplementasikan `_navigateAndRefresh` pada seluruh aksi navigasi dashboard operator dan sinkronisasi otomatis saat beralih kembali ke tab Beranda.
+
