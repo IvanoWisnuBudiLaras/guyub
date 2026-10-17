@@ -4,7 +4,11 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/indonesian_date_formatter.dart';
+import '../../../../core/widgets/action_tile_grid.dart';
+import '../../../../core/widgets/alert_banner.dart';
 import '../../../../core/widgets/guyub_bottom_nav_bar.dart';
+import '../../../../core/widgets/hero_header_card.dart';
+import '../../../../core/widgets/section_card.dart';
 import '../../application/resident_session.dart';
 import '../../application/resident_session_controller.dart';
 import '../../../assistance/application/assistance_volunteer_boundary.dart';
@@ -351,267 +355,139 @@ final class _ResidentSessionHomeScreenState
   }
 
   Widget _buildBerandaTab(BuildContext context, bool isCompact) {
-    return SingleChildScrollView(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Header dengan sapaan + badge RT
-          _buildBerandaHeader(context, isCompact),
-          Padding(
-            padding: EdgeInsets.all(isCompact ? 16 : 20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Offline warning (jika offline)
-                if (session.isOfflineSnapshot) ...[
-                  _buildOfflineWarning(context),
-                  SizedBox(height: isCompact ? 12 : 16),
-                ],
-                // Weather card
-                if (weatherSnapshotStore != null) ...[
-                  WeatherSnapshotCard(
-                    key: ValueKey<int>(_weatherRevision),
-                    store: weatherSnapshotStore!,
-                    communityId: session.communityId,
-                    onRefresh: weatherSnapshotSyncController == null
-                        ? null
-                        : _weatherRefresh,
-                  ),
-                  SizedBox(height: isCompact ? 12 : 16),
-                ],
-                // Ringkasan Tugas Saya (placeholder untuk sekarang)
-                _buildTaskSummaryPlaceholder(context, isCompact),
-                SizedBox(height: isCompact ? 12 : 16),
-                // Push notification opt-in
-                if (taskPushNotificationsController != null &&
-                    taskResponseController != null &&
-                    !session.isOfflineSnapshot) ...[
-                  TaskPushOptInCard.forResident(
-                    controller: taskPushNotificationsController!,
-                    session: session,
-                  ),
-                  SizedBox(height: isCompact ? 12 : 16),
-                ],
-                // Shortcuts
-                _buildShortcuts(context, isCompact),
-                SizedBox(height: isCompact ? 16 : 24),
+    return ListView(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      children: [
+        // 1. Header Hero Warga
+        _buildBerandaHeader(context, isCompact),
+        const SizedBox(height: 10),
 
-                // 1. Ganti Peran
-                OutlinedButton.icon(
-                  key: const Key('resident-switch-role'),
-                  onPressed: () => _switchRole(context),
-                  icon: const Icon(Icons.swap_horiz),
-                  label: const Text('Ganti Peran'),
-                  style: OutlinedButton.styleFrom(
-                    minimumSize: const Size.fromHeight(44),
-                  ),
-                ),
-                SizedBox(height: isCompact ? 8 : 12),
+        // 2. Offline warning (jika offline)
+        if (session.isOfflineSnapshot) ...[
+          _buildOfflineWarning(context),
+          const SizedBox(height: 10),
+        ],
 
-                // 2. Keluar dari sesi ini
-                OutlinedButton.icon(
-                  key: const Key('resident-sign-out-button'),
-                  onPressed: () => _confirmAndSignOut(context),
-                  icon: const Icon(Icons.logout),
-                  label: const Text('Keluar dari sesi ini'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: context.appColors.textSecondary,
-                    side: BorderSide(color: context.appColors.border),
-                    minimumSize: const Size.fromHeight(44),
-                  ),
-                ),
-                SizedBox(height: isCompact ? 16 : 24),
+        // 3. Weather card
+        if (weatherSnapshotStore != null) ...[
+          WeatherSnapshotCard(
+            key: ValueKey<int>(_weatherRevision),
+            store: weatherSnapshotStore!,
+            communityId: session.communityId,
+            onRefresh: weatherSnapshotSyncController == null
+                ? null
+                : _weatherRefresh,
+          ),
+          const SizedBox(height: 10),
+        ],
 
-                // 3. Hapus Data Saya (paling bawah, paling jauh, gaya destruktif)
-                if (!session.isOfflineSnapshot) ...[
-                  TextButton.icon(
-                    key: const Key('resident-delete-data'),
-                    onPressed: () => _confirmAndDeleteOwnData(context),
-                    icon: Icon(
-                      Icons.delete_forever_outlined,
-                      color: context.appColors.danger,
-                    ),
-                    label: Text(
-                      'Hapus Data Saya',
-                      style: TextStyle(
-                        color: context.appColors.danger,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    style: TextButton.styleFrom(
-                      foregroundColor: context.appColors.danger,
-                    ),
-                  ),
-                ],
-              ],
+        // 4. Ringkasan Tugas Saya
+        _buildTaskSummaryPlaceholder(context, isCompact),
+        const SizedBox(height: 10),
+
+        // 5. Push notification opt-in
+        if (taskPushNotificationsController != null &&
+            taskResponseController != null &&
+            !session.isOfflineSnapshot) ...[
+          TaskPushOptInCard.forResident(
+            controller: taskPushNotificationsController!,
+            session: session,
+          ),
+          const SizedBox(height: 10),
+        ],
+
+        // 6. Shortcuts (Aksi Cepat Warga: Kesediaan Membantu & Usulkan Persiapan)
+        _buildShortcuts(context, isCompact),
+        const SizedBox(height: 16),
+
+        // 7. Ganti Peran
+        OutlinedButton.icon(
+          key: const Key('resident-switch-role'),
+          onPressed: () => _switchRole(context),
+          icon: const Icon(Icons.swap_horiz),
+          label: const Text('Ganti Peran'),
+          style: OutlinedButton.styleFrom(
+            minimumSize: const Size.fromHeight(44),
+          ),
+        ),
+        const SizedBox(height: 10),
+
+        // 8. Keluar dari sesi ini
+        OutlinedButton.icon(
+          key: const Key('resident-sign-out-button'),
+          onPressed: () => _confirmAndSignOut(context),
+          icon: const Icon(Icons.logout),
+          label: const Text('Keluar dari sesi ini'),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: context.appColors.textSecondary,
+            side: BorderSide(color: context.appColors.border),
+            minimumSize: const Size.fromHeight(44),
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        // 9. Hapus Data Saya (paling bawah, paling jauh, gaya destruktif)
+        if (!session.isOfflineSnapshot) ...[
+          TextButton.icon(
+            key: const Key('resident-delete-data'),
+            onPressed: () => _confirmAndDeleteOwnData(context),
+            icon: Icon(
+              Icons.delete_forever_outlined,
+              color: context.appColors.danger,
+            ),
+            label: Text(
+              'Hapus Data Saya',
+              style: TextStyle(
+                color: context.appColors.danger,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            style: TextButton.styleFrom(
+              foregroundColor: context.appColors.danger,
             ),
           ),
         ],
-      ),
+      ],
     );
   }
 
   Widget _buildBerandaHeader(BuildContext context, bool isCompact) {
-    return Container(
-      padding: EdgeInsets.fromLTRB(
-        isCompact ? 16 : 20,
-        isCompact ? 16 : 20,
-        isCompact ? 16 : 20,
-        isCompact ? 16 : 20,
-      ),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            context.appColors.primary,
-            context.appColors.primary.withValues(alpha: 0.85),
-          ],
-        ),
-      ),
-      child: SafeArea(
-        bottom: false,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Badge RT
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
-              ),
-              child: Text(
-                'Warga • ${session.rtLabel}',
-                style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            // Tanggal hari ini
-            Row(
-              children: [
-                Icon(
-                  Icons.calendar_today_outlined,
-                  color: Colors.white.withValues(alpha: 0.9),
-                  size: 16,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  _formatTodayDate(),
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Colors.white.withValues(alpha: 0.9),
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            // Sapaan
-            Text(
-              'Halo, ${session.nickname}',
-              style: Theme.of(context).textTheme.headlineSmall
-                  ?.copyWith(color: Colors.white, fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: 4),
-            // Community name
-            Text(
-              session.communityName,
-              style: Theme.of(context).textTheme.bodyMedium
-                  ?.copyWith(color: Colors.white.withValues(alpha: 0.9)),
-            ),
-          ],
-        ),
-      ),
+    return HeroHeaderCard(
+      roleLabel: 'Warga • ${session.rtLabel}',
+      roleIcon: Icons.person_outline,
+      title: 'Halo, ${session.nickname}',
+      subtitle: session.communityName,
+      dateText: _formatTodayDate(),
     );
   }
 
   Widget _buildOfflineWarning(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: context.appColors.warning.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: context.appColors.warning.withValues(alpha: 0.3),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(
-                Icons.cloud_off_outlined,
-                color: context.appColors.warning,
-                size: 20,
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'Mode offline',
-                  style: TextStyle(
-                    color: context.appColors.warning,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Sesi dan informasi tugas tersimpan belum diverifikasi ulang. '
-            'Status tugas mungkin sudah berubah.',
-            style: TextStyle(fontSize: 13),
-          ),
-          const SizedBox(height: 8),
-          OutlinedButton.icon(
-            key: const Key('resident-reconnect-sync'),
-            onPressed: _syncing ? null : _restoreAndSync,
-            icon: const Icon(Icons.sync, size: 18),
-            label: Text(
-              _syncing ? 'Memeriksa status…' : 'Sinkronkan sekarang',
-              style: const TextStyle(fontSize: 13),
-            ),
-            style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            ),
-          ),
-        ],
-      ),
+    return AlertBanner.warning(
+      key: const Key('resident-offline-warning'),
+      title: 'Mode offline',
+      message:
+          'Sesi dan informasi tugas tersimpan belum diverifikasi ulang. '
+          'Status tugas mungkin sudah berubah.',
+      icon: Icons.cloud_off_outlined,
+      actionLabel: _syncing ? 'Memeriksa status…' : 'Sinkronkan sekarang',
+      actionIcon: Icons.sync,
+      actionKey: const Key('resident-reconnect-sync'),
+      onAction: _syncing ? null : _restoreAndSync,
     );
   }
 
   Widget _buildTaskSummaryPlaceholder(BuildContext context, bool isCompact) {
     if (taskResponseController == null) {
-      return Card(
-        elevation: 0,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-          side: BorderSide(color: context.appColors.border),
-        ),
-        child: Padding(
-          padding: EdgeInsets.all(isCompact ? 12 : 16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Tugas Saya',
-                style: Theme.of(context).textTheme.titleMedium
-                    ?.copyWith(fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Layanan tugas belum terhubung.',
-                style: Theme.of(context).textTheme.bodySmall
-                    ?.copyWith(color: context.appColors.textSecondary),
-              ),
-            ],
+      return SectionCard(
+        title: 'Tugas Saya',
+        icon: Icons.checklist,
+        children: [
+          Text(
+            'Layanan tugas belum terhubung.',
+            style: Theme.of(context).textTheme.bodySmall
+                ?.copyWith(color: context.appColors.textSecondary),
           ),
-        ),
+        ],
       );
     }
 
@@ -626,42 +502,39 @@ final class _ResidentSessionHomeScreenState
   }
 
   Widget _buildShortcuts(BuildContext context, bool isCompact) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        // Kesediaan Membantu
-        if (assistanceVolunteerController != null &&
-            !session.isOfflineSnapshot) ...[
-          OutlinedButton.icon(
-            key: const Key('resident-assistance-volunteer'),
-            onPressed: () =>
-                Navigator.of(context)
-                    .pushNamed('/resident/assistance', arguments: session),
-            icon: const Icon(Icons.volunteer_activism_outlined),
-            label: const Text('Kesediaan Membantu'),
-            style: OutlinedButton.styleFrom(
-              minimumSize: const Size.fromHeight(48),
-            ),
-          ),
-          SizedBox(height: isCompact ? 8 : 12),
-        ],
-        // Usulkan Persiapan
-        if (residentProposalController != null &&
-            !session.isOfflineSnapshot) ...[
-          OutlinedButton.icon(
-            key: const Key('resident-propose-task'),
-            onPressed: () =>
-                Navigator.of(context)
-                    .pushNamed('/resident/proposals', arguments: session),
-            icon: const Icon(Icons.lightbulb_outline),
-            label: const Text('Usulkan Persiapan Warga'),
-            style: OutlinedButton.styleFrom(
-              minimumSize: const Size.fromHeight(48),
-            ),
-          ),
-        ],
-      ],
-    );
+    if (session.isOfflineSnapshot) return const SizedBox.shrink();
+
+    final items = <ActionTileData>[];
+    if (assistanceVolunteerController != null) {
+      items.add(
+        ActionTileData(
+          key: const Key('resident-assistance-volunteer'),
+          icon: Icons.volunteer_activism_outlined,
+          label: 'Kesediaan Membantu',
+          description: 'Daftar kesiapan membantu',
+          onTap: () =>
+              Navigator.of(context)
+                  .pushNamed('/resident/assistance', arguments: session),
+        ),
+      );
+    }
+    if (residentProposalController != null) {
+      items.add(
+        ActionTileData(
+          key: const Key('resident-propose-task'),
+          icon: Icons.lightbulb_outline,
+          label: 'Usulkan Persiapan Warga',
+          description: 'Kirim usulan ke RT',
+          onTap: () =>
+              Navigator.of(context)
+                  .pushNamed('/resident/proposals', arguments: session),
+        ),
+      );
+    }
+
+    if (items.isEmpty) return const SizedBox.shrink();
+
+    return ActionTileGrid(items: items);
   }
 
   Widget _buildTugasTab(BuildContext context) {

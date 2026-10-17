@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/section_card.dart';
 import '../../auth/application/operator_profile.dart';
 import '../../auth/application/resident_session.dart';
 import '../application/task_push_notifications.dart';
@@ -113,99 +115,76 @@ final class _TaskPushOptInCardState extends State<TaskPushOptInCard> {
   }
 
   @override
-  Widget build(BuildContext context) => Card(
-    color: Theme.of(context).colorScheme.surfaceContainerLow,
-    child: Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.primaryContainer,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(
-                  Icons.notifications_outlined,
-                  color: Theme.of(context).colorScheme.onPrimaryContainer,
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Notifikasi Push',
-                      style: Theme.of(context).textTheme.titleSmall
-                          ?.copyWith(fontWeight: FontWeight.w600),
-                    ),
-                    const SizedBox(height: 2),
-                    FutureBuilder<bool>(
-                      future: _preference,
-                      builder: (context, snapshot) => Text(
-                        snapshot.data == true ? 'Aktif' : 'Nonaktif',
-                        key: const Key('task-push-preference-status'),
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+
+    return SectionCard(
+      title: 'Notifikasi Push',
+      icon: Icons.notifications_outlined,
+      trailing: FutureBuilder<bool>(
+        future: _preference,
+        builder: (context, snapshot) => Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(
+            color:
+                (snapshot.data == true ? colors.success : colors.textSecondary)
+                    .withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(12),
           ),
-          const SizedBox(height: 12),
-          Text(
-            'Pemberitahuan dapat terlambat atau tidak terkirim. '
-            'Periksa status terbaru di aplikasi.',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
+          child: Text(
+            snapshot.data == true ? 'Aktif' : 'Nonaktif',
+            key: const Key('task-push-preference-status'),
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: snapshot.data == true
+                  ? colors.success
+                  : colors.textSecondary,
             ),
           ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  key: const Key('disable-task-push-notifications'),
-                  onPressed: _busy ? null : _disable,
-                  icon: const Icon(Icons.notifications_off_outlined, size: 18),
-                  label: const Text('Matikan'),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: FilledButton.icon(
-                  key: const Key('enable-task-push-notifications'),
-                  onPressed: _busy ? null : _enable,
-                  icon: _busy
-                      ? const SizedBox.square(
-                          dimension: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(
-                          Icons.notifications_active_outlined,
-                          size: 18,
-                        ),
-                  label: Text(_busy ? 'Proses…' : 'Aktifkan'),
-                  style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
+        ),
       ),
-    ),
-  );
+      children: [
+        Text(
+          'Pemberitahuan dapat terlambat atau tidak terkirim. '
+          'Periksa status terbaru di aplikasi.',
+          style: Theme.of(context).textTheme.bodySmall
+              ?.copyWith(color: colors.textSecondary),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                key: const Key('disable-task-push-notifications'),
+                onPressed: _busy ? null : _disable,
+                icon: const Icon(Icons.notifications_off_outlined, size: 18),
+                label: const Text('Matikan'),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: FilledButton.icon(
+                key: const Key('enable-task-push-notifications'),
+                onPressed: _busy ? null : _enable,
+                icon: _busy
+                    ? const SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.notifications_active_outlined, size: 18),
+                label: Text(_busy ? 'Proses…' : 'Aktifkan'),
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
 }
