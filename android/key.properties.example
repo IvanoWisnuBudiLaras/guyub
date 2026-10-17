@@ -1,0 +1,8 @@
+# Example Android Release Signing Properties for Guyub.id
+# DO NOT commit the actual key.properties with real secrets.
+# Copy this file to android/key.properties and fill in your actual keystore credentials.
+# The storeFile path is resolved relative to the android/ directory.
+keyAlias=guyub_release
+keyPassword=YOUR_KEY_PASSWORD_HERE
+storeFile=app/upload-keystore.jks
+storePassword=YOUR_STORE_PASSWORD_HERE

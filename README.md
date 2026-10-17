@@ -191,3 +191,47 @@ dart doc --dry-run
 dart doc
 ```
 Folder `doc/api/` telah dimasukkan ke dalam `.gitignore` agar tidak mengotori riwayat commit Git.
+
+---
+
+## 12. Instruksi Build Rilis Produksi (Production Build)
+
+Aplikasi Guyub.id memisahkan konfigurasi development/emulator dan produksi secara tegas:
+- **Default Entrypoint**: `lib/main.dart` (ditujukan untuk development dengan Firebase Emulator).
+- **Production Entrypoint**: `lib/main_prod.dart` (menginisialisasi Firebase produksi, App Check Play Integrity, dan menolak fallback emulator).
+
+### Prasyarat Build Rilis:
+1. **Keystore Rilis**:
+   Salin `android/key.properties.example` ke `android/key.properties`, lalu lengkapi kredensial keystore rilis asli Anda:
+   ```properties
+   keyAlias=your_release_alias
+   keyPassword=your_key_password
+   storeFile=path/to/your/upload-keystore.jks
+   storePassword=your_store_password
+   ```
+   *Catatan*: Bila `android/key.properties` tidak ditemukan, build Gradle otomatis menggunakan public debug keystore. APK yang dihasilkan **BUKAN UNTUK DISTRIBUSI**.
+
+2. **Dart Defines Wajib**:
+   Produksi membutuhkan parameter `--dart-define` berikut:
+   - `ENV=production`
+   - `FIREBASE_PROJECT_ID`
+   - `FIREBASE_API_KEY`
+   - `FIREBASE_APP_ID`
+   - `FIREBASE_MESSAGING_SENDER_ID`
+   - `FIREBASE_STORAGE_BUCKET`
+
+### Perintah Build APK Rilis:
+```bash
+flutter build apk --release --target=lib/main_prod.dart \
+  --dart-define=ENV=production \
+  --dart-define=FIREBASE_PROJECT_ID=guyub-id \
+  --dart-define=FIREBASE_API_KEY=AIzaSy... \
+  --dart-define=FIREBASE_APP_ID=1:123456789:android:... \
+  --dart-define=FIREBASE_MESSAGING_SENDER_ID=123456789 \
+  --dart-define=FIREBASE_STORAGE_BUCKET=guyub-id.appspot.com
+```
+
+### Usulan Kebijakan Blocker 1 (Default ENV=development):
+- Saat ini `lib/main.dart` secara default menggunakan `AppEnvironment.development`.
+- Usulan: Buat guard fail-closed di `bootstrap.dart` agar saat `kReleaseMode` bernilai `true`, aplikasi menolak berjalan tanpa `--target=lib/main_prod.dart` atau tanpa `--dart-define=ENV=production` yang eksplisit.
+- Menunggu persetujuan pengguna sebelum mengubah kode `main.dart` atau `bootstrap.dart`.
