@@ -14,6 +14,7 @@ import '../features/weather/application/weather_snapshot_store.dart';
 import '../features/weather/application/weather_snapshot_boundary.dart';
 import '../features/weather/application/weather_suggestion_boundary.dart';
 import '../features/notifications/application/task_push_notifications.dart';
+import '../features/trees/presentation/controllers/tree_point_controller.dart';
 import 'router.dart';
 
 /// Root widget and dependency assembly point for Guyub.id.
@@ -32,6 +33,7 @@ final class GuyubApp extends StatelessWidget {
     this.proxyResidentController,
     this.assistanceVolunteerController,
     this.taskPushNotificationsController,
+    this.treePointController,
     this.connectivityChanges,
     super.key,
   });
@@ -49,6 +51,7 @@ final class GuyubApp extends StatelessWidget {
   final ProxyResidentController? proxyResidentController;
   final AssistanceVolunteerController? assistanceVolunteerController;
   final TaskPushNotificationsController? taskPushNotificationsController;
+  final TreePointController? treePointController;
   final Stream<bool>? connectivityChanges;
 
   @override
@@ -75,6 +78,7 @@ final class GuyubApp extends StatelessWidget {
         proxyResidentController: proxyResidentController,
         assistanceVolunteerController: assistanceVolunteerController,
         taskPushNotificationsController: taskPushNotificationsController,
+        treePointController: treePointController,
         connectivityChanges: connectivityChanges,
       ),
     );

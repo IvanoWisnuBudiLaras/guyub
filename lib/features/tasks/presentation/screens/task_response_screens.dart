@@ -20,6 +20,8 @@ import '../../../../core/widgets/metric_strip.dart';
 import '../../../../core/widgets/section_card.dart';
 import '../../../../core/widgets/task_category_presentation.dart';
 import '../../../../core/widgets/tinted_info_box.dart';
+import '../../../trees/presentation/controllers/tree_point_controller.dart';
+import '../../../trees/presentation/screens/tree_capture_screen.dart';
 import '../widgets/locked_instructions_card.dart';
 import '../widgets/task_card.dart';
 
@@ -30,12 +32,14 @@ final class ResidentTaskListScreen extends StatefulWidget {
   const ResidentTaskListScreen({
     required this.session,
     required this.controller,
+    this.treePointController,
     this.connectivityChanges,
     super.key,
   });
 
   final ResidentSession session;
   final TaskResponseController controller;
+  final TreePointController? treePointController;
   final Stream<bool>? connectivityChanges;
 
   @override
@@ -87,6 +91,7 @@ final class _ResidentTaskListScreenState extends State<ResidentTaskListScreen> {
           task: task,
           isCached: taskList.isCached,
           lastSyncedAt: taskList.lastSyncedAt,
+          treePointController: widget.treePointController,
         ),
       ),
     );
@@ -431,6 +436,7 @@ final class ResidentTaskDetailScreen extends StatefulWidget {
     this.isCached = false,
     this.lastSyncedAt,
     this.pickEvidenceImage,
+    this.treePointController,
     super.key,
   });
 
@@ -440,6 +446,7 @@ final class ResidentTaskDetailScreen extends StatefulWidget {
   final bool isCached;
   final DateTime? lastSyncedAt;
   final PickEvidenceImage? pickEvidenceImage;
+  final TreePointController? treePointController;
 
   @override
   State<ResidentTaskDetailScreen> createState() =>
@@ -547,6 +554,37 @@ final class _ResidentTaskDetailScreenState
         });
       }
     });
+  }
+
+  Future<void> _openTreeCapture() async {
+    final treeController = widget.treePointController;
+    if (treeController == null) {
+      _showMessage('Layanan titik pohon belum tersedia.');
+      return;
+    }
+    final submitted = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (_) => TreeCaptureScreen(
+          session: widget.session,
+          taskId: _task.taskId,
+          taskTitle: _task.templateSnapshot.title,
+          controller: treeController,
+        ),
+      ),
+    );
+    if (submitted == true && mounted) {
+      try {
+        final result = await widget.controller.submitCompletion(
+          taskId: _task.taskId,
+          note: 'Penanaman pohon resapan diajukan.',
+          session: widget.session,
+        );
+        _applyResponse(result);
+      } catch (_) {
+        // Tree point is already recorded in backend
+      }
+      _showMessage('Titik pohon berhasil diajukan. Menunggu verifikasi RT.');
+    }
   }
 
   Future<void> _chooseEvidence() async {
@@ -1149,6 +1187,10 @@ final class _ResidentTaskDetailScreenState
         ),
       );
     }
+    final isGreening =
+        _task.templateSnapshot.category.trim().toUpperCase() == 'GREENING' ||
+        _task.templateSnapshot.category.trim().toUpperCase() == 'PENGHIJAUAN';
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -1159,6 +1201,32 @@ final class _ResidentTaskDetailScreenState
               'Anda memilih ikut. Tandai selesai setelah menyelesaikan tugas.',
         ),
         const SizedBox(height: 12),
+
+        // Khusus tugas penghijauan: Tombol aksi tanam & dokumentasikan pohon
+        if (isGreening) ...[
+          SectionCard(
+            title: 'Penanaman Pohon Guyub',
+            icon: Icons.park_outlined,
+            margin: const EdgeInsets.only(bottom: 12),
+            children: [
+              Text(
+                'Tugas ini merupakan aksi penanaman pohon resapan air lingkungan RT. '
+                'Ambil foto pohon langsung dan catat sensor GPS untuk verifikasi RT.',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              const SizedBox(height: 12),
+              FilledButton.icon(
+                key: const Key('resident-open-tree-capture'),
+                onPressed: _busy ? null : _openTreeCapture,
+                icon: const Icon(Icons.photo_camera_outlined),
+                label: const Text('Tanam & Dokumentasikan Pohon'),
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size.fromHeight(48),
+                ),
+              ),
+            ],
+          ),
+        ],
 
         // Foto dokumentasi
         _evidencePicker(),

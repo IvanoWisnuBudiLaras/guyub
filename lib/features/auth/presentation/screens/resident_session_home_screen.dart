@@ -25,6 +25,7 @@ import '../widgets/task_summary_card.dart';
 import '../../../tasks/presentation/widgets/task_list_tab.dart';
 import '../../../emergency/application/emergency_directory_controller.dart';
 import '../../../emergency/presentation/emergency_directory_screen.dart';
+import '../../../trees/presentation/controllers/tree_point_controller.dart';
 
 /// Initial resident destination after backend validation of the RT join code.
 final class ResidentSessionHomeScreen extends StatefulWidget {
@@ -38,6 +39,7 @@ final class ResidentSessionHomeScreen extends StatefulWidget {
     this.weatherSnapshotSyncController,
     this.assistanceVolunteerController,
     this.taskPushNotificationsController,
+    this.treePointController,
     this.connectivityChanges,
     super.key,
   });
@@ -51,6 +53,7 @@ final class ResidentSessionHomeScreen extends StatefulWidget {
   final WeatherSnapshotSyncController? weatherSnapshotSyncController;
   final AssistanceVolunteerController? assistanceVolunteerController;
   final TaskPushNotificationsController? taskPushNotificationsController;
+  final TreePointController? treePointController;
   final Stream<bool>? connectivityChanges;
 
   @override
@@ -87,6 +90,7 @@ final class _ResidentSessionHomeScreenState
       widget.assistanceVolunteerController;
   TaskPushNotificationsController? get taskPushNotificationsController =>
       widget.taskPushNotificationsController;
+  TreePointController? get treePointController => widget.treePointController;
 
   @override
   void initState() {
@@ -528,6 +532,19 @@ final class _ResidentSessionHomeScreenState
         ),
       );
     }
+    if (treePointController != null) {
+      items.add(
+        ActionTileData(
+          key: const Key('resident-trees-shortcut'),
+          icon: Icons.park_outlined,
+          label: 'Pohon Guyub RT',
+          description: 'Aksi penghijauan & resapan',
+          onTap: () {
+            setState(() => _selectedTabIndex = 1);
+          },
+        ),
+      );
+    }
 
     if (items.isEmpty) return const SizedBox.shrink();
 
@@ -582,6 +599,7 @@ final class _ResidentSessionHomeScreenState
           task: task,
           isCached: _taskList?.isCached ?? false,
           lastSyncedAt: _taskList?.lastSyncedAt,
+          treePointController: widget.treePointController,
         ),
       ),
     );

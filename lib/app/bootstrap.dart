@@ -43,6 +43,9 @@ import '../features/notifications/data/firebase_task_push_notifications_boundary
 import '../features/proposals/application/resident_proposal_boundary.dart';
 import '../features/proposals/data/firebase_resident_proposal_boundary.dart';
 import '../features/proposals/data/flutter_secure_resident_proposal_request_store.dart';
+import '../features/trees/application/device_location_service.dart';
+import '../features/trees/data/firebase_tree_point_boundary.dart';
+import '../features/trees/presentation/controllers/tree_point_controller.dart';
 import '../firebase_options.dart';
 import 'app.dart';
 
@@ -62,6 +65,7 @@ Future<Widget> createBootstrapApp(
   ProxyResidentController? proxyResidentController,
   AssistanceVolunteerController? assistanceVolunteerController,
   TaskPushNotificationsController? taskPushNotificationsController,
+  TreePointController? treePointController,
   Stream<bool>? connectivityChanges,
 }) async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -80,6 +84,7 @@ Future<Widget> createBootstrapApp(
     proxyResidentController: proxyResidentController,
     assistanceVolunteerController: assistanceVolunteerController,
     taskPushNotificationsController: taskPushNotificationsController,
+    treePointController: treePointController,
     connectivityChanges: connectivityChanges,
   );
 }
@@ -118,6 +123,7 @@ Future<void> bootstrap(AppConfig config) async {
   TaskResponseController? taskResponseController;
   ResidentProposalController? residentProposalController;
   ResidentProposalReviewController? proposalReviewController;
+  TreePointController? treePointController;
   var callableAppCheckReady = false;
   final useEmulator =
       config.useEmulator || config.environment == AppEnvironment.development;
@@ -215,6 +221,13 @@ Future<void> bootstrap(AppConfig config) async {
         proposalReviewController = ResidentProposalReviewController(
           boundary: proposalBoundary,
         );
+        final treeBoundary = FirebaseTreePointBoundary(callables);
+        treePointController = TreePointController(
+          boundary: treeBoundary,
+          locationService: MockDeviceLocationService(),
+          evidenceBoundary: responseBoundary,
+          readSessionToken: residentVault.read,
+        );
         // FCM is skipped against the emulator. Firebase Installations cannot
         // reach Google with a dummy key, and its failure retry loop is what
         // makes the app hang on the splash screen; messaging has no emulator
@@ -277,6 +290,7 @@ Future<void> bootstrap(AppConfig config) async {
       proxyResidentController: proxyResidentController,
       assistanceVolunteerController: assistanceVolunteerController,
       taskPushNotificationsController: taskPushNotificationsController,
+      treePointController: treePointController,
       connectivityChanges: connectivityChanges,
     ),
   );

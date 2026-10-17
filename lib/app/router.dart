@@ -31,6 +31,7 @@ import '../features/assistance/presentation/assistance_volunteer_screen.dart';
 import '../features/assistance/presentation/proxy_resident_screen.dart';
 import '../features/notifications/application/task_push_notifications.dart';
 import '../features/notifications/presentation/task_push_notification_listener.dart';
+import '../features/trees/presentation/controllers/tree_point_controller.dart';
 
 /// Role-aware routes for the Android MVP.
 final class AppRouter {
@@ -68,6 +69,7 @@ final class AppRouter {
     ProxyResidentController? proxyResidentController,
     AssistanceVolunteerController? assistanceVolunteerController,
     TaskPushNotificationsController? taskPushNotificationsController,
+    TreePointController? treePointController,
     Stream<bool>? connectivityChanges,
   }) {
     switch (settings.name) {
@@ -262,6 +264,7 @@ final class AppRouter {
               weatherSnapshotSyncController: weatherSnapshotSyncController,
               assistanceVolunteerController: assistanceVolunteerController,
               taskPushNotificationsController: taskPushNotificationsController,
+              treePointController: treePointController,
               connectivityChanges: connectivityChanges,
             );
             if (taskPushNotificationsController == null ||
@@ -299,6 +302,7 @@ final class AppRouter {
           builder: (_) => ResidentTaskListScreen(
             session: session,
             controller: taskResponseController,
+            treePointController: treePointController,
             connectivityChanges: connectivityChanges,
           ),
           settings: settings,

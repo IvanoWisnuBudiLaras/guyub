@@ -78,6 +78,14 @@ final class TaskCategoryPresentation {
           tintColor: const Color(0xFFFEE2E2),
           iconColor: const Color(0xFFB91C1C),
         );
+      case 'GREENING':
+      case 'PENGHIJAUAN':
+        return TaskCategoryPresentation(
+          label: 'Penghijauan',
+          icon: Icons.park_outlined,
+          tintColor: const Color(0xFFE8F5E9),
+          iconColor: const Color(0xFF2E7D32),
+        );
       default:
         // Format SCREAMING_SNAKE_CASE to Title Case
         final friendly = normalized.isEmpty
