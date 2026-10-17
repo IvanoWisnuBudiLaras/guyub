@@ -29,6 +29,7 @@ import '../../../weather/application/weather_suggestion_boundary.dart';
 import '../../../weather/presentation/weather_snapshot_card.dart';
 import '../widgets/operator_action_shortcuts.dart';
 import '../widgets/operator_metrics_card.dart';
+import '../../../trees/presentation/controllers/tree_point_controller.dart';
 
 /// Authenticated operator landing page and operational dashboard.
 final class OperatorHomeScreen extends StatefulWidget {
@@ -44,6 +45,7 @@ final class OperatorHomeScreen extends StatefulWidget {
     this.weatherSnapshotStore,
     this.weatherSnapshotSyncController,
     this.emergencyDirectoryController,
+    this.treePointController,
     super.key,
   });
 
@@ -58,6 +60,7 @@ final class OperatorHomeScreen extends StatefulWidget {
   final WeatherSnapshotStore? weatherSnapshotStore;
   final WeatherSnapshotSyncController? weatherSnapshotSyncController;
   final EmergencyDirectoryController? emergencyDirectoryController;
+  final TreePointController? treePointController;
 
   @override
   State<OperatorHomeScreen> createState() => _OperatorHomeScreenState();
@@ -443,6 +446,9 @@ final class _OperatorHomeScreenState extends State<OperatorHomeScreen> {
                           '/operator/tasks/history',
                           arguments: profile,
                         )
+                      : null,
+                  onTreeMap: widget.treePointController != null
+                      ? () => _navigateAndRefresh('/community/trees')
                       : null,
                 ),
               ],

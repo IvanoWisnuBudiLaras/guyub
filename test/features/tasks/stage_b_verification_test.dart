@@ -80,6 +80,11 @@ class _DummyVault implements ResidentSessionVault {
 
 class _DummyProposalBoundary implements ResidentProposalBoundary {
   @override
+  Future<List<ResidentProposalRecord>> listMyProposals({
+    required String sessionToken,
+  }) async => const [];
+
+  @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 

@@ -32,6 +32,7 @@ import '../features/assistance/presentation/proxy_resident_screen.dart';
 import '../features/notifications/application/task_push_notifications.dart';
 import '../features/notifications/presentation/task_push_notification_listener.dart';
 import '../features/trees/presentation/controllers/tree_point_controller.dart';
+import '../features/trees/presentation/screens/community_tree_map_screen.dart';
 
 /// Role-aware routes for the Android MVP.
 final class AppRouter {
@@ -53,6 +54,7 @@ final class AppRouter {
   static const String operatorAssistance = '/operator/assistance';
   static const String residentAssistance = '/resident/assistance';
   static const String emergencyDirectory = '/emergency';
+  static const String communityTreeMap = '/community/trees';
 
   static Route<dynamic> onGenerateRoute(
     RouteSettings settings, {
@@ -116,6 +118,7 @@ final class AppRouter {
               weatherSnapshotStore: weatherSnapshotStore,
               weatherSnapshotSyncController: weatherSnapshotSyncController,
               emergencyDirectoryController: emergencyDirectoryController,
+              treePointController: treePointController,
             );
             if (taskPushNotificationsController == null ||
                 profile.role != OperatorRole.pendampingRt) {
@@ -332,6 +335,15 @@ final class AppRouter {
           builder: (_) => EmergencyDirectoryScreen(
             controller: directoryController,
             session: session is ResidentSession ? session : null,
+          ),
+          settings: settings,
+        );
+      case communityTreeMap:
+        final controller = treePointController;
+        if (controller == null) return _roleSelection(settings);
+        return MaterialPageRoute<void>(
+          builder: (_) => CommunityTreeMapScreen(
+            controller: controller,
           ),
           settings: settings,
         );

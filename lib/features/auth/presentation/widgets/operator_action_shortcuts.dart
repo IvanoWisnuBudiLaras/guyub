@@ -13,6 +13,7 @@ final class OperatorActionShortcuts extends StatelessWidget {
     this.onProposalReview,
     this.onProxyAssistance,
     this.onTaskHistory,
+    this.onTreeMap,
     super.key,
   });
 
@@ -23,6 +24,7 @@ final class OperatorActionShortcuts extends StatelessWidget {
   final VoidCallback? onProposalReview;
   final VoidCallback? onProxyAssistance;
   final VoidCallback? onTaskHistory;
+  final VoidCallback? onTreeMap;
 
   @override
   Widget build(BuildContext context) {
@@ -89,6 +91,15 @@ final class OperatorActionShortcuts extends StatelessWidget {
             description: 'Lihat Riwayat Tugas RT',
             semanticsLabel: 'Lihat Riwayat Tugas RT',
             onTap: onTaskHistory,
+          ),
+        if (onTreeMap != null)
+          ActionTileData(
+            key: const Key('operator-tree-map'),
+            icon: Icons.park_outlined,
+            label: 'Peta Pohon RT',
+            description: 'Sebaran pohon resapan',
+            semanticsLabel: 'Peta Pohon RT: Sebaran pohon resapan',
+            onTap: onTreeMap,
           ),
       ],
     );

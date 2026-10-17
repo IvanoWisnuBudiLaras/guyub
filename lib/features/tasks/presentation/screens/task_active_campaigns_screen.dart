@@ -290,9 +290,10 @@ final class _TaskActiveCampaignsScreenState
               ),
               const SizedBox(height: 8),
               Text(
-                'Daftar ini berasal dari server untuk RT operator yang masuk. '
-                'Rincian template di bawah merupakan snapshot terkunci.',
-                style: Theme.of(context).textTheme.bodyLarge,
+                'Daftar tugas gotong royong yang sedang aktif di RT ini.',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
               ),
               const SizedBox(height: 12),
               const _CancellationNotice(),

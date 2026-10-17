@@ -538,9 +538,9 @@ final class _ResidentSessionHomeScreenState
           key: const Key('resident-trees-shortcut'),
           icon: Icons.park_outlined,
           label: 'Pohon Guyub RT',
-          description: 'Aksi penghijauan & resapan',
+          description: 'Peta pohon & resapan',
           onTap: () {
-            setState(() => _selectedTabIndex = 1);
+            Navigator.of(context).pushNamed('/community/trees');
           },
         ),
       );

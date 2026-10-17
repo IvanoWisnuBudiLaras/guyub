@@ -1224,6 +1224,20 @@ final class _ResidentTaskDetailScreenState
                   minimumSize: const Size.fromHeight(48),
                 ),
               ),
+              if (widget.treePointController != null) ...[
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  key: const Key('resident-open-tree-map'),
+                  onPressed: () {
+                    Navigator.of(context).pushNamed('/community/trees');
+                  },
+                  icon: const Icon(Icons.map_outlined),
+                  label: const Text('Lihat Peta Pohon RT'),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size.fromHeight(44),
+                  ),
+                ),
+              ],
             ],
           ),
         ],

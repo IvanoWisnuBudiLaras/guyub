@@ -209,6 +209,7 @@ final class _FakeTaskBoundary
     required DateTime deadline,
     required String? locationReference,
     required String requestId,
+    String? customInstruction,
   }) async => _campaignRecord;
   @override
   Future<TaskCampaignRecord> activateCampaign({
@@ -383,6 +384,10 @@ final class _FakeProposalBoundary implements ResidentProposalBoundary {
     reviewedAt: DateTime.now(),
     campaign: _campaignRecord,
   );
+  @override
+  Future<List<ResidentProposalRecord>> listMyProposals({
+    required String sessionToken,
+  }) async => const [];
 }
 
 final class _FakeVolunteerBoundary implements AssistanceVolunteerBoundary {

@@ -17,8 +17,11 @@ final class LockedTaskInstructionsCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.appColors;
 
-    // Split steps if formatted with numbers or newlines
-    final rawInstruction = snapshot.coreInstruction.trim();
+    final hasCustom = snapshot.customInstruction != null &&
+        snapshot.customInstruction!.trim().isNotEmpty;
+    final rawInstruction = hasCustom
+        ? snapshot.customInstruction!.trim()
+        : snapshot.coreInstruction.trim();
     final steps = rawInstruction
         .split(RegExp(r'\r?\n+'))
         .where((s) => s.trim().isNotEmpty)
@@ -50,12 +53,27 @@ final class LockedTaskInstructionsCard extends StatelessWidget {
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: Text(
-                  'Instruksi template terkunci',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    color: colors.primaryDark,
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Instruksi template terkunci',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: colors.primaryDark,
+                      ),
+                    ),
+                    if (hasCustom) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        'Instruksi disesuaikan oleh RT untuk lingkungan ini',
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: colors.primary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ),
             ],

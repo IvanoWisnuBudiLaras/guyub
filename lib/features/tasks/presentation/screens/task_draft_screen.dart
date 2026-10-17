@@ -28,8 +28,23 @@ final class TaskDraftScreen extends StatefulWidget {
 final class _TaskDraftScreenState extends State<TaskDraftScreen> {
   DateTime? _deadline;
   String? _locationReference;
+  late final TextEditingController _instructionController;
   bool _saving = false;
   String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _instructionController = TextEditingController(
+      text: widget.template.coreInstruction,
+    );
+  }
+
+  @override
+  void dispose() {
+    _instructionController.dispose();
+    super.dispose();
+  }
 
   Future<void> _chooseDeadline() async {
     final now = DateTime.now();
@@ -74,10 +89,17 @@ final class _TaskDraftScreenState extends State<TaskDraftScreen> {
       _error = null;
     });
     try {
+      final customText = _instructionController.text.trim();
+      final customInstruction =
+          customText != widget.template.coreInstruction.trim() &&
+              customText.isNotEmpty
+          ? customText
+          : null;
       final campaign = await widget.controller.createDraft(
         template: widget.template,
         deadline: deadline,
         locationReference: _locationReference,
+        customInstruction: customInstruction,
       );
       if (!mounted) return;
       await Navigator.of(context).push<void>(
@@ -100,6 +122,67 @@ final class _TaskDraftScreenState extends State<TaskDraftScreen> {
     }
   }
 
+  Future<void> _openInstructionDialog() async {
+    final dialogController =
+        TextEditingController(text: _instructionController.text);
+    final result = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Instruksi Tugas RT'),
+        content: SizedBox(
+          width: 480,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Sesuaikan instruksi pelaksanaan untuk warga. Template aman tetap menjadi panduan keselamatan.',
+                style: Theme.of(ctx)
+                    .textTheme
+                    .bodySmall
+                    ?.copyWith(color: Colors.grey.shade700),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                key: const Key('task-custom-instruction'),
+                controller: dialogController,
+                maxLines: 4,
+                maxLength: 3000,
+                decoration: const InputDecoration(
+                  labelText: 'Instruksi Khusus RT',
+                  hintText: 'Tuliskan instruksi pelaksanaan...',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              dialogController.text = widget.template.coreInstruction;
+            },
+            child: const Text('Reset Template'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Batal'),
+          ),
+          FilledButton(
+            key: const Key('task-custom-instruction-save'),
+            onPressed: () => Navigator.of(ctx).pop(dialogController.text),
+            child: const Text('Terapkan'),
+          ),
+        ],
+      ),
+    );
+    if (result != null && mounted) {
+      setState(() {
+        _instructionController.text = result;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: const Text('Siapkan Draf Tugas')),
@@ -118,12 +201,6 @@ final class _TaskDraftScreenState extends State<TaskDraftScreen> {
         const SizedBox(height: 12),
         LockedTaskInstructionsCard(snapshot: widget.template.snapshot()),
         const SizedBox(height: 16),
-        Text(
-          'Bagian yang dapat diatur',
-          style: Theme.of(context).textTheme.titleMedium
-              ?.copyWith(fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 8),
         SizedBox(
           height: 48,
           child: OutlinedButton.icon(
@@ -144,8 +221,7 @@ final class _TaskDraftScreenState extends State<TaskDraftScreen> {
           isExpanded: true,
           decoration: const InputDecoration(
             labelText: 'Jenis lokasi umum (opsional)',
-            helperText: 'Pilih kategori saja; alamat dan instruksi bebas tidak diterima.',
-            helperMaxLines: 3,
+            helperText: 'Pilih kategori lokasi pelaksanaan tugas.',
             border: OutlineInputBorder(),
           ),
           items: [
@@ -158,6 +234,19 @@ final class _TaskDraftScreenState extends State<TaskDraftScreen> {
           onChanged: _saving
               ? null
               : (value) => setState(() => _locationReference = value),
+        ),
+        const SizedBox(height: 12),
+        OutlinedButton.icon(
+          key: const Key('task-custom-instruction-button'),
+          onPressed: _saving ? null : _openInstructionDialog,
+          icon: const Icon(Icons.edit_note),
+          label: Text(
+            _instructionController.text.trim() !=
+                    widget.template.coreInstruction.trim() &&
+                _instructionController.text.trim().isNotEmpty
+                ? 'Instruksi RT: Disesuaikan'
+                : 'Sesuaikan Instruksi RT (Opsional)',
+          ),
         ),
         if (_error != null) ...[
           const SizedBox(height: 12),

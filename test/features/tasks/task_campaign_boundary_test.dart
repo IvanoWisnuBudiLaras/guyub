@@ -27,6 +27,7 @@ final class _RetryBoundary implements TaskCampaignBoundary {
     required DateTime deadline,
     required String? locationReference,
     required String requestId,
+    String? customInstruction,
   }) async {
     draftRequestId = requestId;
     if (failDraftOnce) {

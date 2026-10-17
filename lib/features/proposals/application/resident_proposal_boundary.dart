@@ -65,6 +65,10 @@ abstract interface class ResidentProposalBoundary {
     required String? locationReference,
     required String commandId,
   });
+
+  Future<List<ResidentProposalRecord>> listMyProposals({
+    required String sessionToken,
+  });
 }
 
 final class ResidentProposalRecord {
@@ -320,6 +324,14 @@ final class ResidentProposalController {
   final String Function() _requestIdFactory;
   final ResidentProposalRequestStore requestStore;
   Future<void> _requestSelectionTail = Future<void>.value();
+
+  Future<List<ResidentProposalRecord>> listMyProposals() async {
+    final sessionToken = await vault.read();
+    if (sessionToken == null || sessionToken.isEmpty) {
+      throw StateError('Resident session is unavailable.');
+    }
+    return boundary.listMyProposals(sessionToken: sessionToken);
+  }
 
   Future<ResidentProposalRecord> submit({
     required String residentId,
