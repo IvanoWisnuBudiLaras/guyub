@@ -168,7 +168,99 @@ final class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                       minimumSize: const Size.fromHeight(48),
                     ),
                   ),
-                  SizedBox(height: isCompact ? 16 : 32),
+                  SizedBox(height: isCompact ? 16 : 24),
+                  // Akses Pengujian Juri / Mode Demo Mandiri
+                  Container(
+                    key: const Key('demo-eval-card'),
+                    padding: EdgeInsets.all(isCompact ? 10 : 12),
+                    decoration: BoxDecoration(
+                      color: context.appColors.primarySoft,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: context.appColors.primary.withValues(alpha: 0.3),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.verified_outlined,
+                              color: context.appColors.primary,
+                              size: 18,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Akses Cepat Pengujian Juri',
+                                style: Theme.of(context).textTheme.titleSmall
+                                    ?.copyWith(
+                                      color: context.appColors.primaryDark,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        OutlinedButton(
+                          key: const Key('quick-demo-operator'),
+                          style: OutlinedButton.styleFrom(
+                            backgroundColor: Colors.white,
+                            minimumSize: const Size.fromHeight(40),
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                          ),
+                          onPressed: () {
+                            Navigator.of(context).pushReplacementNamed(
+                              '/operator/home',
+                              arguments: OperatorProfile(
+                                uid: 'op-demo-rt01',
+                                communityId: 'rt-01-demo',
+                                displayName: 'Ketua RT 01 Kedungwaru',
+                                role: OperatorRole.ketuaRtRw,
+                                rtLabel: 'RT 01 / RW 02 Kedungwaru',
+                                communityName: 'Demo RT 01 / RW 02 Kedungwaru',
+                              ),
+                            );
+                          },
+                          child: const Text(
+                            'Masuk Demo Ketua RT',
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        OutlinedButton(
+                          key: const Key('quick-demo-resident'),
+                          style: OutlinedButton.styleFrom(
+                            backgroundColor: Colors.white,
+                            minimumSize: const Size.fromHeight(40),
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                          ),
+                          onPressed: () {
+                            Navigator.of(context).pushReplacementNamed(
+                              '/resident/home',
+                              arguments: ResidentSession(
+                                residentId: 'res-budi-01',
+                                communityId: 'rt-01-demo',
+                                communityName: 'Demo RT 01 / RW 02 Kedungwaru',
+                                rtLabel: 'RT 01 / RW 02 Kedungwaru',
+                                nickname: 'Budi (Juri)',
+                                expiresAt: DateTime.now().add(
+                                  const Duration(days: 30),
+                                ),
+                              ),
+                            );
+                          },
+                          child: const Text(
+                            'Masuk Demo Warga',
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  SizedBox(height: isCompact ? 16 : 24),
                   // Disclaimer
                   Container(
                     padding: EdgeInsets.all(isCompact ? 12 : 16),
