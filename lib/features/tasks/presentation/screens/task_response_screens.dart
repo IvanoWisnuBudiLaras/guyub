@@ -16,6 +16,7 @@ import '../../../../core/utils/indonesian_date_formatter.dart';
 import '../../../../core/widgets/alert_banner.dart';
 import '../../../../core/widgets/info_row.dart';
 import '../../../../core/widgets/inline_action_button.dart';
+import '../../../../core/widgets/metric_strip.dart';
 import '../../../../core/widgets/section_card.dart';
 import '../../../../core/widgets/task_category_presentation.dart';
 import '../../../../core/widgets/tinted_info_box.dart';
@@ -1587,22 +1588,54 @@ final class TaskResponseRecapScreen extends StatelessWidget {
             const SizedBox(height: 12),
             Text(
               recap.taskTitle,
-              style: Theme.of(context).textTheme.titleLarge,
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
             ),
             const SizedBox(height: 16),
-            _CountRow(
-              label: 'Tanggapan tercatat',
-              count: recap.recordedResponseCount,
+            MetricStrip(
+              items: [
+                MetricItemData(
+                  label: 'Tanggapan tercatat',
+                  value: '${recap.recordedResponseCount}',
+                  icon: Icons.assignment_outlined,
+                  accentColor: const Color(0xFF0369A1),
+                  backgroundColor: const Color(0xFFE0F2FE),
+                ),
+                MetricItemData(
+                  label: 'Memilih ikut',
+                  value: '${recap.joinedCount}',
+                  icon: Icons.check_circle_outline,
+                  accentColor: const Color(0xFF15803D),
+                  backgroundColor: const Color(0xFFDCFCE7),
+                ),
+                MetricItemData(
+                  label: 'Memilih tidak ikut',
+                  value: '${recap.declinedCount}',
+                  icon: Icons.cancel_outlined,
+                  accentColor: const Color(0xFF6B7280),
+                  backgroundColor: const Color(0xFFF3F4F6),
+                ),
+              ],
             ),
-            _CountRow(label: 'Memilih ikut', count: recap.joinedCount),
-            _CountRow(label: 'Memilih tidak ikut', count: recap.declinedCount),
-            _CountRow(
-              label: 'Menunggu verifikasi',
-              count: recap.pendingVerificationCount,
-            ),
-            _CountRow(
-              label: 'Terverifikasi selesai',
-              count: recap.verifiedCompleteCount,
+            const SizedBox(height: 12),
+            MetricStrip(
+              items: [
+                MetricItemData(
+                  label: 'Menunggu verifikasi',
+                  value: '${recap.pendingVerificationCount}',
+                  icon: Icons.hourglass_top_outlined,
+                  accentColor: const Color(0xFFB45309),
+                  backgroundColor: const Color(0xFFFEF3C7),
+                ),
+                MetricItemData(
+                  label: 'Terverifikasi selesai',
+                  value: '${recap.verifiedCompleteCount}',
+                  icon: Icons.verified_outlined,
+                  accentColor: const Color(0xFF15803D),
+                  backgroundColor: const Color(0xFFDCFCE7),
+                ),
+              ],
             ),
             if (recap.isPartial) ...[
               const SizedBox(height: 12),
