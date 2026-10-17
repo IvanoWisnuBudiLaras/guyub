@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../../../auth/application/operator_profile.dart';
 import '../../../../core/utils/indonesian_date_formatter.dart';
 import '../../../../core/widgets/inline_action_button.dart';
+import '../../../../core/widgets/task_category_presentation.dart';
 import '../../../../core/widgets/tinted_info_box.dart';
 import '../../application/task_campaign_boundary.dart';
 import '../../application/task_campaign_copy_boundary.dart';
@@ -367,20 +368,76 @@ final class _ActiveTaskCard extends StatelessWidget {
   final VoidCallback onClose;
   final VoidCallback onCopyWhatsApp;
 
+  static String _sisaWaktu(DateTime deadline) {
+    final now = DateTime.now();
+    final difference = deadline.difference(now);
+    if (difference.isNegative) return 'Batas waktu lewat';
+    if (difference.inDays > 0) return 'Sisa ${difference.inDays} hari';
+    if (difference.inHours > 0) return 'Sisa ${difference.inHours} jam';
+    return 'Sisa ${difference.inMinutes} menit';
+  }
+
   @override
   Widget build(BuildContext context) => Card(
     key: isHighlighted ? Key('notification-task-${task.taskId}') : null,
+    elevation: 0,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(16),
+      side: BorderSide(
+        color: isHighlighted
+            ? Theme.of(context).colorScheme.primary
+            : Theme.of(context).colorScheme.outlineVariant,
+      ),
+    ),
     color: isHighlighted
-        ? Theme.of(context).colorScheme.primaryContainer
+        ? Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.3)
         : null,
     child: Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              TaskCategoryChip(category: task.templateSnapshot.category),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFEF3C7),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.timer_outlined,
+                      size: 14,
+                      color: Color(0xFFB45309),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      _sisaWaktu(task.deadline),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFFB45309),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
           Text(
             task.templateSnapshot.title,
-            style: Theme.of(context).textTheme.titleLarge,
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
           ),
           const SizedBox(height: 4),
           Text(
@@ -401,39 +458,48 @@ final class _ActiveTaskCard extends StatelessWidget {
                 : TaskLocationReferences.label(task.locationReference!),
           ),
           const SizedBox(height: 12),
-          OutlinedButton.icon(
-            key: Key('task-copy-whatsapp-${task.taskId}'),
-            onPressed: actionsDisabled ? null : onCopyWhatsApp,
-            icon: const Icon(Icons.copy),
-            label: const Text('Salin teks untuk WhatsApp'),
-          ),
-          const SizedBox(height: 8),
-          FilledButton.icon(
-            key: Key('task-campaign-cancel-${task.taskId}'),
-            style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.error,
-              foregroundColor: Theme.of(context).colorScheme.onError,
+          SizedBox(
+            height: 48,
+            child: OutlinedButton.icon(
+              key: Key('task-copy-whatsapp-${task.taskId}'),
+              onPressed: actionsDisabled ? null : onCopyWhatsApp,
+              icon: const Icon(Icons.copy, size: 18),
+              label: const Text('Salin teks untuk WhatsApp'),
             ),
-            onPressed: actionsDisabled ? null : onCancel,
-            icon: cancelling
-                ? const SizedBox.square(
-                    dimension: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.cancel_outlined),
-            label: Text(cancelling ? 'Memproses…' : 'Batalkan tugas'),
           ),
           const SizedBox(height: 8),
-          OutlinedButton.icon(
-            key: Key('task-campaign-close-${task.taskId}'),
-            onPressed: actionsDisabled ? null : onClose,
-            icon: closing
-                ? const SizedBox.square(
-                    dimension: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.archive_outlined),
-            label: Text(closing ? 'Memproses…' : 'Tutup tugas aktif'),
+          SizedBox(
+            height: 48,
+            child: OutlinedButton.icon(
+              key: Key('task-campaign-close-${task.taskId}'),
+              onPressed: actionsDisabled ? null : onClose,
+              icon: closing
+                  ? const SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.archive_outlined, size: 18),
+              label: Text(closing ? 'Memproses…' : 'Tutup tugas aktif'),
+            ),
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            height: 48,
+            child: FilledButton.icon(
+              key: Key('task-campaign-cancel-${task.taskId}'),
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFFFEE2E2),
+                foregroundColor: const Color(0xFF991B1B),
+              ),
+              onPressed: actionsDisabled ? null : onCancel,
+              icon: cancelling
+                  ? const SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.cancel_outlined, size: 18),
+              label: Text(cancelling ? 'Memproses…' : 'Batalkan tugas'),
+            ),
           ),
         ],
       ),
