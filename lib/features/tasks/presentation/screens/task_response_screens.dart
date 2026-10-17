@@ -763,40 +763,42 @@ final class _ResidentTaskDetailScreenState
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // 1. Header chip kecil: Warga • RT [Label] [CommunityName]
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 4,
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: context.appColors.primarySoft,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: context.appColors.primary.withValues(alpha: 0.2),
                   ),
-                  decoration: BoxDecoration(
-                    color: context.appColors.primarySoft,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: context.appColors.primary.withValues(alpha: 0.2),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.location_city_outlined,
+                      size: 13,
+                      color: context.appColors.primary,
                     ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.location_city_outlined,
-                        size: 13,
-                        color: context.appColors.primary,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
+                    const SizedBox(width: 4),
+                    Flexible(
+                      child: Text(
                         'Warga • ${widget.session.rtLabel} ${widget.session.communityName}'.trim(),
                         style: Theme.of(context).textTheme.labelSmall?.copyWith(
                               color: context.appColors.primary,
                               fontWeight: FontWeight.w600,
                             ),
+                        overflow: TextOverflow.ellipsis,
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
             if (widget.isCached) ...[
               const SizedBox(height: 8),
@@ -809,8 +811,11 @@ final class _ResidentTaskDetailScreenState
               margin: const EdgeInsets.only(bottom: 12),
               padding: const EdgeInsets.all(16),
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                Wrap(
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 8,
+                  runSpacing: 8,
                   children: [
                     TaskCategoryChip(category: _task.templateSnapshot.category),
                     _buildStatusBadge(context, _task),
