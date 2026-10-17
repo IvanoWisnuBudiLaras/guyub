@@ -1,6 +1,6 @@
 /**
  * Seed: Data komunitas RT, kode RT, direktori darurat, cuaca, dan tugas siaga
- * agar dapat langsung login dan beraktivitas sebagai Warga di emulator Guyub.id.
+ * lokasi Kabupaten Tulungagung, Jawa Timur di emulator Guyub.id.
  *
  * Jalankan setelah emulator aktif:
  *   node tool/seed_warga.js
@@ -21,9 +21,12 @@ const FUNCTIONS_HOST = '127.0.0.1:5001';
 const REGION = 'asia-southeast2';
 
 const RT_ID = 'rt-01-demo';
-const RT_LABEL = 'RT 01';
+const RT_LABEL = 'RT 01 / RW 02 Kedungwaru';
 const RT_JOIN_CODE = 'GUYUBRT01DEMO'; // 12-32 karakter alfanumerik kapital
 const DEMO_NICKNAME = 'Budi';
+
+// ID kampanye 40 karakter hex (wajib sesuai pola regex /^[a-f0-9]{40}$/u di Cloud Functions)
+const CAMPAIGN_ID = crypto.createHash('sha256').update('guyub-campaign-demo-rt01-tulungagung').digest('hex').slice(0, 40);
 
 function hashJoinCode(code) {
   return crypto.createHash('sha256').update(code.trim().toUpperCase(), 'utf8').digest('hex');
@@ -99,13 +102,13 @@ async function testCallableFunction() {
 }
 
 async function main() {
-  console.log('=== Seeder Warga RT (emulator) ===\n');
+  console.log('=== Seeder Warga RT Tulungagung (emulator) ===\n');
 
   const now = new Date();
   const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
   // 1. Komunitas RT dengan Kode Gabung (Join Code) Aktif
-  console.log('1. Menyiapkan komunitas RT...');
+  console.log('1. Menyiapkan komunitas RT Kedungwaru, Tulungagung...');
   await seedFirestoreDoc(`rt_communities/${RT_ID}`, {
     displayName: `Demo ${RT_LABEL}`,
     rtLabel: RT_LABEL,
@@ -114,42 +117,60 @@ async function main() {
   });
   console.log(`   [✓] rt_communities/${RT_ID} aktif dengan kode: ${RT_JOIN_CODE}`);
 
-  // 2. Direktori Darurat RT (Kontak & Titik Kumpul)
-  console.log('2. Menyiapkan direktori darurat RT...');
+  // 2. Direktori Darurat RT (Data Resmi Tulungagung)
+  console.log('2. Menyiapkan direktori darurat RT (Data Resmi Tulungagung)...');
   await seedFirestoreDoc(`emergency_directories/${RT_ID}`, {
     rtId: RT_ID,
     state: 'ACTIVE',
     version: 1,
     lastVerifiedAt: now,
     emergencyContacts: [
-      { label: 'Ketua RT 01', phone: '081234567890' },
-      { label: 'Puskesmas Kelurahan', phone: '0215551234' },
-      { label: 'Damkar / BPBD (Darurat)', phone: '112' },
+      { label: 'Call Center Darurat Tulungagung', phone: '112' },
+      { label: 'BPBD Tulungagung', phone: '085186680700' },
+      { label: 'Damkar Tulungagung', phone: '0355321113' },
+      { label: 'PMI Kabupaten Tulungagung', phone: '0355321544' },
+      { label: 'Ketua RT 01 Kedungwaru (DEMO)', phone: '081234567890' },
     ],
     assemblyPoints: [
-      { label: 'Balai Warga RT 01 (Utama)', publicLocation: 'Jl. Guyub Raya No. 1' },
-      { label: 'Masjid Al-Ikhlas (Alternatif)', publicLocation: 'Jl. Guyub II No. 12' },
+      {
+        label: 'Balai Desa Kedungwaru (Utama - DEMO)',
+        publicLocation: 'Jl. Pahlawan No. 1, Kedungwaru, Tulungagung (DEMO - ganti sebelum rilis)',
+      },
+      {
+        label: 'Masjid Jami Al-Falah (Alternatif - DEMO)',
+        publicLocation: 'Jl. Dr. Wahidin No. 10, Kedungwaru, Tulungagung (DEMO - ganti sebelum rilis)',
+      },
     ],
     officialReportChannels: [
-      { label: 'Call Center BPBD DKI', url: 'https://bpbd.jakarta.go.id' },
-      { label: 'Aplikasi JAKI', url: 'https://jaki.jakarta.go.id' },
+      {
+        label: 'Website Resmi BPBD Tulungagung',
+        url: 'https://bpbd.tulungagung.go.id',
+      },
+      {
+        label: 'Portal Resmi Pemkab Tulungagung',
+        url: 'https://tulungagung.go.id',
+      },
+      {
+        label: 'WhatsApp Damkarmat Tulungagung',
+        phone: '082131600647',
+      },
     ],
   });
   console.log(`   [✓] emergency_directories/${RT_ID} berhasil diseed`);
 
-  // 3. Sumber & Snapshot Cuaca BMKG
-  console.log('3. Menyiapkan snapshot cuaca BMKG...');
+  // 3. Sumber & Snapshot Cuaca BMKG (Kedungwaru, Tulungagung: adm4Code = 35.04.03.2010)
+  console.log('3. Menyiapkan snapshot cuaca BMKG (Kedungwaru: 35.04.03.2010)...');
   const snapshotId = `snapshot-${RT_ID}-demo`;
   await seedFirestoreDoc(`weather_sources/${RT_ID}`, {
     rtId: RT_ID,
-    adm4Code: '31.71.01.1001',
+    adm4Code: '35.04.03.2010',
     enabled: true,
   });
   await seedFirestoreDoc(`weather_snapshots/${snapshotId}`, {
     snapshotId,
     rtId: RT_ID,
     source: 'BMKG',
-    sourceFingerprint: 'demo-fingerprint-rt01',
+    sourceFingerprint: 'demo-fingerprint-rt01-tulungagung',
     sourceUpdatedAt: now,
     fetchedAt: now,
     rainfallMm: 14.5,
@@ -158,11 +179,10 @@ async function main() {
   await seedFirestoreDoc(`weather_last_valid_snapshots/${RT_ID}`, {
     rtId: RT_ID,
     snapshotId,
-    sourceFingerprint: 'demo-fingerprint-rt01',
+    sourceFingerprint: 'demo-fingerprint-rt01-tulungagung',
     sourceUpdatedAt: now,
     fetchedAt: now,
     rainfallMm: 14.5,
-    isLastValid: true,
   });
   console.log(`   [✓] weather_snapshots & weather_last_valid_snapshots berhasil diseed`);
 
@@ -183,28 +203,28 @@ async function main() {
     ...templateSnapshot,
     enabled: true,
     reviewStatus: 'approved',
-    reviewedBy: 'Admin Wilayah',
+    reviewedBy: 'Admin Wilayah Tulungagung',
     reviewedAt: now,
   });
-  await seedFirestoreDoc(`task_campaigns/campaign-demo-rt01`, {
-    campaignId: 'campaign-demo-rt01',
+  await seedFirestoreDoc(`task_campaigns/${CAMPAIGN_ID}`, {
+    campaignId: CAMPAIGN_ID,
     rtId: RT_ID,
     status: 'ACTIVE',
     templateId,
     templateVersion,
     templateSnapshot,
-    coarseLocation: 'ALL_HOUSEHOLDS',
+    locationReference: 'HOUSEHOLD',
     activatedAt: now,
     deadline: tomorrow,
   });
-  console.log(`   [✓] task_campaigns/campaign-demo-rt01 (Tugas Aktif) berhasil diseed`);
+  console.log(`   [✓] task_campaigns/${CAMPAIGN_ID} (Tugas Aktif) berhasil diseed`);
 
   // 5. Uji Callable createResidentSession
   console.log('5. Menguji Callable Function sesi warga...');
   await testCallableFunction();
 
   console.log('\n============================================================');
-  console.log('✅ Seed Warga Berhasil!');
+  console.log('✅ Seed Warga Tulungagung Berhasil!');
   console.log('============================================================');
   console.log('Petunjuk Login sebagai Warga di Aplikasi Guyub.id:');
   console.log('  1. Buka aplikasi Guyub.id (mode dev/emulator)');

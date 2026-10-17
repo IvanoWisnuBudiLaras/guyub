@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../auth/application/resident_session.dart';
+import '../../../core/widgets/inline_action_button.dart';
 import '../application/emergency_directory.dart';
 import '../application/emergency_directory_controller.dart';
 import '../application/emergency_directory_cache.dart';
+import '../application/national_emergency_numbers.dart';
 
 /// Offline-readable emergency directory. Pass no session to show the latest
 /// public directory saved on this device from the unauthenticated Darurat route.
@@ -67,6 +69,35 @@ final class _EmergencyDirectoryScreenState
     );
   }
 
+  Future<void> _openMapLocation(String label, String address) async {
+    final query = Uri.encodeComponent('$label, $address');
+    final geoUri = Uri.parse('geo:0,0?q=$query');
+    final webUri = Uri.parse(
+      'https://www.google.com/maps/search/?api=1&query=$query',
+    );
+    var didLaunch = false;
+    try {
+      if (await canLaunchUrl(geoUri)) {
+        didLaunch = await launchUrl(geoUri);
+      } else if (await canLaunchUrl(webUri)) {
+        didLaunch = await launchUrl(
+          webUri,
+          mode: LaunchMode.externalApplication,
+        );
+      }
+    } catch (_) {
+      didLaunch = false;
+    }
+    if (!mounted || didLaunch) return;
+    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Aplikasi peta tidak tersedia atau alamat tidak dapat dibuka.',
+        ),
+      ),
+    );
+  }
+
   void _load() {
     final session = widget.session;
     if (session == null) {
@@ -89,7 +120,15 @@ final class _EmergencyDirectoryScreenState
   @override
   Widget build(BuildContext context) {
     final state = widget.controller.state;
-    final snapshot = state.snapshot;
+    final rawSnapshot = state.snapshot;
+    final isDemoSnapshot =
+        rawSnapshot != null &&
+        (rawSnapshot.communityName.toLowerCase().contains('demo') ||
+            rawSnapshot.rtLabel.toLowerCase().contains('demo'));
+    // Jangan tampilkan data RT demo ke pengguna tanpa sesi.
+    final snapshot = (widget.session == null && isDemoSnapshot)
+        ? null
+        : rawSnapshot;
     final directory = snapshot?.directory;
     final areaName = snapshot?.communityName ?? widget.session?.communityName;
     final rtLabel = snapshot?.rtLabel ?? widget.session?.rtLabel;
@@ -136,7 +175,10 @@ final class _EmergencyDirectoryScreenState
             const SizedBox(height: 12),
             _ContactSection(items: directory!.emergencyContacts),
             const SizedBox(height: 12),
-            _AssemblySection(items: directory.assemblyPoints),
+            _AssemblySection(
+              items: directory.assemblyPoints,
+              onOpenMap: _openMapLocation,
+            ),
             const SizedBox(height: 12),
             _OfficialChannelSection(
               items: directory.officialReportChannels,
@@ -176,6 +218,8 @@ final class _EmergencyDirectoryScreenState
                 ],
               ),
             ),
+          ] else if (widget.session == null) ...[
+            _UnauthenticatedEmergencyView(onLaunchUri: _openOfficialUri),
           ] else ...[
             _EmptyMessage(state: state),
           ],
@@ -376,7 +420,7 @@ final class _ContactSection extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 8),
-                FilledButton.tonalIcon(
+                InlineActionButton(
                   onPressed: () async {
                     final uri = Uri.parse('tel:${item.phone}');
                     try {
@@ -393,14 +437,9 @@ final class _ContactSection extends StatelessWidget {
                       }
                     }
                   },
-                  icon: const Icon(Icons.call, size: 18),
-                  label: const Text('Telepon'),
-                  style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                  ),
+                  icon: Icons.call,
+                  label: 'Telepon',
+                  variant: InlineActionButtonVariant.tonal,
                 ),
               ],
             ),
@@ -411,9 +450,10 @@ final class _ContactSection extends StatelessWidget {
 }
 
 final class _AssemblySection extends StatelessWidget {
-  const _AssemblySection({required this.items});
+  const _AssemblySection({required this.items, required this.onOpenMap});
 
   final List<EmergencyAssemblyPoint> items;
+  final Future<void> Function(String label, String address) onOpenMap;
 
   @override
   Widget build(BuildContext context) => _DirectorySection(
@@ -435,39 +475,59 @@ final class _AssemblySection extends StatelessWidget {
               color: Theme.of(context).colorScheme.surfaceContainerLow,
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Row(
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.tertiaryContainer,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(
-                    Icons.location_on_outlined,
-                    color: Theme.of(context).colorScheme.onTertiaryContainer,
-                    size: 20,
-                  ),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.tertiaryContainer,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(
+                        Icons.location_on_outlined,
+                        color: Theme.of(context)
+                            .colorScheme
+                            .onTertiaryContainer,
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            item.label,
+                            style: Theme.of(context).textTheme.titleSmall
+                                ?.copyWith(fontWeight: FontWeight.w600),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            item.publicLocation,
+                            style: Theme.of(context).textTheme.bodyMedium
+                                ?.copyWith(
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onSurfaceVariant,
+                                ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        item.label,
-                        style: Theme.of(context).textTheme.titleSmall
-                            ?.copyWith(fontWeight: FontWeight.w600),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        item.publicLocation,
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
+                const SizedBox(height: 10),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: InlineActionButton(
+                    onPressed: () => onOpenMap(item.label, item.publicLocation),
+                    icon: Icons.map_outlined,
+                    label: 'Buka di Peta',
+                    variant: InlineActionButtonVariant.outlined,
                   ),
                 ),
               ],
@@ -590,18 +650,20 @@ final class _OfficialChannelSection extends StatelessWidget {
                     runSpacing: 8,
                     children: [
                       if (urlUri != null)
-                        OutlinedButton.icon(
+                        InlineActionButton(
                           key: Key('official-report-url-$index'),
                           onPressed: () => onLaunchUri(urlUri),
-                          icon: const Icon(Icons.open_in_new, size: 18),
-                          label: const Text('Buka situs'),
+                          icon: Icons.open_in_new,
+                          label: 'Buka situs',
+                          variant: InlineActionButtonVariant.outlined,
                         ),
                       if (phoneUri != null)
-                        FilledButton.tonalIcon(
+                        InlineActionButton(
                           key: Key('official-report-phone-$index'),
                           onPressed: () => onLaunchUri(phoneUri),
-                          icon: const Icon(Icons.phone_outlined, size: 18),
-                          label: const Text('Telepon'),
+                          icon: Icons.phone_outlined,
+                          label: 'Telepon',
+                          variant: InlineActionButtonVariant.tonal,
                         ),
                     ],
                   ),
@@ -686,6 +748,239 @@ final class _EmptyMessage extends StatelessWidget {
         padding: const EdgeInsets.all(20),
         child: Text(message, textAlign: TextAlign.center),
       ),
+    );
+  }
+}
+
+final class _UnauthenticatedEmergencyView extends StatelessWidget {
+  const _UnauthenticatedEmergencyView({required this.onLaunchUri});
+
+  final Future<void> Function(Uri uri) onLaunchUri;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Petunjuk masukkan kode RT
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: colorScheme.surfaceContainerHigh,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: colorScheme.outlineVariant, width: 1),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    Icons.vpn_key_outlined,
+                    color: colorScheme.primary,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Belum Terhubung ke RT',
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Anda membuka informasi darurat tanpa sesi warga. '
+                'Untuk melihat kontak pengurus RT, titik kumpul evakuasi lingkungan, '
+                'dan kanal koordinasi warga Anda, silakan masuk dengan Kode RT '
+                'pada menu Masuk Warga.',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        // Nomor Darurat Nasional Resmi
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      Icons.shield_outlined,
+                      color: colorScheme.error,
+                      size: 22,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Nomor Darurat Nasional Resmi',
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Layanan darurat terverifikasi pemerintah RI (bebas pulsa / 24 jam)',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                ...kNationalEmergencyContacts.map(
+                  (contact) => Container(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: colorScheme.surfaceContainerLow,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: colorScheme.errorContainer.withValues(
+                                  alpha: 0.3,
+                                ),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                contact.number,
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: colorScheme.error,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    contact.label,
+                                    style: theme.textTheme.titleSmall?.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    contact.description,
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color: colorScheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Sumber: ${contact.sourceAuthority}',
+                                    style: theme.textTheme.labelSmall?.copyWith(
+                                      color: colorScheme.outline,
+                                      fontSize: 10,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          alignment: WrapAlignment.end,
+                          children: [
+                            InlineActionButton(
+                              onPressed: () =>
+                                  onLaunchUri(Uri.parse(contact.sourceUrl)),
+                              icon: Icons.open_in_new,
+                              label: 'Info Resmi',
+                              variant: InlineActionButtonVariant.outlined,
+                            ),
+                            InlineActionButton(
+                              onPressed: () async {
+                                final uri = Uri.parse('tel:${contact.number}');
+                                try {
+                                  await launchUrl(uri);
+                                } catch (_) {
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text(
+                                          'Tidak dapat membuka aplikasi telepon.',
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                }
+                              },
+                              icon: Icons.call,
+                              label: 'Panggil ${contact.number}',
+                              variant: InlineActionButtonVariant.filled,
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        // Disclaimer
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: colorScheme.errorContainer.withValues(alpha: 0.3),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: colorScheme.error.withValues(alpha: 0.3),
+              width: 1,
+            ),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(Icons.info_outline, color: colorScheme.error, size: 20),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Guyub.id adalah platform kesiapsiagaan mandiri warga tingkat RT dan tidak menggantikan layanan darurat atau pelaporan resmi pemerintah.',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onErrorContainer,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

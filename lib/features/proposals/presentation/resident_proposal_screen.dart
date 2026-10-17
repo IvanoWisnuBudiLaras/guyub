@@ -117,6 +117,7 @@ final class _ResidentProposalScreenState extends State<ResidentProposalScreen> {
         ),
         DropdownButtonFormField<ResidentProposalCategory>(
           key: const Key('proposal-category'),
+          isExpanded: true,
           initialValue: _category,
           decoration: const InputDecoration(
             labelText: 'Kategori usulan',
@@ -135,6 +136,7 @@ final class _ResidentProposalScreenState extends State<ResidentProposalScreen> {
         const SizedBox(height: 12),
         DropdownButtonFormField<String>(
           key: const Key('proposal-location'),
+          isExpanded: true,
           initialValue: _locationReference,
           decoration: const InputDecoration(
             labelText: 'Jenis lokasi umum (opsional)',

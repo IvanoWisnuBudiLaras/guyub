@@ -14,6 +14,7 @@ import '../../application/task_location_reference.dart';
 import '../widgets/locked_instructions_card.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/task_category_presentation.dart';
+import '../../../../core/widgets/inline_action_button.dart';
 
 typedef PickEvidenceImage = Future<Uint8List?> Function();
 
@@ -1632,13 +1633,15 @@ final class _TaskVerificationQueueScreenState
                         Wrap(
                           spacing: 8,
                           children: [
-                            FilledButton.tonal(
+                            InlineActionButton(
                               key: Key('verify-${record.responseId}'),
                               onPressed:
                                   _busyResponses.contains(record.responseId)
                                   ? null
                                   : () => _verify(record),
-                              child: const Text('Tinjau dan Verifikasi'),
+                              icon: Icons.check_circle_outline,
+                              label: 'Tinjau dan Verifikasi',
+                              variant: InlineActionButtonVariant.tonal,
                             ),
                             TextButton(
                               key: Key('recap-${record.taskId}'),

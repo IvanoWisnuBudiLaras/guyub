@@ -108,6 +108,8 @@ final class AppRouter {
               proxyResidentController: proxyResidentController,
               taskPushNotificationsController: taskPushNotificationsController,
               weatherSuggestionBoundary: weatherSuggestionBoundary,
+              weatherSnapshotStore: weatherSnapshotStore,
+              weatherSnapshotSyncController: weatherSnapshotSyncController,
             );
             if (taskPushNotificationsController == null ||
                 profile.role != OperatorRole.pendampingRt) {

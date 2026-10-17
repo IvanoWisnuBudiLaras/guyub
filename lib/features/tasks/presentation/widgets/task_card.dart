@@ -120,35 +120,43 @@ class TaskCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         // Top row: Chips (Category + Duration) & Status badge
-                        Row(
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 6,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          alignment: WrapAlignment.spaceBetween,
                           children: [
-                            TaskCategoryChip(
-                              category: template.category,
-                              compact: true,
-                            ),
-                            if (template.estimatedDurationMinutes != null) ...[
-                              const SizedBox(width: 6),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 6,
-                                  vertical: 2,
+                            Wrap(
+                              spacing: 6,
+                              runSpacing: 4,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              children: [
+                                TaskCategoryChip(
+                                  category: template.category,
+                                  compact: true,
                                 ),
-                                decoration: BoxDecoration(
-                                  color: colors.background,
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(color: colors.border),
-                                ),
-                                child: Text(
-                                  '~${template.estimatedDurationMinutes} mnt',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: colors.textSecondary,
-                                    fontWeight: FontWeight.w500,
+                                if (template.estimatedDurationMinutes != null)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: colors.background,
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(color: colors.border),
+                                    ),
+                                    child: Text(
+                                      '~${template.estimatedDurationMinutes} mnt',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: colors.textSecondary,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
                                   ),
-                                ),
-                              ),
-                            ],
-                            const Spacer(),
+                              ],
+                            ),
                             Container(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 8,
