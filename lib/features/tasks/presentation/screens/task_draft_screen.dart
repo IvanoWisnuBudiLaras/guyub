@@ -141,6 +141,7 @@ final class _TaskDraftScreenState extends State<TaskDraftScreen> {
         DropdownButtonFormField<String>(
           key: const Key('task-location-reference'),
           initialValue: _locationReference,
+          isExpanded: true,
           decoration: const InputDecoration(
             labelText: 'Jenis lokasi umum (opsional)',
             helperText: 'Pilih kategori saja; alamat dan instruksi bebas tidak diterima.',

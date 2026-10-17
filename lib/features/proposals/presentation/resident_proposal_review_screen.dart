@@ -508,12 +508,16 @@ final class _MapProposalDialogState extends State<_MapProposalDialog> {
             DropdownButtonFormField<TaskTemplate>(
               key: const Key('proposal-map-template'),
               initialValue: _template,
+              isExpanded: true,
               decoration: const InputDecoration(
                 labelText: 'Template aman yang disetujui',
               ),
               items: [
                 for (final t in widget.templates)
-                  DropdownMenuItem(value: t, child: Text(t.title)),
+                  DropdownMenuItem(
+                    value: t,
+                    child: Text(t.title, overflow: TextOverflow.ellipsis),
+                  ),
               ],
               onChanged: (value) => setState(() => _template = value),
             ),
@@ -528,6 +532,7 @@ final class _MapProposalDialogState extends State<_MapProposalDialog> {
             DropdownButtonFormField<String>(
               key: const Key('proposal-map-location'),
               initialValue: _location,
+              isExpanded: true,
               decoration: const InputDecoration(labelText: 'Lokasi umum tugas'),
               items: [
                 const DropdownMenuItem(

@@ -317,6 +317,7 @@ final class _ProxyResidentScreenState extends State<ProxyResidentScreen> {
               DropdownButtonFormField<String>(
                 key: const Key('proxy-helper-picker'),
                 initialValue: selected?.residentId,
+                isExpanded: true,
                 decoration: const InputDecoration(labelText: 'Relawan'),
                 items: [
                   for (final helper in helpers.items)
@@ -324,6 +325,7 @@ final class _ProxyResidentScreenState extends State<ProxyResidentScreen> {
                       value: helper.residentId,
                       child: Text(
                         '${helper.nickname} · ${helper.residentId.substring(36)}',
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                 ],
@@ -892,6 +894,7 @@ final class _ProxyResidentCardState extends State<_ProxyResidentCard> {
         DropdownButtonFormField<String>(
           key: const Key('proxy-participation-picker'),
           initialValue: participation,
+          isExpanded: true,
           decoration: const InputDecoration(
             labelText: 'Pilihan warga',
             hintText: 'Pilih Ikut atau Tidak Ikut',
@@ -1114,6 +1117,7 @@ final class _ProxyResidentCardState extends State<_ProxyResidentCard> {
                             DropdownButtonFormField<String>(
                               key: const Key('proxy-task-picker'),
                               initialValue: _taskId,
+                              isExpanded: true,
                               decoration: const InputDecoration(
                                 labelText: 'Tugas aktif',
                               ),
@@ -1121,7 +1125,10 @@ final class _ProxyResidentCardState extends State<_ProxyResidentCard> {
                                 for (final task in widget.tasks)
                                   DropdownMenuItem(
                                     value: task.taskId,
-                                    child: Text(task.templateSnapshot.title),
+                                    child: Text(
+                                      task.templateSnapshot.title,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
                                   ),
                               ],
                               onChanged: _selectTask,
