@@ -105,7 +105,8 @@ final class _ResidentProposalScreenState extends State<ResidentProposalScreen> {
           textCapitalization: TextCapitalization.sentences,
           decoration: const InputDecoration(
             labelText: 'Penjelasan singkat',
-            helperText: 'Jangan masukkan NIK, nomor telepon, alamat, atau koordinat GPS.',
+            helperText: 'Jangan masukkan NIK, nomor telepon,\nalamat, atau koordinat GPS.',
+            helperMaxLines: 2,
             border: OutlineInputBorder(),
           ),
         ),
@@ -157,24 +158,51 @@ final class _ResidentProposalScreenState extends State<ResidentProposalScreen> {
           const SizedBox(height: 16),
           Card(
             key: const Key('proposal-submitted'),
-            color: Theme.of(context).colorScheme.secondaryContainer,
+            color: submitted.state == 'SUBMITTED'
+                ? Theme.of(context).colorScheme.surfaceContainerHighest
+                : Theme.of(context).colorScheme.surfaceContainerHigh,
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  Row(
+                    children: [
+                      Icon(
+                        submitted.state == 'SUBMITTED'
+                            ? Icons.schedule_outlined
+                            : Icons.visibility_outlined,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          submitted.state == 'SUBMITTED'
+                              ? 'Menunggu Tinjauan RT'
+                              : 'Usulan telah ditinjau RT',
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            color: Theme.of(context).colorScheme.onSurface,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
                   Text(
-                    submitted.state == 'SUBMITTED'
-                        ? 'Menunggu Tinjauan RT'
-                        : 'Usulan telah ditinjau RT',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
                     'Usulan ini belum menjadi tugas. Tidak ada tugas yang diaktifkan atau dikirim.',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
                   ),
                   const SizedBox(height: 8),
-                  Text('Usulan: ${submitted.title}'),
+                  Text(
+                    'Usulan: ${submitted.title}',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurface,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
                 ],
               ),
             ),
