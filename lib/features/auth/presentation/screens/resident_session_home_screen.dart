@@ -306,15 +306,7 @@ final class _ResidentSessionHomeScreenState
       IconButton(
         key: const Key('resident-sign-out'),
         tooltip: 'Keluar',
-        onPressed: () async {
-          await taskPushNotificationsController
-              ?.unregisterResidentBeforeSignOut(session);
-          taskPushNotificationsController?.clearActiveTarget();
-          await controller.signOut();
-          if (context.mounted) {
-            Navigator.of(context).pushNamedAndRemoveUntil('/', (_) => false);
-          }
-        },
+        onPressed: () => _confirmAndSignOut(context),
         icon: const Icon(Icons.logout),
       ),
     ];
@@ -322,6 +314,39 @@ final class _ResidentSessionHomeScreenState
 
   void _switchRole(BuildContext context) {
     Navigator.of(context).pushNamedAndRemoveUntil('/', (_) => false);
+  }
+
+  Future<void> _confirmAndSignOut(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Keluar dari sesi ini?'),
+        content: const Text(
+          'Jika keluar lalu masuk lagi, kamu dianggap warga baru dan '
+          'riwayat tugas di perangkat ini tidak terbawa. '
+          'Pakai Ganti Peran bila hanya ingin pindah peran.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Batal'),
+          ),
+          FilledButton(
+            key: const Key('resident-sign-out-confirm'),
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Keluar'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+    await taskPushNotificationsController
+        ?.unregisterResidentBeforeSignOut(session);
+    taskPushNotificationsController?.clearActiveTarget();
+    await controller.signOut();
+    if (context.mounted) {
+      Navigator.of(context).pushNamedAndRemoveUntil('/', (_) => false);
+    }
   }
 
   Widget _buildBerandaTab(BuildContext context, bool isCompact) {
@@ -368,7 +393,9 @@ final class _ResidentSessionHomeScreenState
                 ],
                 // Shortcuts
                 _buildShortcuts(context, isCompact),
-                SizedBox(height: isCompact ? 12 : 16),
+                SizedBox(height: isCompact ? 16 : 24),
+
+                // 1. Ganti Peran
                 OutlinedButton.icon(
                   key: const Key('resident-switch-role'),
                   onPressed: () => _switchRole(context),
@@ -379,15 +406,39 @@ final class _ResidentSessionHomeScreenState
                   ),
                 ),
                 SizedBox(height: isCompact ? 8 : 12),
-                // Hapus data (hanya jika online)
+
+                // 2. Keluar dari sesi ini
+                OutlinedButton.icon(
+                  key: const Key('resident-sign-out-button'),
+                  onPressed: () => _confirmAndSignOut(context),
+                  icon: const Icon(Icons.logout),
+                  label: const Text('Keluar dari sesi ini'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: context.appColors.textSecondary,
+                    side: BorderSide(color: context.appColors.border),
+                    minimumSize: const Size.fromHeight(44),
+                  ),
+                ),
+                SizedBox(height: isCompact ? 16 : 24),
+
+                // 3. Hapus Data Saya (paling bawah, paling jauh, gaya destruktif)
                 if (!session.isOfflineSnapshot) ...[
                   TextButton.icon(
                     key: const Key('resident-delete-data'),
                     onPressed: () => _confirmAndDeleteOwnData(context),
-                    icon: const Icon(Icons.delete_outline),
-                    label: const Text('Hapus Data Saya'),
+                    icon: Icon(
+                      Icons.delete_forever_outlined,
+                      color: context.appColors.danger,
+                    ),
+                    label: Text(
+                      'Hapus Data Saya',
+                      style: TextStyle(
+                        color: context.appColors.danger,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                     style: TextButton.styleFrom(
-                      foregroundColor: context.appColors.textSecondary,
+                      foregroundColor: context.appColors.danger,
                     ),
                   ),
                 ],
