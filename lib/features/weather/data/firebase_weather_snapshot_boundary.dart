@@ -1,13 +1,13 @@
-import 'package:cloud_functions/cloud_functions.dart';
+import '../../../core/network/callable_client.dart';
 
 import '../application/weather_snapshot.dart';
 import '../application/weather_snapshot_boundary.dart';
 
 /// Firebase Callable adapter; Firestore weather collections stay server-only.
 final class FirebaseWeatherSnapshotBoundary implements WeatherSnapshotBoundary {
-  FirebaseWeatherSnapshotBoundary(this._functions);
+  FirebaseWeatherSnapshotBoundary(this._client);
 
-  final FirebaseFunctions _functions;
+  final CallableClient _client;
 
   @override
   Future<WeatherSnapshot?> getForOperator() => _fetch(const {});
@@ -17,10 +17,8 @@ final class FirebaseWeatherSnapshotBoundary implements WeatherSnapshotBoundary {
       _fetch({'sessionToken': sessionToken});
 
   Future<WeatherSnapshot?> _fetch(Map<String, Object?> data) async {
-    final response = await _functions
-        .httpsCallable('getLastValidWeatherSnapshot')
-        .call<Object?>(data);
-    final envelope = _asMap(response.data);
+    final response = await _client.call('getLastValidWeatherSnapshot', data);
+    final envelope = _asMap(response);
     if (envelope.length != 1 || !envelope.containsKey('snapshot')) {
       throw const FormatException('Invalid weather snapshot response.');
     }

@@ -1,6 +1,7 @@
 import 'dart:convert';
 
-import 'package:cloud_functions/cloud_functions.dart';
+import '../../../core/network/callable_client.dart';
+
 import 'package:crypto/crypto.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -20,11 +21,11 @@ final class FirebaseTaskPushNotificationsBoundary
     implements TaskPushNotificationsBoundary {
   const FirebaseTaskPushNotificationsBoundary({
     required this.messaging,
-    required this.functions,
+    required this.client,
   });
 
   final FirebaseMessaging messaging;
-  final FirebaseFunctions functions;
+  final CallableClient client;
 
   @override
   Future<bool> hasNotificationPermission() async {
@@ -74,7 +75,7 @@ final class FirebaseTaskPushNotificationsBoundary
     required String sessionToken,
     required String token,
   }) async {
-    await functions.httpsCallable('registerResidentPushToken').call({
+    await client.call('registerResidentPushToken', {
       'sessionToken': sessionToken,
       'token': token,
       'platform': 'ANDROID',
@@ -86,7 +87,7 @@ final class FirebaseTaskPushNotificationsBoundary
     required String sessionToken,
     required String token,
   }) async {
-    await functions.httpsCallable('unregisterResidentPushToken').call({
+    await client.call('unregisterResidentPushToken', {
       'sessionToken': sessionToken,
       'token': token,
     });
@@ -94,7 +95,7 @@ final class FirebaseTaskPushNotificationsBoundary
 
   @override
   Future<void> registerPendampingToken({required String token}) async {
-    await functions.httpsCallable('registerPendampingPushToken').call({
+    await client.call('registerPendampingPushToken', {
       'token': token,
       'platform': 'ANDROID',
     });
@@ -102,9 +103,7 @@ final class FirebaseTaskPushNotificationsBoundary
 
   @override
   Future<void> unregisterPendampingToken({required String token}) async {
-    await functions.httpsCallable('unregisterPendampingPushToken').call({
-      'token': token,
-    });
+    await client.call('unregisterPendampingPushToken', {'token': token});
   }
 }
 

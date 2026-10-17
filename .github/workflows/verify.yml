@@ -29,3 +29,4 @@ jobs:
       - run: ./tool/verify.sh
       - run: ./tool/test_firestore_rules.sh
       - run: ./tool/test_functions.sh
+      - run: ./tool/test_callable_adapters.sh

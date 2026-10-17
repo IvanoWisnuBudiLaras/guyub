@@ -1,4 +1,4 @@
-import 'package:cloud_functions/cloud_functions.dart';
+import '../../../core/network/callable_client.dart';
 
 import '../application/resident_proposal_boundary.dart';
 
@@ -11,21 +11,20 @@ typedef ResidentProposalCallableInvoker = Future<Object?> Function(
 /// Callable-only proposal boundary. Residents never write Firestore directly.
 final class FirebaseResidentProposalBoundary
     implements ResidentProposalBoundary {
-  const FirebaseResidentProposalBoundary(this.functions) : _invoker = null;
+  const FirebaseResidentProposalBoundary(this.client) : _invoker = null;
 
   const FirebaseResidentProposalBoundary.withInvoker(this._invoker)
-    : functions = null;
+    : client = null;
 
-  final FirebaseFunctions? functions;
+  final CallableClient? client;
   final ResidentProposalCallableInvoker? _invoker;
 
   Future<Object?> _call(String name, Map<String, Object?> data) async {
     final invoker = _invoker;
     if (invoker != null) return invoker(name, data);
-    final functions = this.functions;
-    if (functions == null) throw StateError('Callable client unavailable.');
-    final result = await functions.httpsCallable(name).call(data);
-    return result.data;
+    final client = this.client;
+    if (client == null) throw StateError('Callable client unavailable.');
+    return client.call(name, data);
   }
 
   @override

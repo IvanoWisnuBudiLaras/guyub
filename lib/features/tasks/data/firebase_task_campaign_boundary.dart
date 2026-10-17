@@ -1,9 +1,9 @@
-import 'package:cloud_functions/cloud_functions.dart';
+import '../../../core/network/callable_client.dart';
 
 import '../application/task_campaign_boundary.dart';
 import '../application/task_template.dart';
 
-/// Callable Functions adapter; task authorization and persistence stay server-side.
+/// Callable adapter; task authorization and persistence stay server-side.
 typedef TaskCampaignCallableInvoker = Future<Object?> Function(
   String name,
   Map<String, Object?> data,
@@ -15,21 +15,19 @@ final class FirebaseTaskCampaignBoundary
         TaskCampaignManagementBoundary,
         TaskCampaignHistoryBoundary,
         TaskCampaignLifecycleBoundary {
-  const FirebaseTaskCampaignBoundary(this.functions) : _invoker = null;
+  const FirebaseTaskCampaignBoundary(this.client) : _invoker = null;
 
-  const FirebaseTaskCampaignBoundary.withInvoker(this._invoker)
-    : functions = null;
+  const FirebaseTaskCampaignBoundary.withInvoker(this._invoker) : client = null;
 
-  final FirebaseFunctions? functions;
+  final CallableClient? client;
   final TaskCampaignCallableInvoker? _invoker;
 
   Future<Object?> _call(String name, Map<String, Object?> data) async {
     final invoker = _invoker;
     if (invoker != null) return invoker(name, data);
-    final functions = this.functions;
-    if (functions == null) throw StateError('Callable client unavailable.');
-    final result = await functions.httpsCallable(name).call(data);
-    return result.data;
+    final client = this.client;
+    if (client == null) throw StateError('Callable client unavailable.');
+    return client.call(name, data);
   }
 
   @override

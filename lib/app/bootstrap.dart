@@ -11,6 +11,7 @@ import '../core/config/app_config.dart';
 import '../core/config/app_environment.dart';
 import '../core/connectivity/network_connectivity_boundary.dart';
 import '../core/database/local_store.dart';
+import '../core/network/firebase_callable_client.dart';
 import '../core/database/shared_prefs_local_store.dart';
 import '../features/auth/application/operator_auth_boundary.dart';
 import '../features/auth/application/resident_session_controller.dart';
@@ -174,19 +175,22 @@ Future<void> bootstrap(AppConfig config) async {
             config.functionsPort,
           );
         }
+        // One client for every callable boundary, so swapping the backend
+        // transport is a change here and nowhere else.
+        final callables = FirebaseCallableClient(functions);
         emergencyDirectoryBoundary = FirebaseEmergencyDirectoryBoundary(
-          functions,
+          callables,
         );
-        weatherSnapshotBoundary = FirebaseWeatherSnapshotBoundary(functions);
+        weatherSnapshotBoundary = FirebaseWeatherSnapshotBoundary(callables);
         weatherSuggestionBoundary = FirebaseWeatherSuggestionBoundary(
-          functions,
+          callables,
         );
         residentSessionController = ResidentSessionController(
-          boundary: FirebaseResidentSessionBoundary(functions),
+          boundary: FirebaseResidentSessionBoundary(callables),
           vault: residentVault,
         );
-        taskCampaignBoundary = FirebaseTaskCampaignBoundary(functions);
-        final assistanceBoundary = FirebaseProxyResidentBoundary(functions);
+        taskCampaignBoundary = FirebaseTaskCampaignBoundary(callables);
+        final assistanceBoundary = FirebaseProxyResidentBoundary(callables);
         proxyResidentController = ProxyResidentController(
           assistanceBoundary,
           createRequestStore: FlutterSecureProxyCreateRequestStore(),
@@ -195,14 +199,14 @@ Future<void> bootstrap(AppConfig config) async {
           boundary: assistanceBoundary,
           readSessionToken: residentVault.read,
         );
-        final responseBoundary = FirebaseTaskResponseBoundary(functions);
+        final responseBoundary = FirebaseTaskResponseBoundary(callables);
         taskResponseController = TaskResponseController(
           boundary: responseBoundary,
           evidenceBoundary: responseBoundary,
           vault: residentVault,
           offlineStore: taskOfflineStore,
         );
-        final proposalBoundary = FirebaseResidentProposalBoundary(functions);
+        final proposalBoundary = FirebaseResidentProposalBoundary(callables);
         residentProposalController = ResidentProposalController(
           boundary: proposalBoundary,
           vault: residentVault,
@@ -211,12 +215,17 @@ Future<void> bootstrap(AppConfig config) async {
         proposalReviewController = ResidentProposalReviewController(
           boundary: proposalBoundary,
         );
-        if (localStore != null) {
+        // FCM is skipped against the emulator. Firebase Installations cannot
+        // reach Google with a dummy key, and its failure retry loop is what
+        // makes the app hang on the splash screen; messaging has no emulator
+        // equivalent to talk to anyway. Task access is unaffected: it is
+        // pull-based and every other boundary still loads.
+        if (localStore != null && !useEmulator) {
           try {
             taskPushNotificationsController = TaskPushNotificationsController(
               boundary: FirebaseTaskPushNotificationsBoundary(
                 messaging: FirebaseMessaging.instance,
-                functions: functions,
+                client: callables,
               ),
               preferences: LocalTaskPushPreferenceStore(localStore),
               deviceTokens: FlutterSecureTaskPushDeviceTokenStore(),
@@ -273,15 +282,29 @@ Future<void> bootstrap(AppConfig config) async {
   );
 }
 
+/// Firebase options for the local emulator.
+///
+/// Self-contained on purpose: the emulator needs no production configuration.
+/// Reading `DefaultFirebaseOptions.currentPlatform` here would require
+/// `--dart-define=FIREBASE_*` at build time, which made the documented local
+/// workflow (`flutter run -t lib/main_dev.dart`, no defines) fail closed with
+/// "Akses warga belum tersedia" instead of reaching the emulator.
 FirebaseOptions _developmentEmulatorOptions() {
-  // Di branch ini firebase_options.dart membaca nilai dari --dart-define.
-  // Untuk mode emulator, semua nilai di-mock langsung agar tidak butuh dart-define.
-  // API key harus cocok format Firebase Android SDK (^AIza[\w-]{35}$).
+  // Must match the `--project` the emulator suite runs with, because callable
+  // URLs are built from the project id.
+  const projectId = String.fromEnvironment(
+    'EMULATOR_PROJECT_ID',
+    defaultValue: 'demo-guyub-development',
+  );
   return const FirebaseOptions(
-    apiKey: 'AIzaSyGuyubDevelopmentMockApiKey0000000',
+    // Format-valid but fake: the Functions and Auth SDKs reject a placeholder
+    // ("Please set a valid API key") before they ever look at the emulator, and
+    // the emulator accepts any correctly shaped value. Not a credential — it
+    // never leaves the device, since every service is pointed at 10.0.2.2.
+    apiKey: 'AIzaSyD00000000000000000000000000000000',
     appId: '1:000000000000:android:0000000000000000000000',
     messagingSenderId: '000000000000',
-    projectId: 'demo-guyub-development',
+    projectId: projectId,
   );
 }
 

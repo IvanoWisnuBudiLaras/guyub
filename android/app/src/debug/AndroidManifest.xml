@@ -4,10 +4,7 @@
          to allow setting breakpoints, to provide hot reload, etc.
     -->
     <uses-permission android:name="android.permission.INTERNET"/>
-    <!--
-      Izinkan cleartext HTTP ke Firebase emulator host (10.0.2.2).
-      Diperlukan agar Firebase Auth/Firestore emulator dapat diakses dari Android emulator.
-    -->
-    <application
-        android:networkSecurityConfig="@xml/network_security_config"/>
+    <!-- Allows cleartext HTTP to the Firebase emulator on the host. Debug-only:
+         the main manifest keeps cleartext blocked for release builds. -->
+    <application android:networkSecurityConfig="@xml/network_security_config" />
 </manifest>
