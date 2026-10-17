@@ -100,7 +100,7 @@ class TaskCard extends StatelessWidget {
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: urgencyColor.withOpacity(0.1),
+                          color: urgencyColor.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
@@ -169,7 +169,7 @@ class TaskCard extends StatelessWidget {
             decoration: BoxDecoration(
               border: Border(
                 top: BorderSide(
-                  color: context.appColors.border.withOpacity(0.5),
+                  color: context.appColors.border.withValues(alpha: 0.5),
                 ),
               ),
             ),
@@ -211,7 +211,7 @@ class TaskCard extends StatelessWidget {
                   Container(
                     width: 1,
                     height: 44,
-                    color: context.appColors.border.withOpacity(0.5),
+                    color: context.appColors.border.withValues(alpha: 0.5),
                   ),
                 ],
                 // Tombol Detail selalu ada

@@ -382,7 +382,7 @@ final class _ResidentSessionHomeScreenState
           end: Alignment.bottomRight,
           colors: [
             context.appColors.primary,
-            context.appColors.primary.withOpacity(0.85),
+            context.appColors.primary.withValues(alpha: 0.85),
           ],
         ),
       ),
@@ -395,9 +395,9 @@ final class _ResidentSessionHomeScreenState
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
+                color: Colors.white.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.white.withOpacity(0.3)),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
               ),
               child: Text(
                 'Warga • ${session.rtLabel}',
@@ -413,14 +413,14 @@ final class _ResidentSessionHomeScreenState
               children: [
                 Icon(
                   Icons.calendar_today_outlined,
-                  color: Colors.white.withOpacity(0.9),
+                  color: Colors.white.withValues(alpha: 0.9),
                   size: 16,
                 ),
                 const SizedBox(width: 8),
                 Text(
                   _formatTodayDate(),
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Colors.white.withOpacity(0.9),
+                    color: Colors.white.withValues(alpha: 0.9),
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -438,7 +438,7 @@ final class _ResidentSessionHomeScreenState
             Text(
               session.communityName,
               style: Theme.of(context).textTheme.bodyMedium
-                  ?.copyWith(color: Colors.white.withOpacity(0.9)),
+                  ?.copyWith(color: Colors.white.withValues(alpha: 0.9)),
             ),
           ],
         ),
@@ -450,9 +450,9 @@ final class _ResidentSessionHomeScreenState
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: context.appColors.warning.withOpacity(0.1),
+        color: context.appColors.warning.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: context.appColors.warning.withOpacity(0.3)),
+        border: Border.all(color: context.appColors.warning.withValues(alpha: 0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

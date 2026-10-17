@@ -159,10 +159,10 @@ final class _EmergencyDirectoryScreenState
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: Theme.of(context).colorScheme.errorContainer
-                      .withOpacity(0.3),
+                      .withValues(alpha: 0.3),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: Theme.of(context).colorScheme.error.withOpacity(0.3),
+                    color: Theme.of(context).colorScheme.error.withValues(alpha: 0.3),
                     width: 1,
                   ),
                 ),
@@ -211,12 +211,12 @@ final class _StatusCard extends StatelessWidget {
       message = 'Versi direktori berbeda. Data tersimpan sebelumnya tetap ditampilkan.';
       icon = Icons.warning_amber_outlined;
       backgroundColor = Theme.of(context).colorScheme.errorContainer
-          .withOpacity(0.5);
+          .withValues(alpha: 0.5);
     } else if (state.hasConflict) {
       message = 'Data direktori tidak konsisten dan tidak dapat ditampilkan. Coba perbarui lagi.';
       icon = Icons.warning_amber_outlined;
       backgroundColor = Theme.of(context).colorScheme.errorContainer
-          .withOpacity(0.5);
+          .withValues(alpha: 0.5);
     } else if (state.isOffline) {
       message =
           'Mode offline • menampilkan direktori yang tersimpan di perangkat.';
@@ -230,7 +230,7 @@ final class _StatusCard extends StatelessWidget {
       message = 'Direktori tersinkron.';
       icon = Icons.cloud_done_outlined;
       backgroundColor = Theme.of(context).colorScheme.primaryContainer
-          .withOpacity(0.3);
+          .withValues(alpha: 0.3);
     } else if (state.status == EmergencyDirectoryViewStatus.disabled) {
       message = 'Direktori darurat untuk wilayah ini sedang dinonaktifkan.';
       icon = Icons.info_outline;

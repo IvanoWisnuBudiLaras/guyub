@@ -72,7 +72,7 @@ class TaskListTab extends StatelessWidget {
               Icon(
                 Icons.check_circle_outline,
                 size: 64,
-                color: context.appColors.textSecondary.withOpacity(0.5),
+                color: context.appColors.textSecondary.withValues(alpha: 0.5),
               ),
               const SizedBox(height: 16),
               Text(

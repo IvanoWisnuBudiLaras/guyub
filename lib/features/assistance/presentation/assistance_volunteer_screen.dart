@@ -177,8 +177,7 @@ final class _AssistanceVolunteerScreenState
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.errorContainer
-                        .withOpacity(0.5),
+                    color: Theme.of(context).colorScheme.errorContainer,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Row(
@@ -186,7 +185,7 @@ final class _AssistanceVolunteerScreenState
                     children: [
                       Icon(
                         Icons.warning_amber_rounded,
-                        color: Theme.of(context).colorScheme.error,
+                        color: Theme.of(context).colorScheme.onErrorContainer,
                         size: 20,
                       ),
                       const SizedBox(width: 8),
@@ -217,7 +216,7 @@ final class _AssistanceVolunteerScreenState
               color: Theme.of(context).colorScheme.surfaceContainerHighest,
               borderRadius: BorderRadius.circular(8),
               border: Border.all(
-                color: Theme.of(context).colorScheme.outline.withOpacity(0.5),
+                color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.5),
               ),
             ),
             child: Row(
@@ -354,7 +353,7 @@ final class _AssistanceVolunteerScreenState
                     Icons.inbox_outlined,
                     size: 48,
                     color: Theme.of(context).colorScheme.onSurfaceVariant
-                        .withOpacity(0.5),
+                        .withValues(alpha: 0.5),
                   ),
                   const SizedBox(height: 16),
                   Text(

@@ -163,8 +163,8 @@ class _RoleCard extends StatelessWidget {
                 height: isCompact ? 48 : 56,
                 decoration: BoxDecoration(
                   color: isPrimary
-                      ? Colors.white.withOpacity(0.2)
-                      : colors.primary.withOpacity(0.1),
+                      ? Colors.white.withValues(alpha: 0.2)
+                      : colors.primary.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(
@@ -189,7 +189,7 @@ class _RoleCard extends StatelessWidget {
                 description,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: isPrimary
-                      ? Colors.white.withOpacity(0.9)
+                      ? Colors.white.withValues(alpha: 0.9)
                       : colors.textSecondary,
                   fontSize: isCompact ? 13 : null,
                 ),

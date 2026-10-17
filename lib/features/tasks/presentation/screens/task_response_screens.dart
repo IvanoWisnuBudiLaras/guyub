@@ -806,10 +806,10 @@ final class _ResidentTaskDetailScreenState
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: context.appColors.warning.withOpacity(0.05),
+              color: context.appColors.warning.withValues(alpha: 0.05),
               borderRadius: BorderRadius.circular(8),
               border: Border.all(
-                color: context.appColors.warning.withOpacity(0.3),
+                color: context.appColors.warning.withValues(alpha: 0.3),
               ),
             ),
             child: Row(
@@ -876,7 +876,7 @@ final class _ResidentTaskDetailScreenState
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: context.appColors.success.withOpacity(0.1),
+                color: context.appColors.success.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Row(
@@ -957,7 +957,7 @@ final class _ResidentTaskDetailScreenState
           // Voluntary participation notice - compact
           Card(
             elevation: 0,
-            color: context.appColors.primary.withOpacity(0.05),
+            color: context.appColors.primary.withValues(alpha: 0.05),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
               side: BorderSide(color: context.appColors.border),
@@ -1009,7 +1009,7 @@ final class _ResidentTaskDetailScreenState
     if (_task.participation == ParticipationState.declined) {
       return Card(
         elevation: 0,
-        color: context.appColors.textSecondary.withOpacity(0.05),
+        color: context.appColors.textSecondary.withValues(alpha: 0.05),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
           side: BorderSide(color: context.appColors.border),
@@ -1092,7 +1092,7 @@ final class _ResidentTaskDetailScreenState
         // Info partisipasi
         Card(
           elevation: 0,
-          color: context.appColors.success.withOpacity(0.05),
+          color: context.appColors.success.withValues(alpha: 0.05),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
             side: BorderSide(color: context.appColors.border),
@@ -1201,11 +1201,11 @@ final class _ResidentTaskDetailScreenState
           const SizedBox(height: 12),
           Card(
             elevation: 0,
-            color: context.appColors.danger.withOpacity(0.05),
+            color: context.appColors.danger.withValues(alpha: 0.05),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8),
               side: BorderSide(
-                color: context.appColors.danger.withOpacity(0.3),
+                color: context.appColors.danger.withValues(alpha: 0.3),
               ),
             ),
             child: Padding(
@@ -1265,7 +1265,7 @@ class _CompletionConfirmationChecklistState
   Widget build(BuildContext context) {
     return Card(
       elevation: 0,
-      color: context.appColors.primary.withOpacity(0.05),
+      color: context.appColors.primary.withValues(alpha: 0.05),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
         side: BorderSide(color: context.appColors.border),

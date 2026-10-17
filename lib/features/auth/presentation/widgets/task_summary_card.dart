@@ -123,7 +123,7 @@ class TaskSummaryCard extends StatelessWidget {
           Icon(
             Icons.check_circle_outline,
             size: 48,
-            color: context.appColors.textSecondary.withOpacity(0.5),
+            color: context.appColors.textSecondary.withValues(alpha: 0.5),
           ),
           const SizedBox(height: 8),
           Text(
@@ -203,7 +203,7 @@ class StatItem extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
