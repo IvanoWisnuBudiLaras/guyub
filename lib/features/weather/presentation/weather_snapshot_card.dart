@@ -31,9 +31,9 @@ final class _WeatherSnapshotCardState extends State<WeatherSnapshotCard> {
   @override
   void initState() {
     super.initState();
-    _snapshotFuture = widget.store.readLastValid(
-      communityId: widget.communityId,
-    );
+    _snapshotFuture = widget.store
+        .readLastValid(communityId: widget.communityId)
+        .timeout(const Duration(seconds: 4), onTimeout: () => null);
     unawaited(_refreshAndReload());
   }
 
@@ -43,9 +43,9 @@ final class _WeatherSnapshotCardState extends State<WeatherSnapshotCard> {
     if (oldWidget.store != widget.store ||
         oldWidget.communityId != widget.communityId ||
         oldWidget.onRefresh != widget.onRefresh) {
-      _snapshotFuture = widget.store.readLastValid(
-        communityId: widget.communityId,
-      );
+      _snapshotFuture = widget.store
+          .readLastValid(communityId: widget.communityId)
+          .timeout(const Duration(seconds: 4), onTimeout: () => null);
       unawaited(_refreshAndReload());
     }
   }
@@ -55,15 +55,15 @@ final class _WeatherSnapshotCardState extends State<WeatherSnapshotCard> {
     if (refresh == null) return;
     try {
       // The existing cache is read first and remains visible if the network fails.
-      await refresh();
+      await refresh().timeout(const Duration(seconds: 4), onTimeout: () {});
     } catch (_) {
       // A failed fetch must not erase or hide the last valid cached snapshot.
     }
     if (!mounted) return;
     setState(() {
-      _snapshotFuture = widget.store.readLastValid(
-        communityId: widget.communityId,
-      );
+      _snapshotFuture = widget.store
+          .readLastValid(communityId: widget.communityId)
+          .timeout(const Duration(seconds: 4), onTimeout: () => null);
     });
   }
 

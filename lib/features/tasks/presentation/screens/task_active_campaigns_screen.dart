@@ -15,12 +15,14 @@ final class TaskActiveCampaignsScreen extends StatefulWidget {
     required this.profile,
     required this.controller,
     this.initialTaskId,
+    this.showAppBar = true,
     super.key,
   });
 
   final OperatorProfile profile;
   final TaskCampaignController controller;
   final String? initialTaskId;
+  final bool showAppBar;
 
   @override
   State<TaskActiveCampaignsScreen> createState() =>
@@ -173,17 +175,28 @@ final class _TaskActiveCampaignsScreenState
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(
-      title: const Text('Tugas Aktif RT'),
-      actions: [
-        IconButton(
-          key: const Key('active-task-reload'),
-          tooltip: 'Muat ulang tugas aktif',
-          onPressed: _isActing ? null : () => _reload(),
-          icon: const Icon(Icons.refresh),
-        ),
-      ],
-    ),
+    appBar: widget.showAppBar
+        ? AppBar(
+            title: const Text('Tugas Aktif RT'),
+            actions: [
+              IconButton(
+                key: const Key('active-task-to-history'),
+                tooltip: 'Riwayat Tugas',
+                onPressed: () => Navigator.of(context).pushNamed(
+                  '/operator/tasks/history',
+                  arguments: widget.profile,
+                ),
+                icon: const Icon(Icons.history),
+              ),
+              IconButton(
+                key: const Key('active-task-reload'),
+                tooltip: 'Muat ulang tugas aktif',
+                onPressed: _isActing ? null : () => _reload(),
+                icon: const Icon(Icons.refresh),
+              ),
+            ],
+          )
+        : null,
     body: FutureBuilder<List<ActiveTaskCampaignRecord>>(
       future: _campaignsFuture,
       builder: (context, snapshot) {
@@ -203,9 +216,29 @@ final class _TaskActiveCampaignsScreenState
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.all(16),
             children: [
-              Text(
-                '${widget.profile.role.label} · RT ${widget.profile.communityId}',
-                style: Theme.of(context).textTheme.labelLarge,
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      '${widget.profile.role.label} · RT ${widget.profile.communityId}',
+                      style: Theme.of(context).textTheme.labelLarge,
+                    ),
+                  ),
+                  OutlinedButton.icon(
+                    key: const Key('active-task-history-btn'),
+                    onPressed: () => Navigator.of(context).pushNamed(
+                      '/operator/tasks/history',
+                      arguments: widget.profile,
+                    ),
+                    icon: const Icon(Icons.history, size: 18),
+                    label: const Text('Riwayat'),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      minimumSize: const Size(0, 36),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 8),
               Text(

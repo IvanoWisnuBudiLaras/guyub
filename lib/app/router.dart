@@ -110,6 +110,7 @@ final class AppRouter {
               weatherSuggestionBoundary: weatherSuggestionBoundary,
               weatherSnapshotStore: weatherSnapshotStore,
               weatherSnapshotSyncController: weatherSnapshotSyncController,
+              emergencyDirectoryController: emergencyDirectoryController,
             );
             if (taskPushNotificationsController == null ||
                 profile.role != OperatorRole.pendampingRt) {

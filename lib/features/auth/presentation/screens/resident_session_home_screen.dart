@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/indonesian_date_formatter.dart';
+import '../../../../core/widgets/guyub_bottom_nav_bar.dart';
 import '../../application/resident_session.dart';
 import '../../application/resident_session_controller.dart';
 import '../../../assistance/application/assistance_volunteer_boundary.dart';
@@ -712,37 +713,9 @@ final class _ResidentSessionHomeScreenState
   }
 
   Widget _buildBottomNavigation(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        border: Border(top: BorderSide(color: context.appColors.border)),
-      ),
-      child: BottomNavigationBar(
-        currentIndex: _selectedTabIndex,
-        onTap: (index) => setState(() => _selectedTabIndex = index),
-        selectedItemColor: context.appColors.primary,
-        unselectedItemColor: context.appColors.textSecondary,
-        selectedFontSize: 12,
-        unselectedFontSize: 12,
-        type: BottomNavigationBarType.fixed,
-        elevation: 0,
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home_outlined),
-            activeIcon: Icon(Icons.home),
-            label: 'Beranda',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.checklist_outlined),
-            activeIcon: Icon(Icons.checklist),
-            label: 'Tugas',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.health_and_safety_outlined),
-            activeIcon: Icon(Icons.health_and_safety),
-            label: 'Darurat',
-          ),
-        ],
-      ),
+    return GuyubBottomNavBar(
+      currentIndex: _selectedTabIndex,
+      onTap: (index) => setState(() => _selectedTabIndex = index),
     );
   }
 

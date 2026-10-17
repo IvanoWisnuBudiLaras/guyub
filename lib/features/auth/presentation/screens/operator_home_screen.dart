@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/indonesian_date_formatter.dart';
+import '../../../../core/widgets/guyub_bottom_nav_bar.dart';
 import '../../../../core/widgets/inline_action_button.dart';
 import '../../../../core/widgets/section_card.dart';
 import '../../../../core/widgets/task_category_presentation.dart';
@@ -11,11 +12,14 @@ import '../../../../core/widgets/tinted_info_box.dart';
 import '../../application/operator_auth_boundary.dart';
 import '../../application/operator_profile.dart';
 import '../../../assistance/application/proxy_resident_boundary.dart';
+import '../../../emergency/application/emergency_directory_controller.dart';
+import '../../../emergency/presentation/emergency_directory_screen.dart';
 import '../../../notifications/application/task_push_notifications.dart';
 import '../../../notifications/presentation/task_push_opt_in_card.dart';
 import '../../../proposals/application/resident_proposal_boundary.dart';
 import '../../../tasks/application/task_campaign_boundary.dart';
 import '../../../tasks/application/task_response_boundary.dart';
+import '../../../tasks/presentation/screens/task_active_campaigns_screen.dart';
 import '../../../weather/application/weather_snapshot_boundary.dart';
 import '../../../weather/application/weather_snapshot_store.dart';
 import '../../../weather/application/weather_suggestion.dart';
@@ -37,6 +41,7 @@ final class OperatorHomeScreen extends StatefulWidget {
     this.weatherSuggestionBoundary,
     this.weatherSnapshotStore,
     this.weatherSnapshotSyncController,
+    this.emergencyDirectoryController,
     super.key,
   });
 
@@ -50,12 +55,14 @@ final class OperatorHomeScreen extends StatefulWidget {
   final WeatherSuggestionBoundary? weatherSuggestionBoundary;
   final WeatherSnapshotStore? weatherSnapshotStore;
   final WeatherSnapshotSyncController? weatherSnapshotSyncController;
+  final EmergencyDirectoryController? emergencyDirectoryController;
 
   @override
   State<OperatorHomeScreen> createState() => _OperatorHomeScreenState();
 }
 
 final class _OperatorHomeScreenState extends State<OperatorHomeScreen> {
+  int _selectedTabIndex = 0;
   List<ActiveTaskCampaignRecord> _activeTasks = const [];
   bool _activeTasksLoadFailed = false;
   int? _pendingVerificationsCount;
@@ -144,18 +151,28 @@ final class _OperatorHomeScreenState extends State<OperatorHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.appColors;
     final profile = widget.profile;
-    final hasCampaignBoundary = widget.taskCampaignBoundary != null;
-    final isManagement =
-        widget.taskCampaignBoundary is TaskCampaignManagementBoundary;
-    final isHistory =
-        widget.taskCampaignBoundary is TaskCampaignHistoryBoundary;
+
+    final String appBarTitle = switch (_selectedTabIndex) {
+      1 => 'Tugas Aktif RT',
+      2 => 'Informasi Darurat',
+      _ => 'Ruang Operator',
+    };
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Ruang Operator'),
+        title: Text(appBarTitle),
         actions: [
+          if (_selectedTabIndex == 1)
+            IconButton(
+              key: const Key('operator-appbar-history'),
+              tooltip: 'Riwayat Tugas',
+              onPressed: () => Navigator.of(context).pushNamed(
+                '/operator/tasks/history',
+                arguments: profile,
+              ),
+              icon: const Icon(Icons.history),
+            ),
           IconButton(
             key: const Key('operator-sign-out'),
             tooltip: 'Keluar',
@@ -173,17 +190,41 @@ final class _OperatorHomeScreenState extends State<OperatorHomeScreen> {
           ),
         ],
       ),
-      body: RefreshIndicator(
-        onRefresh: () async {
-          await _loadDashboardData();
-          await _refreshWeather();
-        },
-        child: ListView(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          children: [
-            // 1. Header Operator
-            _buildOperatorHeader(context),
-            const SizedBox(height: 10),
+      body: IndexedStack(
+        index: _selectedTabIndex,
+        children: [
+          _buildBerandaTab(context),
+          _buildTugasTab(context),
+          _buildDaruratTab(context),
+        ],
+      ),
+      bottomNavigationBar: GuyubBottomNavBar(
+        currentIndex: _selectedTabIndex,
+        onTap: (index) => setState(() => _selectedTabIndex = index),
+      ),
+    );
+  }
+
+  Widget _buildBerandaTab(BuildContext context) {
+    final colors = context.appColors;
+    final profile = widget.profile;
+    final hasCampaignBoundary = widget.taskCampaignBoundary != null;
+    final isManagement =
+        widget.taskCampaignBoundary is TaskCampaignManagementBoundary;
+    final isHistory =
+        widget.taskCampaignBoundary is TaskCampaignHistoryBoundary;
+
+    return RefreshIndicator(
+      onRefresh: () async {
+        await _loadDashboardData();
+        await _refreshWeather();
+      },
+      child: ListView(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        children: [
+          // 1. Header Operator
+          _buildOperatorHeader(context),
+          const SizedBox(height: 10),
 
             // 2. Pendamping Push Opt-in (if applicable)
             if (profile.role == OperatorRole.pendampingRt &&
@@ -281,7 +322,7 @@ final class _OperatorHomeScreenState extends State<OperatorHomeScreen> {
                     '$_vulnerableResidentsCount warga rentan tercatat memerlukan '
                     'pendampingan evakuasi / persiapan.',
                 action: InlineActionButton(
-                  variant: InlineActionButtonVariant.tonal,
+                  variant: InlineActionButtonVariant.outlined,
                   onPressed: () => Navigator.of(context)
                       .pushNamed('/operator/assistance', arguments: profile),
                   label: 'Lihat Warga',
@@ -290,21 +331,20 @@ final class _OperatorHomeScreenState extends State<OperatorHomeScreen> {
               const SizedBox(height: 10),
             ],
 
-            // 8. Banner Verifikasi Tertunda
+            // 8. Banner Verifikasi Tertunda (hanya jumlah + link ke antrean)
             if ((_pendingVerificationsCount ?? 0) > 0 &&
                 widget.taskResponseController != null) ...[
               TintedInfoBox.info(
-                title: 'Verifikasi Menunggu Tindakan',
+                title: 'Antrean Verifikasi',
                 text:
-                    '$_pendingVerificationsCount laporan penyelesaian tugas warga '
-                    'menunggu verifikasi resmi Anda.',
+                    '$_pendingVerificationsCount laporan tugas warga menunggu verifikasi.',
                 action: InlineActionButton(
-                  variant: InlineActionButtonVariant.filled,
+                  variant: InlineActionButtonVariant.outlined,
                   onPressed: () => Navigator.of(context).pushNamed(
                     '/operator/tasks/verification',
                     arguments: profile,
                   ),
-                  label: 'Verifikasi',
+                  label: 'Buka Antrean',
                 ),
               ),
               const SizedBox(height: 10),
@@ -431,8 +471,7 @@ final class _OperatorHomeScreenState extends State<OperatorHomeScreen> {
             const SizedBox(height: 12),
           ],
         ),
-      ),
-    );
+      );
   }
 
   Widget _buildOperatorHeader(BuildContext context) {
@@ -500,7 +539,7 @@ final class _OperatorHomeScreenState extends State<OperatorHomeScreen> {
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
-                  'RT ${profile.communityId}',
+                  profile.humanizedCommunityName,
                   style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.w600,
@@ -623,6 +662,69 @@ final class _OperatorHomeScreenState extends State<OperatorHomeScreen> {
           ),
         ],
       ],
+    );
+  }
+
+  Widget _buildTugasTab(BuildContext context) {
+    final campaignBoundary = widget.taskCampaignBoundary;
+    if (campaignBoundary is! TaskCampaignManagementBoundary) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.checklist,
+                size: 64,
+                color: context.appColors.textSecondary,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Layanan Tugas Belum Terhubung',
+                style: Theme.of(context).textTheme.titleLarge,
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    return TaskActiveCampaignsScreen(
+      profile: widget.profile,
+      controller: TaskCampaignController(campaignBoundary!),
+      showAppBar: false,
+    );
+  }
+
+  Widget _buildDaruratTab(BuildContext context) {
+    final directoryController = widget.emergencyDirectoryController;
+    if (directoryController == null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.health_and_safety_outlined,
+                size: 64,
+                color: context.appColors.textSecondary,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Layanan Darurat Belum Terhubung',
+                style: Theme.of(context).textTheme.titleLarge,
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    return EmergencyDirectoryScreen(
+      controller: directoryController,
+      showAppBar: false,
     );
   }
 }
