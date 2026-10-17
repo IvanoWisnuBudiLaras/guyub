@@ -432,6 +432,12 @@ final class _ProxyResidentScreenState extends State<ProxyResidentScreen> {
                 OutlinedButton(
                   key: const Key('proxy-resident-retry'),
                   onPressed: _reload,
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 12,
+                    ),
+                  ),
                   child: const Text('Coba lagi'),
                 ),
               ],

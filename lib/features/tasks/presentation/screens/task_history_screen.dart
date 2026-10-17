@@ -121,6 +121,12 @@ final class _TaskHistoryScreenState extends State<TaskHistoryScreen> {
                   OutlinedButton(
                     key: const Key('task-history-retry'),
                     onPressed: _refresh,
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 12,
+                      ),
+                    ),
                     child: const Text('Coba Lagi'),
                   ),
                 ],

@@ -434,6 +434,12 @@ final class _LoadFailure extends StatelessWidget {
             OutlinedButton(
               key: const Key('active-task-retry'),
               onPressed: onRetry,
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 12,
+                ),
+              ),
               child: const Text('Coba lagi'),
             ),
           ],

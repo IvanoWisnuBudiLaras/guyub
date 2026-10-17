@@ -56,6 +56,7 @@ final class OperatorHomeScreen extends StatefulWidget {
 
 final class _OperatorHomeScreenState extends State<OperatorHomeScreen> {
   List<ActiveTaskCampaignRecord> _activeTasks = const [];
+  bool _activeTasksLoadFailed = false;
   int? _pendingVerificationsCount;
   int? _vulnerableResidentsCount;
   List<WeatherSuggestion> _weatherSuggestions = const [];
@@ -74,9 +75,18 @@ final class _OperatorHomeScreenState extends State<OperatorHomeScreen> {
       try {
         final tasks = await (campaignBoundary as TaskCampaignManagementBoundary)
             .listActiveTaskCampaigns();
-        if (mounted) setState(() => _activeTasks = tasks);
+        if (mounted) {
+          setState(() {
+            _activeTasks = tasks;
+            _activeTasksLoadFailed = false;
+          });
+        }
       } catch (_) {
-        // Safe fail-closed
+        if (mounted) {
+          setState(() {
+            _activeTasksLoadFailed = true;
+          });
+        }
       }
     }
 
@@ -264,7 +274,9 @@ final class _OperatorHomeScreenState extends State<OperatorHomeScreen> {
             // 6. Kartu Metrik Kesiapan RT
             if (hasCampaignBoundary) ...[
               OperatorMetricsCard(
-                activeTasksCount: isManagement ? _activeTasks.length : null,
+                activeTasksCount: _activeTasksLoadFailed
+                    ? null
+                    : (isManagement ? _activeTasks.length : null),
                 pendingVerificationsCount: _pendingVerificationsCount,
                 vulnerableResidentsCount: _vulnerableResidentsCount,
                 onActiveTasksTap: isManagement
@@ -324,8 +336,61 @@ final class _OperatorHomeScreenState extends State<OperatorHomeScreen> {
               const SizedBox(height: 10),
             ],
 
-            // 9. Pratinjau Tugas Aktif Berjalan (hanya jika ada tugas aktif)
-            if (isManagement && _activeTasks.isNotEmpty) ...[
+            // 9. Error Card atau Pratinjau Tugas Aktif
+            if (isManagement && _activeTasksLoadFailed) ...[
+              Container(
+                key: const Key('operator-active-tasks-error-card'),
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: colors.danger.withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.error_outline,
+                          color: colors.danger,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Gagal Memuat Tugas Aktif',
+                            style: Theme.of(context).textTheme.titleSmall
+                                ?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                  color: colors.danger,
+                                ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Daftar tugas aktif RT belum dapat dimuat dari server. '
+                      'Periksa koneksi internet Anda.',
+                      style: Theme.of(context).textTheme.bodySmall
+                          ?.copyWith(color: colors.textSecondary),
+                    ),
+                    const SizedBox(height: 10),
+                    InlineActionButton(
+                      key: const Key('operator-active-tasks-retry-button'),
+                      variant: InlineActionButtonVariant.outlined,
+                      icon: Icons.refresh,
+                      label: 'Coba Lagi',
+                      onPressed: () => _loadDashboardData(),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 10),
+            ] else if (isManagement && _activeTasks.isNotEmpty) ...[
               _buildActiveTasksPreview(context),
               const SizedBox(height: 10),
             ],

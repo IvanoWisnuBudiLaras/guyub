@@ -122,7 +122,7 @@ async function main() {
   await seedFirestoreDoc(`emergency_directories/${RT_ID}`, {
     rtId: RT_ID,
     state: 'ACTIVE',
-    version: 1,
+    version: 2, // Versi 2 agar cache perangkat memperbarui data dari versi 1 tanpa memicu konflik
     lastVerifiedAt: now,
     emergencyContacts: [
       { label: 'Call Center Darurat Tulungagung', phone: '112' },
@@ -199,6 +199,16 @@ async function main() {
     safetyInstruction: 'Utamakan keselamatan diri. Jangan menyentuh peralatan listrik yang basah atau terendam air.',
     estimatedDurationMinutes: 30,
   };
+  const templateFingerprint = crypto.createHash('sha256').update(JSON.stringify([
+    templateSnapshot.templateId,
+    templateSnapshot.version,
+    templateSnapshot.title,
+    templateSnapshot.category,
+    templateSnapshot.coreInstruction,
+    templateSnapshot.safetyInstruction,
+    templateSnapshot.estimatedDurationMinutes,
+  ]), 'utf8').digest('hex');
+
   await seedFirestoreDoc(`task_templates/${templateId}_v${templateVersion}`, {
     ...templateSnapshot,
     enabled: true,
@@ -212,12 +222,19 @@ async function main() {
     status: 'ACTIVE',
     templateId,
     templateVersion,
+    templateFingerprint,
     templateSnapshot,
     locationReference: 'HOUSEHOLD',
     activatedAt: now,
     deadline: tomorrow,
   });
   console.log(`   [✓] task_campaigns/${CAMPAIGN_ID} (Tugas Aktif) berhasil diseed`);
+
+  // Hapus dokumen campaign legacy non-hex40 jika ada
+  try {
+    const legacyUrl = `http://${FIRESTORE_HOST}/v1/projects/${PROJECT_ID}/databases/(default)/documents/task_campaigns/campaign-demo-rt01`;
+    await fetch(legacyUrl, { method: 'DELETE', headers: { Authorization: 'Bearer owner' } });
+  } catch (_) {}
 
   // 5. Uji Callable createResidentSession
   console.log('5. Menguji Callable Function sesi warga...');

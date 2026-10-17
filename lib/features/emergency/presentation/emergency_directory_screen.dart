@@ -7,6 +7,7 @@ import '../application/emergency_directory.dart';
 import '../application/emergency_directory_controller.dart';
 import '../application/emergency_directory_cache.dart';
 import '../application/national_emergency_numbers.dart';
+import '../../../core/widgets/tinted_info_box.dart';
 
 /// Offline-readable emergency directory. Pass no session to show the latest
 /// public directory saved on this device from the unauthenticated Darurat route.
@@ -185,37 +186,11 @@ final class _EmergencyDirectoryScreenState
               onLaunchUri: _openOfficialUri,
             ),
             const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.errorContainer
-                    .withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: Theme.of(context).colorScheme.error
-                      .withValues(alpha: 0.3),
-                  width: 1,
-                ),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(
-                    Icons.info_outline,
-                    color: Theme.of(context).colorScheme.error,
-                    size: 20,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      'Guyub.id tidak menggantikan layanan darurat atau pelaporan resmi.',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Theme.of(context).colorScheme.onErrorContainer,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ],
+            const TintedInfoBox(
+              tint: TintType.info,
+              icon: Icons.info_outline,
+              child: Text(
+                'Guyub.id tidak menggantikan layanan darurat atau pelaporan resmi.',
               ),
             ),
           ] else if (widget.session == null) ...[
@@ -261,15 +236,15 @@ final class _StatusCard extends StatelessWidget {
     final IconData icon;
     final Color? backgroundColor;
     if (state.hasConflict && state.snapshot != null) {
-      message = 'Versi direktori berbeda. Data tersimpan sebelumnya tetap ditampilkan.';
-      icon = Icons.warning_amber_outlined;
-      backgroundColor = Theme.of(context).colorScheme.errorContainer
-          .withValues(alpha: 0.5);
+      return TintedInfoBox.warning(
+        text: 'Versi direktori berbeda. Data tersimpan sebelumnya tetap ditampilkan.',
+        icon: Icons.warning_amber_rounded,
+      );
     } else if (state.hasConflict) {
-      message = 'Data direktori tidak konsisten dan tidak dapat ditampilkan. Coba perbarui lagi.';
-      icon = Icons.warning_amber_outlined;
-      backgroundColor = Theme.of(context).colorScheme.errorContainer
-          .withValues(alpha: 0.5);
+      return TintedInfoBox.warning(
+        text: 'Data direktori tidak konsisten dan tidak dapat ditampilkan. Coba perbarui lagi.',
+        icon: Icons.warning_amber_rounded,
+      );
     } else if (state.isOffline) {
       message =
           'Mode offline • menampilkan direktori yang tersimpan di perangkat.';

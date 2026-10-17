@@ -42,6 +42,26 @@ final class _ManagementOnlyBoundary extends _EmptyTaskBoundary
   }) => throw UnimplementedError();
 }
 
+final class _FailingTaskBoundary extends _EmptyTaskBoundary
+    implements TaskCampaignManagementBoundary {
+  int attempts = 0;
+
+  @override
+  Future<List<ActiveTaskCampaignRecord>> listActiveTaskCampaigns() async {
+    attempts++;
+    if (attempts == 1) {
+      throw Exception('Network error on listActiveTaskCampaigns');
+    }
+    return const [];
+  }
+
+  @override
+  Future<TaskCampaignCancellationRecord> cancelTaskCampaign({
+    required String taskId,
+    required String commandId,
+  }) => throw UnimplementedError();
+}
+
 final class _ActiveTaskBoundary extends _EmptyTaskBoundary
     implements TaskCampaignManagementBoundary, TaskCampaignHistoryBoundary {
   const _ActiveTaskBoundary();
@@ -183,4 +203,49 @@ void main() {
     expect(find.text('Tugas Aktif RT'), findsOneWidget);
     expect(find.byKey(const Key('active-task-empty')), findsOneWidget);
   });
+
+  testWidgets(
+    'operator home displays error card and retry button on load failure instead of 0',
+    (tester) async {
+      final boundary = _FailingTaskBoundary();
+      final profile = OperatorProfile(
+        uid: 'operator-a',
+        communityId: 'rt-01',
+        role: OperatorRole.ketuaRtRw,
+        displayName: 'Ketua RT',
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: OperatorHomeScreen(
+            profile: profile,
+            authBoundary: null,
+            taskCampaignBoundary: boundary,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Verify error card is displayed, not 0 tasks
+      expect(
+        find.byKey(const Key('operator-active-tasks-error-card')),
+        findsOneWidget,
+      );
+      expect(find.text('Gagal Memuat Tugas Aktif'), findsOneWidget);
+      expect(
+        find.byKey(const Key('operator-active-tasks-retry-button')),
+        findsOneWidget,
+      );
+
+      // Tap retry button to recover
+      await tester.tap(
+        find.byKey(const Key('operator-active-tasks-retry-button')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('operator-active-tasks-error-card')),
+        findsNothing,
+      );
+    },
+  );
 }
