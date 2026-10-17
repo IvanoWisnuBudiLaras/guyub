@@ -706,6 +706,7 @@ final class _UnauthenticatedEmergencyView extends StatelessWidget {
           icon: Icons.vpn_key_outlined,
           text:
               'Anda membuka informasi darurat tanpa sesi warga. '
+              'Belum ada direktori darurat tersimpan di perangkat ini. '
               'Untuk melihat kontak pengurus RT, titik kumpul evakuasi lingkungan, '
               'dan kanal koordinasi warga Anda, silakan masuk dengan Kode RT '
               'pada menu Masuk Warga.',
@@ -714,7 +715,7 @@ final class _UnauthenticatedEmergencyView extends StatelessWidget {
 
         // Nomor Darurat Nasional Resmi
         SectionCard(
-          title: 'Nomor Darurat Nasional Resmi',
+          title: 'Nomor darurat nasional',
           icon: Icons.shield_outlined,
           children: [
             Text(

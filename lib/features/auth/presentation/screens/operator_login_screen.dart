@@ -115,7 +115,7 @@ final class _OperatorLoginScreenState extends State<OperatorLoginScreen> {
                     autofillHints: const [AutofillHints.username],
                     decoration: const InputDecoration(
                       labelText: 'Email',
-                      hintText: 'nama@example.com',
+                      hintText: 'Email',
                       prefixIcon: Icon(Icons.email_outlined),
                       border: OutlineInputBorder(),
                     ),
@@ -132,6 +132,7 @@ final class _OperatorLoginScreenState extends State<OperatorLoginScreen> {
                     autofillHints: const [AutofillHints.password],
                     decoration: InputDecoration(
                       labelText: 'Kata sandi',
+                      hintText: 'Kata sandi',
                       prefixIcon: const Icon(Icons.lock_outline),
                       border: const OutlineInputBorder(),
                       suffixIcon: IconButton(

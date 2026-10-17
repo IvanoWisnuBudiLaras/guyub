@@ -98,6 +98,7 @@ final class _ResidentProposalScreenState extends State<ResidentProposalScreen> {
           textCapitalization: TextCapitalization.sentences,
           decoration: const InputDecoration(
             labelText: 'Judul usulan',
+            hintText: 'Judul usulan',
             border: OutlineInputBorder(),
           ),
         ),
@@ -110,6 +111,7 @@ final class _ResidentProposalScreenState extends State<ResidentProposalScreen> {
           textCapitalization: TextCapitalization.sentences,
           decoration: const InputDecoration(
             labelText: 'Penjelasan singkat',
+            hintText: 'Penjelasan singkat',
             helperText: 'Jangan masukkan NIK, nomor telepon, alamat, atau koordinat GPS.',
             helperMaxLines: 4,
             border: OutlineInputBorder(),

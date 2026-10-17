@@ -161,7 +161,7 @@ final class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                       Icons.health_and_safety_outlined,
                       size: 20,
                     ),
-                    label: const Text('Informasi Darurat'),
+                    label: const Text('Darurat'),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: context.appColors.danger,
                       side: BorderSide(color: context.appColors.danger),

@@ -430,13 +430,21 @@ final class _OperatorHomeScreenState extends State<OperatorHomeScreen> {
 
   Widget _buildOperatorHeader(BuildContext context) {
     final profile = widget.profile;
+    final hasCommunityName = profile.communityName != null &&
+        profile.communityName!.trim().isNotEmpty;
 
     return HeroHeaderCard(
-      title:
-          'Selamat Bertugas, ${profile.displayName.isNotEmpty ? profile.displayName : profile.role.label}',
+      title: hasCommunityName
+          ? profile.communityName!
+          : 'Selamat Bertugas, ${profile.displayName.isNotEmpty ? profile.displayName : profile.role.label}',
+      subtitle: hasCommunityName
+          ? 'Selamat Bertugas, ${profile.displayName.isNotEmpty ? profile.displayName : profile.role.label}'
+          : null,
       roleLabel: profile.role.label,
       roleIcon: Icons.shield_outlined,
-      communityLabel: profile.humanizedCommunityName,
+      communityLabel: hasCommunityName
+          ? 'RT ${profile.communityId}'
+          : profile.humanizedCommunityName,
       dateText: _formatTodayDate(),
     );
   }

@@ -237,7 +237,7 @@ final class _ResidentEntryScreenState extends State<ResidentEntryScreen> {
                     enableSuggestions: false,
                     decoration: const InputDecoration(
                       labelText: 'Kode RT',
-                      hintText: 'Contoh: RT001JKT',
+                      hintText: 'Kode RT',
                       prefixIcon: Icon(Icons.vpn_key_outlined),
                       border: OutlineInputBorder(),
                     ),
@@ -254,7 +254,7 @@ final class _ResidentEntryScreenState extends State<ResidentEntryScreen> {
                     maxLength: 40,
                     decoration: const InputDecoration(
                       labelText: 'Nama panggilan',
-                      hintText: 'Contoh: Budi',
+                      hintText: 'Nama panggilan',
                       prefixIcon: Icon(Icons.person_outline),
                       border: OutlineInputBorder(),
                     ),
@@ -268,7 +268,7 @@ final class _ResidentEntryScreenState extends State<ResidentEntryScreen> {
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: context.appColors.danger.withValues(alpha: 0.1),
+                          color: context.appColors.danger.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(
                           color: context.appColors.danger.withValues(
@@ -314,7 +314,7 @@ final class _ResidentEntryScreenState extends State<ResidentEntryScreen> {
                               color: Colors.white,
                             ),
                           )
-                        : const Text('Gabung'),
+                        : const Text('Masuk ke RT'),
                   ),
                   SizedBox(height: isCompact ? 16 : 24),
                   // Privacy info

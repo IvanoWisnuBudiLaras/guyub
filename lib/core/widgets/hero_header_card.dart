@@ -13,6 +13,7 @@ final class HeroHeaderCard extends StatelessWidget {
     this.roleLabel,
     this.roleIcon,
     this.communityLabel,
+    this.secondaryCommunityLabel,
     this.dateText,
     this.subtitle,
     super.key,
@@ -22,6 +23,7 @@ final class HeroHeaderCard extends StatelessWidget {
   final String? roleLabel;
   final IconData? roleIcon;
   final String? communityLabel;
+  final String? secondaryCommunityLabel;
   final String? dateText;
   final String? subtitle;
 
@@ -99,6 +101,25 @@ final class HeroHeaderCard extends StatelessWidget {
                   ),
                   child: Text(
                     community,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 11,
+                    ),
+                  ),
+                ),
+              if (secondaryCommunityLabel case final secondary?)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    secondary,
                     style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.w600,
