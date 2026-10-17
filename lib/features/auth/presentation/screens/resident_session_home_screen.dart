@@ -267,14 +267,16 @@ final class _ResidentSessionHomeScreenState
 
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: _selectedTabIndex == 0
-          ? null
-          : AppBar(
-              title: Text(
-                _selectedTabIndex == 1 ? 'Daftar Tugas' : 'Informasi Darurat',
-              ),
-              actions: _buildAppBarActions(context),
-            ),
+      appBar: AppBar(
+        title: Text(
+          _selectedTabIndex == 0
+              ? 'Guyub.id'
+              : _selectedTabIndex == 1
+                  ? 'Daftar Tugas'
+                  : 'Informasi Darurat',
+        ),
+        actions: _buildAppBarActions(context),
+      ),
       body: IndexedStack(
         index: _selectedTabIndex,
         children: [
@@ -292,6 +294,15 @@ final class _ResidentSessionHomeScreenState
 
   List<Widget> _buildAppBarActions(BuildContext context) {
     return [
+      TextButton.icon(
+        key: const Key('resident-switch-role-appbar'),
+        onPressed: () => _switchRole(context),
+        icon: const Icon(Icons.swap_horiz, color: Colors.white, size: 18),
+        label: const Text(
+          'Ganti Peran',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+        ),
+      ),
       IconButton(
         key: const Key('resident-sign-out'),
         tooltip: 'Keluar',
@@ -307,6 +318,10 @@ final class _ResidentSessionHomeScreenState
         icon: const Icon(Icons.logout),
       ),
     ];
+  }
+
+  void _switchRole(BuildContext context) {
+    Navigator.of(context).pushNamedAndRemoveUntil('/', (_) => false);
   }
 
   Widget _buildBerandaTab(BuildContext context, bool isCompact) {
@@ -354,6 +369,16 @@ final class _ResidentSessionHomeScreenState
                 // Shortcuts
                 _buildShortcuts(context, isCompact),
                 SizedBox(height: isCompact ? 12 : 16),
+                OutlinedButton.icon(
+                  key: const Key('resident-switch-role'),
+                  onPressed: () => _switchRole(context),
+                  icon: const Icon(Icons.swap_horiz),
+                  label: const Text('Ganti Peran'),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size.fromHeight(44),
+                  ),
+                ),
+                SizedBox(height: isCompact ? 8 : 12),
                 // Hapus data (hanya jika online)
                 if (!session.isOfflineSnapshot) ...[
                   TextButton.icon(
@@ -378,7 +403,7 @@ final class _ResidentSessionHomeScreenState
     return Container(
       padding: EdgeInsets.fromLTRB(
         isCompact ? 16 : 20,
-        isCompact ? 48 : 56,
+        isCompact ? 16 : 20,
         isCompact ? 16 : 20,
         isCompact ? 16 : 20,
       ),
