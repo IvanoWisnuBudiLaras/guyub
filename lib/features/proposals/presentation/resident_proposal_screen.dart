@@ -181,9 +181,10 @@ final class _ResidentProposalScreenState extends State<ResidentProposalScreen> {
                           submitted.state == 'SUBMITTED'
                               ? 'Menunggu Tinjauan RT'
                               : 'Usulan telah ditinjau RT',
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            color: Theme.of(context).colorScheme.onSurface,
-                          ),
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(
+                                color: Theme.of(context).colorScheme.onSurface,
+                              ),
                         ),
                       ),
                     ],

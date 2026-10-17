@@ -114,11 +114,17 @@ const evidenceUploadOptions = {
 
 exports.createResidentSession = onCall(callableOptions, async (request) => {
   try {
-    return await sessions.createSession({
+    const session = await sessions.createSession({
       joinCode: request.data?.joinCode,
       nickname: request.data?.nickname,
       requestId: request.data?.requestId,
     });
+    return {
+      ...session,
+      expiresAt: session?.expiresAt instanceof Date
+        ? session.expiresAt.toISOString()
+        : session?.expiresAt,
+    };
   } catch (error) {
     throw toHttpsError(error);
   }
@@ -126,7 +132,13 @@ exports.createResidentSession = onCall(callableOptions, async (request) => {
 
 exports.validateResidentSession = onCall(callableOptions, async (request) => {
   try {
-    return await sessions.validateSession(request.data?.sessionToken);
+    const session = await sessions.validateSession(request.data?.sessionToken);
+    return {
+      ...session,
+      expiresAt: session?.expiresAt instanceof Date
+        ? session.expiresAt.toISOString()
+        : session?.expiresAt,
+    };
   } catch (error) {
     throw toHttpsError(error);
   }

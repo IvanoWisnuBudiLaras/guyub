@@ -505,7 +505,8 @@ final class _ResidentTaskDetailScreenState
       }
       if (evidenceUploadFailed) {
         setState(() {
-          _uploadError = 'Foto tidak terkirim. Penyelesaian tetap dikirim tanpa foto.';
+          _uploadError =
+              'Foto tidak terkirim. Penyelesaian tetap dikirim tanpa foto.';
         });
       }
     });
@@ -651,9 +652,8 @@ final class _ResidentTaskDetailScreenState
           // Header info: RT label + offline banner
           Text(
             'Warga • ${widget.session.rtLabel}',
-            style: Theme.of(context).textTheme.labelLarge?.copyWith(
-              color: context.appColors.textSecondary,
-            ),
+            style: Theme.of(context).textTheme.labelLarge
+                ?.copyWith(color: context.appColors.textSecondary),
           ),
           if (widget.isCached) ...[
             const SizedBox(height: 8),
@@ -664,16 +664,14 @@ final class _ResidentTaskDetailScreenState
           // Title & Category
           Text(
             _task.templateSnapshot.title,
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-              fontWeight: FontWeight.w700,
-            ),
+            style: Theme.of(context).textTheme.headlineSmall
+                ?.copyWith(fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 4),
           Text(
             _task.templateSnapshot.category,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: context.appColors.textSecondary,
-            ),
+            style: Theme.of(context).textTheme.bodyMedium
+                ?.copyWith(color: context.appColors.textSecondary),
           ),
           const SizedBox(height: 12),
 
@@ -681,10 +679,16 @@ final class _ResidentTaskDetailScreenState
           Row(
             children: [
               if (_task.templateSnapshot.estimatedDurationMinutes != null) ...[
-                Icon(Icons.schedule_outlined, size: 16, color: context.appColors.textSecondary),
+                Icon(
+                  Icons.schedule_outlined,
+                  size: 16,
+                  color: context.appColors.textSecondary,
+                ),
                 const SizedBox(width: 4),
                 Text(
-                  _formatDuration(_task.templateSnapshot.estimatedDurationMinutes!),
+                  _formatDuration(
+                    _task.templateSnapshot.estimatedDurationMinutes!,
+                  ),
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
                 const SizedBox(width: 12),
@@ -695,8 +699,8 @@ final class _ResidentTaskDetailScreenState
                 color: isPastDeadline
                     ? context.appColors.danger
                     : isUrgent
-                        ? context.appColors.warning
-                        : context.appColors.textSecondary,
+                    ? context.appColors.warning
+                    : context.appColors.textSecondary,
               ),
               const SizedBox(width: 4),
               Expanded(
@@ -706,8 +710,8 @@ final class _ResidentTaskDetailScreenState
                     color: isPastDeadline
                         ? context.appColors.danger
                         : isUrgent
-                            ? context.appColors.warning
-                            : null,
+                        ? context.appColors.warning
+                        : null,
                   ),
                 ),
               ),
@@ -717,7 +721,11 @@ final class _ResidentTaskDetailScreenState
             const SizedBox(height: 6),
             Row(
               children: [
-                Icon(Icons.location_on_outlined, size: 16, color: context.appColors.textSecondary),
+                Icon(
+                  Icons.location_on_outlined,
+                  size: 16,
+                  color: context.appColors.textSecondary,
+                ),
                 const SizedBox(width: 4),
                 Expanded(
                   child: Text(
@@ -786,15 +794,14 @@ final class _ResidentTaskDetailScreenState
               Expanded(
                 child: Text(
                   'Foto Dokumentasi (Opsional)',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: Theme.of(context).textTheme.titleMedium
+                      ?.copyWith(fontWeight: FontWeight.w600),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 12),
-          
+
           // Info card dengan icon
           Container(
             padding: const EdgeInsets.all(12),
@@ -841,7 +848,7 @@ final class _ResidentTaskDetailScreenState
             ),
           ),
           const SizedBox(height: 12),
-          
+
           // Button pilih foto
           if (_selectedEvidenceBytes == null && _uploadedEvidenceId == null)
             OutlinedButton.icon(
@@ -853,7 +860,7 @@ final class _ResidentTaskDetailScreenState
                 minimumSize: const Size.fromHeight(48),
               ),
             ),
-          
+
           // Preview foto yang dipilih
           if (_selectedEvidenceBytes case final bytes?) ...[
             ClipRRect(
@@ -977,7 +984,7 @@ final class _ResidentTaskDetailScreenState
             ),
           ),
           const SizedBox(height: 12),
-          
+
           // Action buttons with equal prominence
           FilledButton(
             key: const Key('resident-join-task'),
@@ -986,10 +993,12 @@ final class _ResidentTaskDetailScreenState
           ),
           OutlinedButton(
             key: const Key('resident-decline-task'),
-            onPressed: _busy ? null : () => _choose(ParticipationChoice.decline),
+            onPressed: _busy
+                ? null
+                : () => _choose(ParticipationChoice.decline),
             child: const Text('Tidak Ikut'),
           ),
-          
+
           if (_busy) ...[
             const SizedBox(height: 12),
             const Center(child: CircularProgressIndicator()),
@@ -1109,11 +1118,11 @@ final class _ResidentTaskDetailScreenState
           ),
         ),
         const SizedBox(height: 16),
-        
+
         // Foto dokumentasi
         _evidencePicker(),
         const SizedBox(height: 16),
-        
+
         // Catatan
         Card(
           elevation: 0,
@@ -1136,9 +1145,8 @@ final class _ResidentTaskDetailScreenState
                     const SizedBox(width: 8),
                     Text(
                       'Catatan Singkat (Opsional)',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
+                      style: Theme.of(context).textTheme.titleMedium
+                          ?.copyWith(fontWeight: FontWeight.w600),
                     ),
                   ],
                 ),
@@ -1161,7 +1169,7 @@ final class _ResidentTaskDetailScreenState
           ),
         ),
         const SizedBox(height: 16),
-        
+
         // Checklist konfirmasi
         _CompletionConfirmationChecklist(
           onConfirmed: (confirmed) {
@@ -1169,7 +1177,7 @@ final class _ResidentTaskDetailScreenState
           },
         ),
         const SizedBox(height: 16),
-        
+
         // Tombol submit
         FilledButton.icon(
           key: const Key('resident-submit-completion'),
@@ -1185,11 +1193,9 @@ final class _ResidentTaskDetailScreenState
                 )
               : const Icon(Icons.send_outlined),
           label: Text(_busy ? 'Mengirim...' : 'Tandai Selesai'),
-          style: FilledButton.styleFrom(
-            minimumSize: const Size.fromHeight(52),
-          ),
+          style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),
         ),
-        
+
         // Error state
         if (_uploadError != null) ...[
           const SizedBox(height: 12),
@@ -1198,7 +1204,9 @@ final class _ResidentTaskDetailScreenState
             color: context.appColors.danger.withOpacity(0.05),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8),
-              side: BorderSide(color: context.appColors.danger.withOpacity(0.3)),
+              side: BorderSide(
+                color: context.appColors.danger.withOpacity(0.3),
+              ),
             ),
             child: Padding(
               padding: const EdgeInsets.all(12),
@@ -1231,9 +1239,7 @@ final class _ResidentTaskDetailScreenState
 
 /// Checklist konfirmasi sebelum submit completion
 class _CompletionConfirmationChecklist extends StatefulWidget {
-  const _CompletionConfirmationChecklist({
-    required this.onConfirmed,
-  });
+  const _CompletionConfirmationChecklist({required this.onConfirmed});
 
   final ValueChanged<bool> onConfirmed;
 
@@ -1290,9 +1296,8 @@ class _CompletionConfirmationChecklistState
                   children: [
                     Text(
                       'Konfirmasi Penyelesaian',
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
+                      style: Theme.of(context).textTheme.titleSmall
+                          ?.copyWith(fontWeight: FontWeight.w600),
                     ),
                     const SizedBox(height: 4),
                     const Text(

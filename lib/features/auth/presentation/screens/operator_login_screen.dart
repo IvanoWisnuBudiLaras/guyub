@@ -231,10 +231,7 @@ final class _OperatorLoginScreenState extends State<OperatorLoginScreen> {
 
 /// Shared header untuk auth screens dengan logo dan judul.
 class _AuthScreenHeader extends StatelessWidget {
-  const _AuthScreenHeader({
-    required this.title,
-    required this.isCompact,
-  });
+  const _AuthScreenHeader({required this.title, required this.isCompact});
 
   final String title;
   final bool isCompact;
@@ -248,9 +245,8 @@ class _AuthScreenHeader extends StatelessWidget {
         Text(
           title,
           textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
+          style: Theme.of(context).textTheme.headlineSmall
+              ?.copyWith(fontWeight: FontWeight.w600),
         ),
       ],
     );

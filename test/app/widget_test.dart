@@ -54,10 +54,10 @@ void main() {
     // Kembali dengan tap back button (Icon arrow_back)
     await tester.tap(find.byIcon(Icons.arrow_back));
     await tester.pumpAndSettle();
-    
+
     // Pastikan kembali ke role selection screen
     expect(find.textContaining('Saya Ketua RT/RW'), findsOneWidget);
-    
+
     await tester.tap(find.text('Saya Warga'));
     await tester.pumpAndSettle();
     expect(find.text('Akses warga belum tersedia'), findsOneWidget);
@@ -86,10 +86,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Informasi Darurat'), findsOneWidget);
-    expect(
-      find.textContaining('Direktori belum tersedia'),
-      findsOneWidget,
-    );
+    expect(find.textContaining('Direktori belum tersedia'), findsOneWidget);
     expect(
       find.textContaining('Guyub.id tidak menggantikan layanan darurat'),
       findsOneWidget,
@@ -157,16 +154,16 @@ void main() {
     expect(find.textContaining('Masuk sebagai Ketua RT/RW'), findsOneWidget);
     expect(find.byKey(const Key('operator-email')), findsOneWidget);
     expect(find.byKey(const Key('operator-password')), findsOneWidget);
-    
+
     // Pastikan tombol back ada di AppBar
     expect(find.byIcon(Icons.arrow_back), findsOneWidget);
-    
+
     // Scroll dan tap back untuk pastikan tidak overflow
     await tester.ensureVisible(find.byIcon(Icons.arrow_back));
     await tester.pumpAndSettle();
     await tester.tap(find.byIcon(Icons.arrow_back));
     await tester.pumpAndSettle();
-    
+
     // Pastikan kembali ke role selection
     expect(find.textContaining('Saya Ketua RT/RW'), findsOneWidget);
   });
@@ -198,20 +195,17 @@ void main() {
 
     // Pastikan elemen penting terlihat (unavailable state)
     expect(find.text('Akses warga belum tersedia'), findsOneWidget);
-    expect(
-      find.textContaining('Kode RT saja belum cukup'),
-      findsOneWidget,
-    );
-    
+    expect(find.textContaining('Kode RT saja belum cukup'), findsOneWidget);
+
     // Pastikan tombol back ada di AppBar
     expect(find.byIcon(Icons.arrow_back), findsOneWidget);
-    
+
     // Scroll dan tap back untuk pastikan tidak overflow
     await tester.ensureVisible(find.byIcon(Icons.arrow_back));
     await tester.pumpAndSettle();
     await tester.tap(find.byIcon(Icons.arrow_back));
     await tester.pumpAndSettle();
-    
+
     // Pastikan kembali ke role selection
     expect(find.text('Saya Warga'), findsOneWidget);
   });

@@ -158,7 +158,8 @@ final class _EmergencyDirectoryScreenState
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.errorContainer.withOpacity(0.3),
+                  color: Theme.of(context).colorScheme.errorContainer
+                      .withOpacity(0.3),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
                     color: Theme.of(context).colorScheme.error.withOpacity(0.3),
@@ -209,11 +210,13 @@ final class _StatusCard extends StatelessWidget {
     if (state.hasConflict && state.snapshot != null) {
       message = 'Versi direktori berbeda. Data tersimpan sebelumnya tetap ditampilkan.';
       icon = Icons.warning_amber_outlined;
-      backgroundColor = Theme.of(context).colorScheme.errorContainer.withOpacity(0.5);
+      backgroundColor = Theme.of(context).colorScheme.errorContainer
+          .withOpacity(0.5);
     } else if (state.hasConflict) {
       message = 'Data direktori tidak konsisten dan tidak dapat ditampilkan. Coba perbarui lagi.';
       icon = Icons.warning_amber_outlined;
-      backgroundColor = Theme.of(context).colorScheme.errorContainer.withOpacity(0.5);
+      backgroundColor = Theme.of(context).colorScheme.errorContainer
+          .withOpacity(0.5);
     } else if (state.isOffline) {
       message =
           'Mode offline • menampilkan direktori yang tersimpan di perangkat.';
@@ -226,7 +229,8 @@ final class _StatusCard extends StatelessWidget {
     } else if (state.status == EmergencyDirectoryViewStatus.active) {
       message = 'Direktori tersinkron.';
       icon = Icons.cloud_done_outlined;
-      backgroundColor = Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3);
+      backgroundColor = Theme.of(context).colorScheme.primaryContainer
+          .withOpacity(0.3);
     } else if (state.status == EmergencyDirectoryViewStatus.disabled) {
       message = 'Direktori darurat untuk wilayah ini sedang dinonaktifkan.';
       icon = Icons.info_outline;
@@ -253,18 +257,14 @@ final class _StatusCard extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            icon,
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
+          Icon(icon, color: Theme.of(context).colorScheme.onSurfaceVariant),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               message,
               key: const Key('emergency-directory-status'),
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(context).colorScheme.onSurface,
-              ),
+              style: Theme.of(context).textTheme.bodyMedium
+                  ?.copyWith(color: Theme.of(context).colorScheme.onSurface),
             ),
           ),
           if (state.isRefreshing) ...[
@@ -320,9 +320,8 @@ final class _ContactSection extends StatelessWidget {
       if (items.isEmpty)
         Text(
           'Belum ada kontak darurat yang dicantumkan.',
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
+          style: Theme.of(context).textTheme.bodyMedium
+              ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
         )
       else
         ...items.map(
@@ -354,9 +353,8 @@ final class _ContactSection extends StatelessWidget {
                     children: [
                       Text(
                         item.label,
-                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
+                        style: Theme.of(context).textTheme.titleSmall
+                            ?.copyWith(fontWeight: FontWeight.w600),
                       ),
                       const SizedBox(height: 4),
                       SelectableText(
@@ -378,7 +376,9 @@ final class _ContactSection extends StatelessWidget {
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                            content: Text('Tidak dapat membuka aplikasi telepon.'),
+                            content: Text(
+                              'Tidak dapat membuka aplikasi telepon.',
+                            ),
                           ),
                         );
                       }
@@ -387,7 +387,10 @@ final class _ContactSection extends StatelessWidget {
                   icon: const Icon(Icons.call, size: 18),
                   label: const Text('Telepon'),
                   style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
                   ),
                 ),
               ],
@@ -411,9 +414,8 @@ final class _AssemblySection extends StatelessWidget {
       if (items.isEmpty)
         Text(
           'Belum ada titik kumpul yang dicantumkan.',
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
+          style: Theme.of(context).textTheme.bodyMedium
+              ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
         )
       else
         ...items.map(
@@ -446,9 +448,8 @@ final class _AssemblySection extends StatelessWidget {
                     children: [
                       Text(
                         item.label,
-                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
+                        style: Theme.of(context).textTheme.titleSmall
+                            ?.copyWith(fontWeight: FontWeight.w600),
                       ),
                       const SizedBox(height: 4),
                       Text(
@@ -485,9 +486,8 @@ final class _OfficialChannelSection extends StatelessWidget {
       if (items.isEmpty)
         Text(
           'Belum ada kanal pelaporan resmi yang dikonfigurasi untuk wilayah ini.',
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
+          style: Theme.of(context).textTheme.bodyMedium
+              ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
         )
       else ...[
         Container(
@@ -529,7 +529,9 @@ final class _OfficialChannelSection extends StatelessWidget {
                       ),
                       child: Icon(
                         Icons.account_balance_outlined,
-                        color: Theme.of(context).colorScheme.onSecondaryContainer,
+                        color: Theme.of(context)
+                            .colorScheme
+                            .onSecondaryContainer,
                         size: 20,
                       ),
                     ),
@@ -540,26 +542,31 @@ final class _OfficialChannelSection extends StatelessWidget {
                         children: [
                           Text(
                             item.label,
-                            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                              fontWeight: FontWeight.w600,
-                            ),
+                            style: Theme.of(context).textTheme.titleSmall
+                                ?.copyWith(fontWeight: FontWeight.w600),
                           ),
                           if (item.url != null) ...[
                             const SizedBox(height: 4),
                             SelectableText(
                               item.url!,
-                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: Theme.of(context).colorScheme.onSurfaceVariant,
-                              ),
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurfaceVariant,
+                                  ),
                             ),
                           ],
                           if (item.phone != null) ...[
                             const SizedBox(height: 4),
                             SelectableText(
                               item.phone!,
-                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: Theme.of(context).colorScheme.onSurfaceVariant,
-                              ),
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurfaceVariant,
+                                  ),
                             ),
                           ],
                         ],
@@ -630,9 +637,8 @@ final class _DirectorySection extends StatelessWidget {
               Expanded(
                 child: Text(
                   title,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: Theme.of(context).textTheme.titleMedium
+                      ?.copyWith(fontWeight: FontWeight.w600),
                 ),
               ),
             ],

@@ -149,7 +149,9 @@ void main() {
     );
     expect(find.text('Nenek Sari'), findsNothing);
     // Scroll to the decline button since redesigned UI is taller
-    await tester.ensureVisible(find.byKey(Key('helper-decline-$_assignmentId')));
+    await tester.ensureVisible(
+      find.byKey(Key('helper-decline-$_assignmentId')),
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(Key('helper-decline-$_assignmentId')));
     await tester.pumpAndSettle();

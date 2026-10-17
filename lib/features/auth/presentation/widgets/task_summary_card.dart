@@ -48,9 +48,8 @@ class TaskSummaryCard extends StatelessWidget {
                 Expanded(
                   child: Text(
                     'Tugas Saya',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
+                    style: Theme.of(context).textTheme.titleMedium
+                        ?.copyWith(fontWeight: FontWeight.w600),
                   ),
                 ),
               ],
@@ -88,9 +87,8 @@ class TaskSummaryCard extends StatelessWidget {
             else if (taskList == null)
               Text(
                 'Memuat tugas…',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: context.appColors.textSecondary,
-                    ),
+                style: Theme.of(context).textTheme.bodySmall
+                    ?.copyWith(color: context.appColors.textSecondary),
               )
             else
               _buildTaskSummary(context),
@@ -102,12 +100,12 @@ class TaskSummaryCard extends StatelessWidget {
 
   Widget _buildTaskSummary(BuildContext context) {
     final tasks = taskList!.items;
-    
+
     // Hitung jumlah per status
     var joinedCount = 0;
     var pendingVerificationCount = 0;
     var verifiedCompleteCount = 0;
-    
+
     for (final task in tasks) {
       if (task.participation == ParticipationState.joined) {
         joinedCount++;
@@ -130,9 +128,8 @@ class TaskSummaryCard extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             'Belum ada tugas aktif',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: context.appColors.textSecondary,
-                ),
+            style: Theme.of(context).textTheme.bodyMedium
+                ?.copyWith(color: context.appColors.textSecondary),
           ),
         ],
       );
@@ -215,18 +212,16 @@ class StatItem extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             value,
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: color,
-                  fontWeight: FontWeight.w700,
-                ),
+            style: Theme.of(context).textTheme.titleMedium
+                ?.copyWith(color: color, fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 2),
           Text(
             label,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: context.appColors.textSecondary,
-                  fontSize: 11,
-                ),
+              color: context.appColors.textSecondary,
+              fontSize: 11,
+            ),
             textAlign: TextAlign.center,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,

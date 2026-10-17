@@ -72,7 +72,8 @@ final class _ResidentEntryScreenState extends State<ResidentEntryScreen> {
         nickname: _nicknameController.text,
       );
       if (mounted) widget.onAuthenticated?.call(session);
-    } catch (_) {
+    } catch (e, st) {
+      debugPrint('[ResidentEntry] createSession gagal: $e\n$st');
       if (mounted) {
         setState(() {
           _error =
@@ -116,9 +117,8 @@ final class _ResidentEntryScreenState extends State<ResidentEntryScreen> {
                 const SizedBox(height: 16),
                 Text(
                   'Akses warga belum tersedia',
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
+                  style: Theme.of(context).textTheme.headlineSmall
+                      ?.copyWith(fontWeight: FontWeight.w600),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 12),
@@ -126,9 +126,8 @@ final class _ResidentEntryScreenState extends State<ResidentEntryScreen> {
                   'Kode RT saja belum cukup untuk melindungi data warga. '
                   'Akses akan tersedia setelah sesi warga yang aman disiapkan.',
                   textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: context.appColors.textSecondary,
-                      ),
+                  style: Theme.of(context).textTheme.bodyMedium
+                      ?.copyWith(color: context.appColors.textSecondary),
                 ),
               ],
             ),
@@ -221,9 +220,8 @@ final class _ResidentEntryScreenState extends State<ResidentEntryScreen> {
                   Text(
                     'Masukkan kode RT dan nama panggilan Anda.',
                     textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: context.appColors.textSecondary,
-                        ),
+                    style: Theme.of(context).textTheme.bodyMedium
+                        ?.copyWith(color: context.appColors.textSecondary),
                   ),
                   SizedBox(height: isCompact ? 24 : 32),
                   // Kode RT field
@@ -340,10 +338,7 @@ final class _ResidentEntryScreenState extends State<ResidentEntryScreen> {
 
 /// Shared header untuk auth screens dengan logo dan judul.
 class _AuthScreenHeader extends StatelessWidget {
-  const _AuthScreenHeader({
-    required this.title,
-    required this.isCompact,
-  });
+  const _AuthScreenHeader({required this.title, required this.isCompact});
 
   final String title;
   final bool isCompact;
@@ -357,9 +352,8 @@ class _AuthScreenHeader extends StatelessWidget {
         Text(
           title,
           textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
+          style: Theme.of(context).textTheme.headlineSmall
+              ?.copyWith(fontWeight: FontWeight.w600),
         ),
       ],
     );

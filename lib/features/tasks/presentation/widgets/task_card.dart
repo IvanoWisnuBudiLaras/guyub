@@ -117,7 +117,8 @@ class TaskCard extends StatelessWidget {
                       Expanded(
                         child: Text(
                           _formatDeadline(timeRemaining),
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
                                 color: context.appColors.textSecondary,
                               ),
                         ),
@@ -128,9 +129,8 @@ class TaskCard extends StatelessWidget {
                   // Title
                   Text(
                     template.title,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
+                    style: Theme.of(context).textTheme.titleMedium
+                        ?.copyWith(fontWeight: FontWeight.w600),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -138,9 +138,8 @@ class TaskCard extends StatelessWidget {
                     const SizedBox(height: 6),
                     Text(
                       template.coreInstruction,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: context.appColors.textSecondary,
-                          ),
+                      style: Theme.of(context).textTheme.bodySmall
+                          ?.copyWith(color: context.appColors.textSecondary),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -198,9 +197,7 @@ class TaskCard extends StatelessWidget {
                             const SizedBox(width: 6),
                             Text(
                               'Ikut',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .labelLarge
+                              style: Theme.of(context).textTheme.labelLarge
                                   ?.copyWith(
                                     color: context.appColors.success,
                                     fontWeight: FontWeight.w600,
@@ -223,8 +220,8 @@ class TaskCard extends StatelessWidget {
                     onTap: onTap,
                     borderRadius: BorderRadius.only(
                       bottomRight: const Radius.circular(12),
-                      bottomLeft: task.participation ==
-                              ParticipationState.unresponded
+                      bottomLeft:
+                          task.participation == ParticipationState.unresponded
                           ? Radius.zero
                           : const Radius.circular(12),
                     ),
@@ -241,9 +238,7 @@ class TaskCard extends StatelessWidget {
                           const SizedBox(width: 6),
                           Text(
                             'Detail',
-                            style: Theme.of(context)
-                                .textTheme
-                                .labelLarge
+                            style: Theme.of(context).textTheme.labelLarge
                                 ?.copyWith(
                                   color: context.appColors.primary,
                                   fontWeight: FontWeight.w600,

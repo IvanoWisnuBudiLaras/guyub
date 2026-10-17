@@ -264,9 +264,7 @@ final class _ResidentSessionHomeScreenState
               backgroundColor: Colors.white,
               elevation: 0,
               title: Text(
-                _selectedTabIndex == 1
-                    ? 'Daftar Tugas'
-                    : 'Informasi Darurat',
+                _selectedTabIndex == 1 ? 'Daftar Tugas' : 'Informasi Darurat',
               ),
               actions: _buildAppBarActions(context),
             ),
@@ -403,9 +401,9 @@ final class _ResidentSessionHomeScreenState
               child: Text(
                 session.rtLabel,
                 style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w600,
-                    ),
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
             const SizedBox(height: 12),
@@ -421,9 +419,9 @@ final class _ResidentSessionHomeScreenState
                 Text(
                   _formatTodayDate(),
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Colors.white.withOpacity(0.9),
-                        fontWeight: FontWeight.w500,
-                      ),
+                    color: Colors.white.withOpacity(0.9),
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ],
             ),
@@ -431,18 +429,15 @@ final class _ResidentSessionHomeScreenState
             // Sapaan
             Text(
               'Halo, ${session.nickname}',
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                  ),
+              style: Theme.of(context).textTheme.headlineSmall
+                  ?.copyWith(color: Colors.white, fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 4),
             // Community name
             Text(
               session.communityName,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Colors.white.withOpacity(0.9),
-                  ),
+              style: Theme.of(context).textTheme.bodyMedium
+                  ?.copyWith(color: Colors.white.withOpacity(0.9)),
             ),
           ],
         ),
@@ -519,16 +514,14 @@ final class _ResidentSessionHomeScreenState
             children: [
               Text(
                 'Tugas Saya',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
+                style: Theme.of(context).textTheme.titleMedium
+                    ?.copyWith(fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: 8),
               Text(
                 'Layanan tugas belum terhubung.',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: context.appColors.textSecondary,
-                    ),
+                style: Theme.of(context).textTheme.bodySmall
+                    ?.copyWith(color: context.appColors.textSecondary),
               ),
             ],
           ),
@@ -555,8 +548,9 @@ final class _ResidentSessionHomeScreenState
             !session.isOfflineSnapshot) ...[
           OutlinedButton.icon(
             key: const Key('resident-assistance-volunteer'),
-            onPressed: () => Navigator.of(context)
-                .pushNamed('/resident/assistance', arguments: session),
+            onPressed: () =>
+                Navigator.of(context)
+                    .pushNamed('/resident/assistance', arguments: session),
             icon: const Icon(Icons.volunteer_activism_outlined),
             label: const Text('Kesediaan Membantu'),
             style: OutlinedButton.styleFrom(
@@ -570,8 +564,9 @@ final class _ResidentSessionHomeScreenState
             !session.isOfflineSnapshot) ...[
           OutlinedButton.icon(
             key: const Key('resident-propose-task'),
-            onPressed: () => Navigator.of(context)
-                .pushNamed('/resident/proposals', arguments: session),
+            onPressed: () =>
+                Navigator.of(context)
+                    .pushNamed('/resident/proposals', arguments: session),
             icon: const Icon(Icons.lightbulb_outline),
             label: const Text('Usulkan Persiapan Warga'),
             style: OutlinedButton.styleFrom(
@@ -632,7 +627,7 @@ final class _ResidentSessionHomeScreenState
         'lastSyncedAt': _taskList?.lastSyncedAt,
       },
     );
-    
+
     // Reload tasks after returning from detail
     await _loadTasks();
   }
@@ -647,7 +642,7 @@ final class _ResidentSessionHomeScreenState
         choice: ParticipationChoice.join,
         session: _session,
       );
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -695,8 +690,9 @@ final class _ResidentSessionHomeScreenState
             ),
             const SizedBox(height: 24),
             FilledButton.icon(
-              onPressed: () => Navigator.of(context)
-                  .pushNamed('/emergency', arguments: session),
+              onPressed: () =>
+                  Navigator.of(context)
+                      .pushNamed('/emergency', arguments: session),
               icon: const Icon(Icons.arrow_forward),
               label: const Text('Buka Halaman Darurat Lengkap'),
             ),
@@ -709,9 +705,7 @@ final class _ResidentSessionHomeScreenState
   Widget _buildBottomNavigation(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        border: Border(
-          top: BorderSide(color: context.appColors.border),
-        ),
+        border: Border(top: BorderSide(color: context.appColors.border)),
       ),
       child: BottomNavigationBar(
         currentIndex: _selectedTabIndex,
@@ -745,10 +739,28 @@ final class _ResidentSessionHomeScreenState
 
   String _formatTodayDate() {
     final now = DateTime.now();
-    final days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+    final days = [
+      'Minggu',
+      'Senin',
+      'Selasa',
+      'Rabu',
+      'Kamis',
+      'Jumat',
+      'Sabtu',
+    ];
     final months = [
-      'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-      'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+      'Januari',
+      'Februari',
+      'Maret',
+      'April',
+      'Mei',
+      'Juni',
+      'Juli',
+      'Agustus',
+      'September',
+      'Oktober',
+      'November',
+      'Desember',
     ];
     final dayName = days[now.weekday % 7];
     final monthName = months[now.month - 1];

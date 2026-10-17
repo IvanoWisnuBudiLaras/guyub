@@ -133,9 +133,8 @@ final class _AssistanceVolunteerScreenState
       children: [
         Text(
           '${widget.session.rtLabel} · Warga',
-          style: Theme.of(context).textTheme.labelLarge?.copyWith(
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
+          style: Theme.of(context).textTheme.labelLarge
+              ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
         ),
         const SizedBox(height: 16),
         Card(
@@ -156,10 +155,11 @@ final class _AssistanceVolunteerScreenState
                     Expanded(
                       child: Text(
                         'Partisipasi Sukarela',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurface,
-                          fontWeight: FontWeight.w600,
-                        ),
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(
+                              color: Theme.of(context).colorScheme.onSurface,
+                              fontWeight: FontWeight.w600,
+                            ),
                       ),
                     ),
                   ],
@@ -177,7 +177,8 @@ final class _AssistanceVolunteerScreenState
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.errorContainer.withOpacity(0.5),
+                    color: Theme.of(context).colorScheme.errorContainer
+                        .withOpacity(0.5),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Row(
@@ -193,9 +194,12 @@ final class _AssistanceVolunteerScreenState
                         child: Text(
                           'Koordinasikan arahan aman dengan Pendamping RT. '
                           'Jangan memasuki saluran atau aliran berbahaya.',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Theme.of(context).colorScheme.onErrorContainer,
-                          ),
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onErrorContainer,
+                              ),
                         ),
                       ),
                     ],
@@ -264,9 +268,8 @@ final class _AssistanceVolunteerScreenState
                       : null,
                   title: Text(
                     'Saya bersedia membantu secara sukarela',
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
+                    style: Theme.of(context).textTheme.titleSmall
+                        ?.copyWith(fontWeight: FontWeight.w600),
                   ),
                   subtitle: Text(
                     'RT hanya dapat mengirim permintaan setelah Anda setuju.',
@@ -319,9 +322,8 @@ final class _AssistanceVolunteerScreenState
             Expanded(
               child: Text(
                 'Permintaan bantuan',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
+                style: Theme.of(context).textTheme.titleLarge
+                    ?.copyWith(fontWeight: FontWeight.w600),
               ),
             ),
             if (data.isPartial)
@@ -351,7 +353,8 @@ final class _AssistanceVolunteerScreenState
                   Icon(
                     Icons.inbox_outlined,
                     size: 48,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.5),
+                    color: Theme.of(context).colorScheme.onSurfaceVariant
+                        .withOpacity(0.5),
                   ),
                   const SizedBox(height: 16),
                   Text(
@@ -389,7 +392,9 @@ final class _AssistanceVolunteerScreenState
                           decoration: BoxDecoration(
                             color: assignment.state == 'OFFERED'
                                 ? Theme.of(context).colorScheme.primaryContainer
-                                : Theme.of(context).colorScheme.tertiaryContainer,
+                                : Theme.of(context)
+                                      .colorScheme
+                                      .tertiaryContainer,
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Icon(
@@ -397,8 +402,12 @@ final class _AssistanceVolunteerScreenState
                                 ? Icons.help_outline
                                 : Icons.handshake_outlined,
                             color: assignment.state == 'OFFERED'
-                                ? Theme.of(context).colorScheme.onPrimaryContainer
-                                : Theme.of(context).colorScheme.onTertiaryContainer,
+                                ? Theme.of(context)
+                                      .colorScheme
+                                      .onPrimaryContainer
+                                : Theme.of(context)
+                                      .colorScheme
+                                      .onTertiaryContainer,
                             size: 20,
                           ),
                         ),
@@ -408,9 +417,8 @@ final class _AssistanceVolunteerScreenState
                             assignment.state == 'OFFERED'
                                 ? 'Permintaan menunggu pilihan Anda'
                                 : 'Anda menerima permintaan bantuan',
-                            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                              fontWeight: FontWeight.w600,
-                            ),
+                            style: Theme.of(context).textTheme.titleSmall
+                                ?.copyWith(fontWeight: FontWeight.w600),
                           ),
                         ),
                       ],

@@ -141,9 +141,8 @@ final class _TaskPushOptInCardState extends State<TaskPushOptInCard> {
                   children: [
                     Text(
                       'Notifikasi Push',
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
+                      style: Theme.of(context).textTheme.titleSmall
+                          ?.copyWith(fontWeight: FontWeight.w600),
                     ),
                     const SizedBox(height: 2),
                     FutureBuilder<bool>(
@@ -193,7 +192,10 @@ final class _TaskPushOptInCardState extends State<TaskPushOptInCard> {
                           dimension: 18,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Icon(Icons.notifications_active_outlined, size: 18),
+                      : const Icon(
+                          Icons.notifications_active_outlined,
+                          size: 18,
+                        ),
                   label: Text(_busy ? 'Proses…' : 'Aktifkan'),
                   style: FilledButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 12),

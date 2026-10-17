@@ -83,9 +83,8 @@ class TaskListTab extends StatelessWidget {
               Text(
                 'Tugas kesiapsiagaan dari RT Anda akan muncul di sini.',
                 textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: context.appColors.textSecondary,
-                    ),
+                style: Theme.of(context).textTheme.bodyMedium
+                    ?.copyWith(color: context.appColors.textSecondary),
               ),
             ],
           ),
@@ -102,7 +101,9 @@ class TaskListTab extends StatelessWidget {
         return TaskCard(
           task: task,
           onTap: () => onTaskTap(task),
-          onJoin: task.participation == ParticipationState.unresponded && onTaskJoin != null
+          onJoin:
+              task.participation == ParticipationState.unresponded &&
+                  onTaskJoin != null
               ? () => onTaskJoin!(task)
               : null,
         );

@@ -157,7 +157,9 @@ Future<void> bootstrap(AppConfig config) async {
         auth: FirebaseAuth.instance,
         firestore: FirebaseFirestore.instance,
       );
-    } catch (_) {
+    } catch (e, st) {
+      // ignore: avoid_print
+      print('[bootstrap] Firebase init gagal: $e\n$st');
       // Fail closed: no Firebase boundary is injected when setup is incomplete.
     }
 
@@ -272,11 +274,13 @@ Future<void> bootstrap(AppConfig config) async {
 }
 
 FirebaseOptions _developmentEmulatorOptions() {
-  final platform = DefaultFirebaseOptions.currentPlatform;
-  return FirebaseOptions(
-    apiKey: 'demo-api-key',
-    appId: platform.appId,
-    messagingSenderId: platform.messagingSenderId,
+  // Di branch ini firebase_options.dart membaca nilai dari --dart-define.
+  // Untuk mode emulator, semua nilai di-mock langsung agar tidak butuh dart-define.
+  // API key harus cocok format Firebase Android SDK (^AIza[\w-]{35}$).
+  return const FirebaseOptions(
+    apiKey: 'AIzaSyGuyubDevelopmentMockApiKey0000000',
+    appId: '1:000000000000:android:0000000000000000000000',
+    messagingSenderId: '000000000000',
     projectId: 'demo-guyub-development',
   );
 }

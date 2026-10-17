@@ -19,101 +19,97 @@ final class RoleSelectionScreen extends StatelessWidget {
           child: SingleChildScrollView(
             padding: EdgeInsets.all(isCompact ? 16 : 24),
             child: ConstrainedBox(
-              constraints: const BoxConstraints(
-                maxWidth: 480,
-              ),
+              constraints: const BoxConstraints(maxWidth: 480),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                    Center(child: AppLogo(size: isCompact ? 64 : 80)),
-                    SizedBox(height: isCompact ? 12 : 16),
-                    Text(
-                      'Guyub.id',
+                  Center(child: AppLogo(size: isCompact ? 64 : 80)),
+                  SizedBox(height: isCompact ? 12 : 16),
+                  Text(
+                    'Guyub.id',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.displayLarge,
+                  ),
+                  SizedBox(height: isCompact ? 4 : 8),
+                  Text(
+                    'Kesiapsiagaan banjir bersama warga',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodyLarge
+                        ?.copyWith(color: context.appColors.textSecondary),
+                  ),
+                  SizedBox(height: isCompact ? 32 : 48),
+                  Text(
+                    'Masuk sebagai siapa Anda?',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  SizedBox(height: isCompact ? 16 : 24),
+                  // Operator card (kartu biru primary)
+                  _RoleCard(
+                    key: const Key('role-selection-operator'),
+                    title: 'Saya Ketua RT/RW atau Pendamping',
+                    description: 'Kelola tugas, pantau kesiapan warga, koordinasi banjir',
+                    icon: Icons.admin_panel_settings_outlined,
+                    actionLabel: 'MASUK DENGAN AKUN',
+                    isPrimary: true,
+                    isCompact: isCompact,
+                    onTap: () =>
+                        Navigator.of(context).pushNamed('/operator/login'),
+                  ),
+                  SizedBox(height: isCompact ? 12 : 16),
+                  // Warga card (kartu outline)
+                  _RoleCard(
+                    key: const Key('role-selection-resident'),
+                    title: 'Saya Warga',
+                    description: 'Ikuti tugas kesiapan banjir di RT Anda',
+                    icon: Icons.home_outlined,
+                    actionLabel: 'MASUK DENGAN KODE RT',
+                    isPrimary: false,
+                    isCompact: isCompact,
+                    onTap: () =>
+                        Navigator.of(context).pushNamed('/resident/entry'),
+                  ),
+                  SizedBox(height: isCompact ? 24 : 32),
+                  // Darurat button (outline merah penuh lebar)
+                  OutlinedButton.icon(
+                    key: const Key('emergency-directory-entry'),
+                    onPressed: () =>
+                        Navigator.of(context).pushNamed('/emergency'),
+                    icon: const Icon(
+                      Icons.health_and_safety_outlined,
+                      size: 20,
+                    ),
+                    label: const Text('Informasi Darurat'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: context.appColors.danger,
+                      side: BorderSide(color: context.appColors.danger),
+                      minimumSize: const Size.fromHeight(48),
+                    ),
+                  ),
+                  SizedBox(height: isCompact ? 16 : 32),
+                  // Disclaimer
+                  Container(
+                    padding: EdgeInsets.all(isCompact ? 12 : 16),
+                    decoration: BoxDecoration(
+                      color: context.appColors.background,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: context.appColors.border),
+                    ),
+                    child: Text(
+                      'Guyub.id membantu koordinasi persiapan. Aplikasi ini bukan '
+                      'prediksi banjir tingkat RT atau pengganti layanan darurat resmi.',
                       textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.displayLarge,
+                      style: Theme.of(context).textTheme.bodySmall,
                     ),
-                    SizedBox(height: isCompact ? 4 : 8),
-                    Text(
-                      'Kesiapsiagaan banjir bersama warga',
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                            color: context.appColors.textSecondary,
-                          ),
-                    ),
-                    SizedBox(height: isCompact ? 32 : 48),
-                    Text(
-                      'Masuk sebagai siapa Anda?',
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.titleLarge,
-                    ),
-                    SizedBox(height: isCompact ? 16 : 24),
-                    // Operator card (kartu biru primary)
-                    _RoleCard(
-                      key: const Key('role-selection-operator'),
-                      title: 'Saya Ketua RT/RW atau Pendamping',
-                      description:
-                          'Kelola tugas, pantau kesiapan warga, koordinasi banjir',
-                      icon: Icons.admin_panel_settings_outlined,
-                      actionLabel: 'MASUK DENGAN AKUN',
-                      isPrimary: true,
-                      isCompact: isCompact,
-                      onTap: () =>
-                          Navigator.of(context).pushNamed('/operator/login'),
-                    ),
-                    SizedBox(height: isCompact ? 12 : 16),
-                    // Warga card (kartu outline)
-                    _RoleCard(
-                      key: const Key('role-selection-resident'),
-                      title: 'Saya Warga',
-                      description: 'Ikuti tugas kesiapan banjir di RT Anda',
-                      icon: Icons.home_outlined,
-                      actionLabel: 'MASUK DENGAN KODE RT',
-                      isPrimary: false,
-                      isCompact: isCompact,
-                      onTap: () =>
-                          Navigator.of(context).pushNamed('/resident/entry'),
-                    ),
-                    SizedBox(height: isCompact ? 24 : 32),
-                    // Darurat button (outline merah penuh lebar)
-                    OutlinedButton.icon(
-                      key: const Key('emergency-directory-entry'),
-                      onPressed: () =>
-                          Navigator.of(context).pushNamed('/emergency'),
-                      icon: const Icon(
-                        Icons.health_and_safety_outlined,
-                        size: 20,
-                      ),
-                      label: const Text('Informasi Darurat'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: context.appColors.danger,
-                        side: BorderSide(color: context.appColors.danger),
-                        minimumSize: const Size.fromHeight(48),
-                      ),
-                    ),
-                    SizedBox(height: isCompact ? 16 : 32),
-                    // Disclaimer
-                    Container(
-                      padding: EdgeInsets.all(isCompact ? 12 : 16),
-                      decoration: BoxDecoration(
-                        color: context.appColors.background,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: context.appColors.border),
-                      ),
-                      child: Text(
-                        'Guyub.id membantu koordinasi persiapan. Aplikasi ini bukan '
-                        'prediksi banjir tingkat RT atau pengganti layanan darurat resmi.',
-                        textAlign: TextAlign.center,
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),
         ),
-      );
+      ),
+    );
   }
 }
 
@@ -182,21 +178,21 @@ class _RoleCard extends StatelessWidget {
               Text(
                 title,
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: fgColor,
-                      fontWeight: FontWeight.w600,
-                      fontSize: isCompact ? 16 : null,
-                    ),
+                  color: fgColor,
+                  fontWeight: FontWeight.w600,
+                  fontSize: isCompact ? 16 : null,
+                ),
               ),
               SizedBox(height: isCompact ? 6 : 8),
               // Description
               Text(
                 description,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: isPrimary
-                          ? Colors.white.withOpacity(0.9)
-                          : colors.textSecondary,
-                      fontSize: isCompact ? 13 : null,
-                    ),
+                  color: isPrimary
+                      ? Colors.white.withOpacity(0.9)
+                      : colors.textSecondary,
+                  fontSize: isCompact ? 13 : null,
+                ),
               ),
               SizedBox(height: isCompact ? 14 : 20),
               // Action footer
@@ -206,11 +202,11 @@ class _RoleCard extends StatelessWidget {
                     child: Text(
                       actionLabel,
                       style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                            color: fgColor,
-                            fontWeight: FontWeight.w600,
-                            letterSpacing: 0.5,
-                            fontSize: isCompact ? 12 : null,
-                          ),
+                        color: fgColor,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.5,
+                        fontSize: isCompact ? 12 : null,
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
