@@ -11,14 +11,16 @@ import '../../../auth/application/resident_session.dart';
 import '../../application/task_response.dart';
 import '../../application/task_response_boundary.dart';
 import '../../application/task_location_reference.dart';
-import '../widgets/locked_instructions_card.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/indonesian_date_formatter.dart';
-import '../../../../core/widgets/task_category_presentation.dart';
-import '../../../../core/widgets/inline_action_button.dart';
-import '../../../../core/widgets/tinted_info_box.dart';
-import '../../../../core/widgets/section_card.dart';
+import '../../../../core/widgets/alert_banner.dart';
 import '../../../../core/widgets/info_row.dart';
+import '../../../../core/widgets/inline_action_button.dart';
+import '../../../../core/widgets/section_card.dart';
+import '../../../../core/widgets/task_category_presentation.dart';
+import '../../../../core/widgets/tinted_info_box.dart';
+import '../widgets/locked_instructions_card.dart';
+import '../widgets/task_card.dart';
 
 typedef PickEvidenceImage = Future<Uint8List?> Function();
 
@@ -216,17 +218,14 @@ final class _ResidentTaskListScreenState extends State<ResidentTaskListScreen> {
               ],
               const SizedBox(height: 12),
               for (final task in tasks)
-                Card(
-                  child: ListTile(
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: KeyedSubtree(
                     key: Key('resident-task-${task.taskId}'),
-                    title: Text(task.templateSnapshot.title),
-                    subtitle: Text(
-                      _taskListSubtitle(task),
-                      maxLines: 3,
-                      overflow: TextOverflow.ellipsis,
+                    child: TaskCard(
+                      task: task,
+                      onTap: () => _openTask(task, taskList),
                     ),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () => _openTask(task, taskList),
                   ),
                 ),
             ],
@@ -235,26 +234,6 @@ final class _ResidentTaskListScreenState extends State<ResidentTaskListScreen> {
       },
     ),
   );
-}
-
-String _taskListSubtitle(ResidentTaskRecord task) {
-  final lines = <String>[
-    '${_participationLabel(task.participation)} • Batas ${_formatDate(task.deadline)}',
-  ];
-  if (task.pendingChoice != null) {
-    lines.add(
-      'Pilihan ${_choiceLabel(task.pendingChoice!)} menunggu sinkronisasi.',
-    );
-  }
-  if (task.hasPendingCompletionSync) {
-    lines.add('Penyelesaian menunggu sinkronisasi.');
-  }
-  if (task.hasSyncConflict) {
-    lines.add(
-      'Perlu pemeriksaan status; pilihan belum dipastikan oleh server.',
-    );
-  }
-  return lines.join('\n');
 }
 
 final class _ResidentTaskOfflineBanner extends StatelessWidget {
@@ -958,150 +937,85 @@ final class _ResidentTaskDetailScreenState
     return '${timeRemaining.inMinutes} menit lagi';
   }
 
-  Widget _evidencePicker() => Card(
-    elevation: 0,
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(12),
-      side: BorderSide(color: context.appColors.border),
-    ),
-    child: Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Header
-          Row(
+  Widget _evidencePicker() => SectionCard(
+    title: 'Foto Dokumentasi (Opsional)',
+    icon: Icons.photo_camera_outlined,
+    margin: const EdgeInsets.only(bottom: 12),
+    children: [
+      TintedInfoBox.warning(
+        title: 'Privasi & Retensi:',
+        text:
+            '• Foto JPEG akan dihapus otomatis setelah 30 hari\n'
+            '• Metadata lokasi dihapus saat upload\n'
+            '• Jangan sertakan wajah, alamat, atau data pribadi\n'
+            '• Jika upload gagal, masih bisa kirim tanpa foto',
+      ),
+      const SizedBox(height: 12),
+
+      // Button pilih foto
+      if (_selectedEvidenceBytes == null && _uploadedEvidenceId == null)
+        OutlinedButton.icon(
+          key: const Key('resident-choose-evidence'),
+          onPressed: _busy ? null : _chooseEvidence,
+          icon: const Icon(Icons.add_a_photo_outlined),
+          label: const Text('Pilih Foto'),
+          style: OutlinedButton.styleFrom(
+            minimumSize: const Size.fromHeight(48),
+          ),
+        ),
+
+      // Preview foto yang dipilih
+      if (_selectedEvidenceBytes case final bytes?) ...[
+        ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: Image.memory(
+            bytes,
+            key: const Key('resident-evidence-preview'),
+            height: 200,
+            fit: BoxFit.cover,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: context.appColors.success.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Row(
             children: [
               Icon(
-                Icons.photo_camera_outlined,
-                color: context.appColors.primary,
-                size: 20,
+                Icons.check_circle_outline,
+                size: 16,
+                color: context.appColors.success,
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 6),
               Expanded(
                 child: Text(
-                  'Foto Dokumentasi (Opsional)',
-                  style: Theme.of(context).textTheme.titleMedium
-                      ?.copyWith(fontWeight: FontWeight.w600),
+                  _uploadedEvidenceId == null
+                      ? 'Foto siap diunggah (metadata lokasi dihapus)'
+                      : 'Foto terunggah, akan dilampirkan saat submit',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: context.appColors.success,
+                  ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
-
-          // Info card dengan icon
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: context.appColors.warning.withValues(alpha: 0.05),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                color: context.appColors.warning.withValues(alpha: 0.3),
-              ),
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(
-                  Icons.info_outline,
-                  size: 18,
-                  color: context.appColors.warning,
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Privasi & Retensi:',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          color: context.appColors.warning,
-                          fontSize: 13,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      const Text(
-                        '• Foto JPEG akan dihapus otomatis setelah 30 hari\n'
-                        '• Metadata lokasi dihapus saat upload\n'
-                        '• Jangan sertakan wajah, alamat, atau data pribadi\n'
-                        '• Jika upload gagal, masih bisa kirim tanpa foto',
-                        style: TextStyle(fontSize: 12, height: 1.4),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+        ),
+        const SizedBox(height: 8),
+        OutlinedButton.icon(
+          key: const Key('resident-remove-evidence'),
+          onPressed: _busy ? null : _removeSelectedEvidence,
+          icon: const Icon(Icons.delete_outline),
+          label: const Text('Hapus Foto'),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: context.appColors.danger,
           ),
-          const SizedBox(height: 12),
-
-          // Button pilih foto
-          if (_selectedEvidenceBytes == null && _uploadedEvidenceId == null)
-            OutlinedButton.icon(
-              key: const Key('resident-choose-evidence'),
-              onPressed: _busy ? null : _chooseEvidence,
-              icon: const Icon(Icons.add_a_photo_outlined),
-              label: const Text('Pilih Foto'),
-              style: OutlinedButton.styleFrom(
-                minimumSize: const Size.fromHeight(48),
-              ),
-            ),
-
-          // Preview foto yang dipilih
-          if (_selectedEvidenceBytes case final bytes?) ...[
-            ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: Image.memory(
-                bytes,
-                key: const Key('resident-evidence-preview'),
-                height: 200,
-                fit: BoxFit.cover,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: context.appColors.success.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.check_circle_outline,
-                    size: 16,
-                    color: context.appColors.success,
-                  ),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      _uploadedEvidenceId == null
-                          ? 'Foto siap diunggah (metadata lokasi dihapus)'
-                          : 'Foto terunggah, akan dilampirkan saat submit',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: context.appColors.success,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 8),
-            OutlinedButton.icon(
-              key: const Key('resident-remove-evidence'),
-              onPressed: _busy ? null : _removeSelectedEvidence,
-              icon: const Icon(Icons.delete_outline),
-              label: const Text('Hapus Foto'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: context.appColors.danger,
-              ),
-            ),
-          ],
-        ],
-      ),
-    ),
+        ),
+      ],
+    ],
   );
 
   Widget _responseActions() {
@@ -1181,29 +1095,8 @@ final class _ResidentTaskDetailScreenState
       );
     }
     if (_task.participation == ParticipationState.declined) {
-      return Card(
-        elevation: 0,
-        color: context.appColors.textSecondary.withValues(alpha: 0.05),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-          side: BorderSide(color: context.appColors.border),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              Icon(
-                Icons.info_outline,
-                color: context.appColors.textSecondary,
-                size: 24,
-              ),
-              const SizedBox(width: 12),
-              const Expanded(
-                child: Text('Anda memilih tidak ikut. Tidak ada penalti.'),
-              ),
-            ],
-          ),
-        ),
+      return TintedInfoBox.info(
+        text: 'Anda memilih tidak ikut. Tidak ada penalti.',
       );
     }
     if (_task.completion == CompletionState.pendingRtVerification) {
@@ -1233,104 +1126,65 @@ final class _ResidentTaskDetailScreenState
       );
     }
     if (_task.completion == CompletionState.verifiedComplete) {
-      return TintedInfoBox.success(
+      return TintedInfoBox(
+        tint: TintType.success,
+        icon: Icons.check_circle_outline,
         title: 'Penyelesaian telah diverifikasi oleh RT.',
-        text: _task.evidenceId != null
-            ? 'Foto bukti tersimpan sementara (dihapus otomatis setelah 30 hari).'
-            : '',
-        action: _task.evidenceId != null
-            ? TextButton.icon(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (_task.evidenceId != null) ...[
+              const Text(
+                'Foto bukti tersimpan sementara (dihapus otomatis setelah 30 hari).',
+              ),
+              TextButton.icon(
                 key: const Key('resident-delete-attached-evidence'),
                 onPressed: _busy ? null : _deleteAttachedEvidence,
                 icon: const Icon(Icons.delete_outline),
                 label: const Text('Hapus foto bukti'),
-              )
-            : null,
+              ),
+            ],
+          ],
+        ),
       );
     }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         // Info partisipasi
-        Card(
-          elevation: 0,
-          color: context.appColors.success.withValues(alpha: 0.05),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-            side: BorderSide(color: context.appColors.border),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.task_alt,
-                  color: context.appColors.success,
-                  size: 20,
-                ),
-                const SizedBox(width: 10),
-                const Expanded(
-                  child: Text(
-                    'Anda memilih ikut. Tandai selesai setelah menyelesaikan tugas.',
-                    style: TextStyle(fontSize: 13),
-                  ),
-                ),
-              ],
-            ),
-          ),
+        TintedInfoBox.success(
+          title: 'Anda Memilih Ikut',
+          text:
+              'Anda memilih ikut. Tandai selesai setelah menyelesaikan tugas.',
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
 
         // Foto dokumentasi
         _evidencePicker(),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
 
         // Catatan
-        Card(
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-            side: BorderSide(color: context.appColors.border),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(
-                      Icons.note_outlined,
-                      color: context.appColors.primary,
-                      size: 20,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Catatan Singkat (Opsional)',
-                      style: Theme.of(context).textTheme.titleMedium
-                          ?.copyWith(fontWeight: FontWeight.w600),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  key: const Key('resident-completion-note'),
-                  controller: _noteController,
-                  maxLength: TaskResponse.maxCompletionNoteLength,
-                  maxLines: 3,
-                  decoration: InputDecoration(
-                    hintText: 'Contoh: Sudah disiapkan semua perlengkapan',
-                    helperText: 'Jangan masukkan alamat, NIK, nomor telepon, atau koordinat',
-                    helperMaxLines: 2,
-                    border: const OutlineInputBorder(),
-                    contentPadding: const EdgeInsets.all(12),
-                  ),
-                ),
-              ],
+        SectionCard(
+          title: 'Catatan Singkat (Opsional)',
+          icon: Icons.note_outlined,
+          margin: const EdgeInsets.only(bottom: 12),
+          children: [
+            TextField(
+              key: const Key('resident-completion-note'),
+              controller: _noteController,
+              maxLength: TaskResponse.maxCompletionNoteLength,
+              maxLines: 3,
+              decoration: const InputDecoration(
+                hintText: 'Contoh: Sudah disiapkan semua perlengkapan',
+                helperText: 'Jangan masukkan alamat, NIK, nomor telepon, atau koordinat',
+                helperMaxLines: 2,
+                border: OutlineInputBorder(),
+                contentPadding: EdgeInsets.all(12),
+              ),
             ),
-          ),
+          ],
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
 
         // Checklist konfirmasi
         _CompletionConfirmationChecklist(
@@ -1361,38 +1215,7 @@ final class _ResidentTaskDetailScreenState
         // Error state
         if (_uploadError != null) ...[
           const SizedBox(height: 12),
-          Card(
-            elevation: 0,
-            color: context.appColors.danger.withValues(alpha: 0.05),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-              side: BorderSide(
-                color: context.appColors.danger.withValues(alpha: 0.3),
-              ),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.error_outline,
-                    color: context.appColors.danger,
-                    size: 20,
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      _uploadError!,
-                      style: TextStyle(
-                        color: context.appColors.danger,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
+          AlertBanner.danger(title: 'Gagal Mengirim', message: _uploadError!),
         ],
       ],
     );
@@ -1836,12 +1659,6 @@ final class _LoadError extends StatelessWidget {
     ),
   );
 }
-
-String _participationLabel(ParticipationState state) => switch (state) {
-  ParticipationState.unresponded => 'Belum memilih',
-  ParticipationState.joined => 'Memilih ikut',
-  ParticipationState.declined => 'Memilih tidak ikut',
-};
 
 String _formatDate(DateTime value) =>
     IndonesianDateFormatter.formatNumeric(value);
