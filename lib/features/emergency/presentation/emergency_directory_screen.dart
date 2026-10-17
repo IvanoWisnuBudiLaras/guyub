@@ -4,11 +4,12 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../auth/application/resident_session.dart';
 import '../../../core/utils/indonesian_date_formatter.dart';
 import '../../../core/widgets/inline_action_button.dart';
+import '../../../core/widgets/section_card.dart';
+import '../../../core/widgets/tinted_info_box.dart';
 import '../application/emergency_directory.dart';
 import '../application/emergency_directory_controller.dart';
 import '../application/emergency_directory_cache.dart';
 import '../application/national_emergency_numbers.dart';
-import '../../../core/widgets/tinted_info_box.dart';
 
 /// Offline-readable emergency directory. Pass no session to show the latest
 /// public directory saved on this device from the unauthenticated Darurat route.
@@ -145,30 +146,23 @@ final class _EmergencyDirectoryScreenState
           _StatusCard(state: state),
           const SizedBox(height: 12),
           if (areaName != null && rtLabel != null) ...[
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Data untuk wilayah',
-                      style: Theme.of(context).textTheme.labelLarge,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '$areaName • $rtLabel',
-                      key: const Key('emergency-directory-area'),
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Pastikan wilayah ini sesuai dengan lokasi Anda. '
-                      'Direktori ini tidak berlaku otomatis untuk RT lain.',
-                    ),
-                  ],
+            SectionCard(
+              title: 'Data untuk wilayah',
+              icon: Icons.location_on_outlined,
+              margin: EdgeInsets.zero,
+              children: [
+                Text(
+                  '$areaName • $rtLabel',
+                  key: const Key('emergency-directory-area'),
+                  style: Theme.of(context).textTheme.titleMedium
+                      ?.copyWith(fontWeight: FontWeight.w700),
                 ),
-              ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Pastikan wilayah ini sesuai dengan lokasi Anda. '
+                  'Direktori ini tidak berlaku otomatis untuk RT lain.',
+                ),
+              ],
             ),
             const SizedBox(height: 12),
           ],
@@ -317,21 +311,17 @@ final class _SyncDetails extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Terakhir disinkronkan: ${_formatDate(snapshot.syncedAt)}'),
-            const SizedBox(height: 6),
-            Text(
-              'Terakhir diverifikasi: '
-              '${_formatDate(snapshot.directory.lastVerifiedAt!)}',
-            ),
-          ],
+    return SectionCard(
+      margin: EdgeInsets.zero,
+      padding: const EdgeInsets.all(12),
+      children: [
+        Text('Terakhir disinkronkan: ${_formatDate(snapshot.syncedAt)}'),
+        const SizedBox(height: 4),
+        Text(
+          'Terakhir diverifikasi: '
+          '${_formatDate(snapshot.directory.lastVerifiedAt!)}',
         ),
-      ),
+      ],
     );
   }
 }
@@ -665,36 +655,11 @@ final class _DirectorySection extends StatelessWidget {
   final IconData? icon;
 
   @override
-  Widget build(BuildContext context) => Card(
-    child: Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              if (icon != null) ...[
-                Icon(
-                  icon,
-                  color: Theme.of(context).colorScheme.primary,
-                  size: 24,
-                ),
-                const SizedBox(width: 12),
-              ],
-              Expanded(
-                child: Text(
-                  title,
-                  style: Theme.of(context).textTheme.titleMedium
-                      ?.copyWith(fontWeight: FontWeight.w600),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          ...children,
-        ],
-      ),
-    ),
+  Widget build(BuildContext context) => SectionCard(
+    title: title,
+    icon: icon,
+    margin: EdgeInsets.zero,
+    children: children,
   );
 }
 
@@ -719,12 +684,7 @@ final class _EmptyMessage extends StatelessWidget {
       EmergencyDirectoryViewStatus.active =>
         'Belum ada informasi darurat yang tersedia.',
     };
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Text(message, textAlign: TextAlign.center),
-      ),
-    );
+    return TintedInfoBox.info(text: message, icon: Icons.info_outline);
   }
 }
 
@@ -741,220 +701,138 @@ final class _UnauthenticatedEmergencyView extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Petunjuk masukkan kode RT
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: colorScheme.surfaceContainerHigh,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: colorScheme.outlineVariant, width: 1),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Icon(
-                    Icons.vpn_key_outlined,
-                    color: colorScheme.primary,
-                    size: 20,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Belum Terhubung ke RT',
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Anda membuka informasi darurat tanpa sesi warga. '
-                'Untuk melihat kontak pengurus RT, titik kumpul evakuasi lingkungan, '
-                'dan kanal koordinasi warga Anda, silakan masuk dengan Kode RT '
-                'pada menu Masuk Warga.',
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ],
-          ),
+        TintedInfoBox.info(
+          title: 'Belum Terhubung ke RT',
+          icon: Icons.vpn_key_outlined,
+          text:
+              'Anda membuka informasi darurat tanpa sesi warga. '
+              'Untuk melihat kontak pengurus RT, titik kumpul evakuasi lingkungan, '
+              'dan kanal koordinasi warga Anda, silakan masuk dengan Kode RT '
+              'pada menu Masuk Warga.',
         ),
         const SizedBox(height: 16),
 
         // Nomor Darurat Nasional Resmi
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(
-                      Icons.shield_outlined,
-                      color: colorScheme.error,
-                      size: 22,
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Nomor Darurat Nasional Resmi',
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            'Layanan darurat terverifikasi pemerintah RI (bebas pulsa / 24 jam)',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+        SectionCard(
+          title: 'Nomor Darurat Nasional Resmi',
+          icon: Icons.shield_outlined,
+          children: [
+            Text(
+              'Layanan darurat terverifikasi pemerintah RI (bebas pulsa / 24 jam)',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 16),
+            ...kNationalEmergencyContacts.map(
+              (contact) => Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: colorScheme.surfaceContainerLow,
+                  borderRadius: BorderRadius.circular(8),
                 ),
-                const SizedBox(height: 16),
-                ...kNationalEmergencyContacts.map(
-                  (contact) => Container(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: colorScheme.surfaceContainerLow,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Column(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: colorScheme.errorContainer.withValues(
-                                  alpha: 0.3,
-                                ),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                contact.number,
-                                style: theme.textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                  color: colorScheme.error,
-                                ),
-                              ),
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: colorScheme.errorContainer.withValues(
+                              alpha: 0.3,
                             ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    contact.label,
-                                    style: theme.textTheme.titleSmall?.copyWith(
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    contact.description,
-                                    style: theme.textTheme.bodySmall?.copyWith(
-                                      color: colorScheme.onSurfaceVariant,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    'Sumber: ${contact.sourceAuthority}',
-                                    style: theme.textTheme.labelSmall?.copyWith(
-                                      color: colorScheme.outline,
-                                      fontSize: 10,
-                                    ),
-                                  ),
-                                ],
-                              ),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            contact.number,
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: colorScheme.error,
                             ),
-                          ],
+                          ),
                         ),
-                        const SizedBox(height: 10),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          alignment: WrapAlignment.end,
-                          children: [
-                            InlineActionButton(
-                              onPressed: () =>
-                                  onLaunchUri(Uri.parse(contact.sourceUrl)),
-                              icon: Icons.open_in_new,
-                              label: 'Info Resmi',
-                              variant: InlineActionButtonVariant.outlined,
-                            ),
-                            InlineActionButton(
-                              onPressed: () async {
-                                final uri = Uri.parse('tel:${contact.number}');
-                                try {
-                                  await launchUrl(uri);
-                                } catch (_) {
-                                  if (context.mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text(
-                                          'Tidak dapat membuka aplikasi telepon.',
-                                        ),
-                                      ),
-                                    );
-                                  }
-                                }
-                              },
-                              icon: Icons.call,
-                              label: 'Panggil ${contact.number}',
-                              variant: InlineActionButtonVariant.filled,
-                            ),
-                          ],
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                contact.label,
+                                style: theme.textTheme.titleSmall?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                contact.description,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Sumber: ${contact.sourceAuthority}',
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  color: colorScheme.outline,
+                                  fontSize: 10,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ],
                     ),
-                  ),
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      alignment: WrapAlignment.end,
+                      children: [
+                        InlineActionButton(
+                          onPressed: () =>
+                              onLaunchUri(Uri.parse(contact.sourceUrl)),
+                          icon: Icons.open_in_new,
+                          label: 'Info Resmi',
+                          variant: InlineActionButtonVariant.outlined,
+                        ),
+                        InlineActionButton(
+                          onPressed: () async {
+                            final uri = Uri.parse('tel:${contact.number}');
+                            try {
+                              await launchUrl(uri);
+                            } catch (_) {
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      'Tidak dapat membuka aplikasi telepon.',
+                                    ),
+                                  ),
+                                );
+                              }
+                            }
+                          },
+                          icon: Icons.call,
+                          label: 'Panggil ${contact.number}',
+                          variant: InlineActionButtonVariant.filled,
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
-          ),
+          ],
         ),
         const SizedBox(height: 16),
 
         // Disclaimer
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: colorScheme.errorContainer.withValues(alpha: 0.3),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: colorScheme.error.withValues(alpha: 0.3),
-              width: 1,
-            ),
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(Icons.info_outline, color: colorScheme.error, size: 20),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  'Guyub.id adalah platform kesiapsiagaan mandiri warga tingkat RT dan tidak menggantikan layanan darurat atau pelaporan resmi pemerintah.',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: colorScheme.onErrorContainer,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-            ],
-          ),
+        TintedInfoBox.danger(
+          icon: Icons.info_outline,
+          text: 'Guyub.id adalah platform kesiapsiagaan mandiri warga tingkat RT dan tidak menggantikan layanan darurat atau pelaporan resmi pemerintah.',
         ),
       ],
     );

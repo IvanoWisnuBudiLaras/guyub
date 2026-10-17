@@ -156,82 +156,34 @@ final class _ResidentProposalScreenState extends State<ResidentProposalScreen> {
               : (location) => setState(() => _locationReference = location),
         ),
         if (_error != null) ...[
-          const SizedBox(height: 8),
-          Text(
-            _error!,
-            style: TextStyle(color: Theme.of(context).colorScheme.error),
-          ),
+          const SizedBox(height: 12),
+          TintedInfoBox.danger(text: _error!),
         ],
         if (_submitted case final submitted?) ...[
           const SizedBox(height: 16),
-          Card(
+          TintedInfoBox(
             key: const Key('proposal-submitted'),
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-              side: BorderSide(
-                color: submitted.state == 'SUBMITTED'
-                    ? const Color(0xFFF5A623).withValues(alpha: 0.5)
-                    : Theme.of(context).colorScheme.outlineVariant,
-              ),
-            ),
-            color: submitted.state == 'SUBMITTED'
-                ? const Color(0xFFFFF4CC)
-                : Theme.of(context).colorScheme.surfaceContainerHigh,
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(
-                        submitted.state == 'SUBMITTED'
-                            ? Icons.schedule_outlined
-                            : Icons.visibility_outlined,
-                        color: submitted.state == 'SUBMITTED'
-                            ? const Color(0xFFB45309)
-                            : Theme.of(context).colorScheme.onSurfaceVariant,
-                        size: 20,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          submitted.state == 'SUBMITTED'
-                              ? 'Menunggu Tinjauan RT'
-                              : 'Usulan telah ditinjau RT',
-                          style: Theme.of(context).textTheme.titleMedium
-                              ?.copyWith(
-                                color: submitted.state == 'SUBMITTED'
-                                    ? const Color(0xFF92400E)
-                                    : Theme.of(context).colorScheme.onSurface,
-                                fontWeight: FontWeight.w600,
-                              ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'Usulan ini belum menjadi tugas. Tidak ada tugas yang diaktifkan atau dikirim.',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: submitted.state == 'SUBMITTED'
-                          ? const Color(0xFF92400E)
-                          : Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Usulan: ${submitted.title}',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: submitted.state == 'SUBMITTED'
-                          ? const Color(0xFF78350F)
-                          : Theme.of(context).colorScheme.onSurface,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
+            tint: submitted.state == 'SUBMITTED'
+                ? TintType.warning
+                : TintType.info,
+            icon: submitted.state == 'SUBMITTED'
+                ? Icons.schedule_outlined
+                : Icons.visibility_outlined,
+            title: submitted.state == 'SUBMITTED'
+                ? 'Menunggu Tinjauan RT'
+                : 'Usulan telah ditinjau RT',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Usulan ini belum menjadi tugas. Tidak ada tugas yang diaktifkan atau dikirim.',
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Usulan: ${submitted.title}',
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+              ],
             ),
           ),
         ] else ...[
