@@ -84,12 +84,21 @@ Dokumen ini mencatat seluruh isu, keterbatasan teknis, dan trade-off yang ditemu
 - **Solusi**: Diterapkan `isExpanded: true` dan `overflow: TextOverflow.ellipsis` pada seluruh dropdown terkait (relawan, pilihan partisipasi, dan pemilihan tugas aktif).
 
 ### [RESOLVED] Notifikasi Verifikasi Gagal dan Desinkronisasi Metrik Antrean di Dashboard Operator
-- **Lokasi**: `lib/features/tasks/presentation/screens/task_response_screens.dart`, `lib/features/auth/presentation/screens/operator_home_screen.dart`
-- **Gejala**: Saat operator memverifikasi penyelesaian tugas warga, muncul snackbar *"Verifikasi gagal. Coba lagi."* padahal backend sudah sukses memverifikasi, dan saat kembali ke Beranda (Ruang Operator), kartu antrean dan strip metrik masih menampilkan `1 Verifikasi` padahal antrean di backend sudah kosong (0).
+- **Lokasi**: [task_response_screens.dart](file:///d:/project/guyub/lib/features/tasks/presentation/screens/task_response_screens.dart), [operator_home_screen.dart](file:///d:/project/guyub/lib/features/auth/presentation/screens/operator_home_screen.dart), [firebase_task_response_boundary.dart](file:///d:/project/guyub/lib/features/tasks/data/firebase_task_response_boundary.dart), [firebase_callable_client.dart](file:///d:/project/guyub/lib/core/network/firebase_callable_client.dart), [standalone_demo_service.dart](file:///d:/project/guyub/lib/core/demo/standalone_demo_service.dart)
+- **Gejala**: Saat operator memverifikasi penyelesaian tugas warga, muncul snackbar *"Verifikasi gagal. Coba lagi."* padahal backend sudah sukses memverifikasi, dan metrik dashboard menampilkan data statis/hardcoded dari proposal mockup (`Pak Hendra`, `Bu Sari`, `12` Selesai, `14 dari 32 Rumah Tangga siap`, `Target: 28 Agustus`, `8/14 warga selesai`).
 - **Penyebab**: 
-  1. Exception handling di `_verify` belum menangani `TaskResponseConflictException` (kode `failed-precondition`), sehingga saat request verifikasi telah diproses server (idempotency/retry/double-tap), error ditangkap sebagai kegagalan umum, bukannya konfirmasi telah terverifikasi.
-  2. Navigasi dari dashboard operator menggunakan `Navigator.pushNamed` tanpa `await` reload, sehingga saat operator kembali dari antrean verifikasi, state lokal dashboard tidak menyinkronkan data terbaru dari server.
+  1. Exception handling di `_verify` langsung menampilkan SnackBar gagal bila terjadi exception apa pun tanpa memeriksa apakah record sebenarnya telah berhasil diverifikasi dan keluar dari antrean (`listPendingVerifications`).
+  2. `FirebaseTaskResponseErrorMapper` belum menormalisasi kode error callable (misal `FAILED_PRECONDITION` atau `failed_precondition` dengan underscore/huruf besar) dan belum menangani pesan status verifikasi.
+  3. Di mode demo standalone, generator `uploadResidentTaskEvidence` sempat menghasilkan format yang tidak sesuai regex 40-karakter hex sehingga memicu `FormatException` saat diparsing kembali.
+  4. Komponen dashboard operator sebelumnya masih menggunakan teks dummy statis dari mockup proposal alih-alih data dinamis yang tersinkronisasi dari controller/backend.
 - **Solusi**: 
-  1. Menambahkan guard double-tap, indikator tombol busy state *"Memverifikasi…"*, pembersihan snackbar lama, dan penanganan khusus `TaskResponseConflictException` yang memanggil `_reload()` serta menampilkan *"Penyelesaian telah diverifikasi RT."*.
-  2. Mengimplementasikan `_navigateAndRefresh` pada seluruh aksi navigasi dashboard operator dan sinkronisasi otomatis saat beralih kembali ke tab Beranda.
+  1. Mengimplementasikan double-check antrean pada blok `catch` di `_verify`: jika item sudah tidak ada di antrean tertunda, sistem mendeteksinya sebagai keberhasilan (*"Penyelesaian telah diverifikasi RT."*) dan memanggil `_reload()`.
+  2. Menormalisasi kode error callable (`toLowerCase().replaceAll('_', '-')`) dan menangani pesan yang mengandung indikator verifikasi.
+  3. Memperbaiki format evidence ID demo menjadi 40-karakter hex valid (`[a-f0-9]{40}`).
+  4. Menyinkronkan seluruh elemen UI Dashboard Operator dengan data riil:
+     - Kartu *"Menunggu Verifikasi"* terikat ke item antrean pertama (`_firstPendingRecord` dengan nama warga, judul tugas, waktu kirim lokal, dan indikator foto bukti).
+     - Tile *"Selesai"* mengambil total dari riwayat tugas RT (`_completedTasksCount`).
+     - Kartu *"Kesiapan Rumah Tangga"* menghitung persentase dinamis dari total warga terdaftar dan warga yang telah menyelesaikan tugas.
+     - Kartu *"Tugas Terkini"* dan *"Target"* menghitung sisa waktu dan batas tanggal sebenarnya dari `ActiveTaskCampaignRecord.deadline`.
+     - Header Operator menampilkan nama profil pengguna atau fallback ke label peran resmi (`profile.role.label`), bukan nama statis.
 
