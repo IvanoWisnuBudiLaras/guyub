@@ -8,6 +8,7 @@ import '../../application/resident_session_controller.dart';
 import '../../../assistance/application/assistance_volunteer_boundary.dart';
 import '../../../tasks/application/task_response_boundary.dart';
 import '../../../tasks/application/task_response.dart';
+import '../../../tasks/presentation/screens/task_response_screens.dart';
 import '../../../proposals/application/resident_proposal_boundary.dart';
 import '../../../weather/application/weather_snapshot_store.dart';
 import '../../../weather/application/weather_snapshot_boundary.dart';
@@ -88,8 +89,8 @@ final class _ResidentSessionHomeScreenState
         _startReconnectSync();
       }
     }, onError: (Object error, StackTrace stackTrace) {});
-    // Load tasks if controller is available
-    if (taskResponseController != null) {
+    // Load tasks if controller is available and session is online
+    if (taskResponseController != null && !_session.isOfflineSnapshot) {
       _loadTasks();
     }
   }
@@ -617,15 +618,17 @@ final class _ResidentSessionHomeScreenState
     final controller = taskResponseController;
     if (controller == null) return;
 
-    await Navigator.of(context).pushNamed(
-      '/resident/task-detail',
-      arguments: {
-        'session': _session,
-        'controller': controller,
-        'task': task,
-        'isCached': _taskList?.isCached ?? false,
-        'lastSyncedAt': _taskList?.lastSyncedAt,
-      },
+    // Navigate directly with MaterialPageRoute instead of named route
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ResidentTaskDetailScreen(
+          session: _session,
+          controller: controller,
+          task: task,
+          isCached: _taskList?.isCached ?? false,
+          lastSyncedAt: _taskList?.lastSyncedAt,
+        ),
+      ),
     );
 
     // Reload tasks after returning from detail
