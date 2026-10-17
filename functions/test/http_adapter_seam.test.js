@@ -8,6 +8,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
+const { callableNames } = require('../src/app');
 
 const PROJECT_ID = process.env.GCLOUD_PROJECT ?? 'demo-guyub-functions';
 const HOST = '127.0.0.1';
@@ -86,7 +87,7 @@ async function seedOperator(uid) {
 test('adapter reports every callable and task it exposes', async () => {
   const health = await request('GET', `${ADAPTER}/health`);
   assert.equal(health.status, 200);
-  assert.equal(health.body.callables, 46);
+  assert.equal(health.body.callables, callableNames.length);
   assert.equal(health.body.ok, true);
 });
 
