@@ -192,9 +192,11 @@ final class _TemplateCard extends StatelessWidget {
                 children: [
                   Icon(Icons.timer_outlined, size: 15, color: colors.textSecondary),
                   const SizedBox(width: 4),
-                  Text(
-                    'Estimasi ${template.estimatedDurationMinutes} menit',
-                    style: TextStyle(fontSize: 12, color: colors.textSecondary),
+                  Expanded(
+                    child: Text(
+                      'Estimasi ${template.estimatedDurationMinutes} menit',
+                      style: TextStyle(fontSize: 12, color: colors.textSecondary),
+                    ),
                   ),
                 ],
               ),
@@ -202,14 +204,14 @@ final class _TemplateCard extends StatelessWidget {
             const SizedBox(height: 12),
             LockedTaskInstructionsCard(snapshot: template.snapshot()),
             const SizedBox(height: 12),
-            SizedBox(
-              height: 48,
-              child: FilledButton.icon(
-                key: Key('task-template-${template.id}-select'),
-                onPressed: onSelect,
-                icon: const Icon(Icons.arrow_forward, size: 18),
-                label: const Text('Pilih template'),
+            FilledButton.icon(
+              key: Key('task-template-${template.id}-select'),
+              style: FilledButton.styleFrom(
+                minimumSize: const Size.fromHeight(48),
               ),
+              onPressed: onSelect,
+              icon: const Icon(Icons.arrow_forward, size: 18),
+              label: const Text('Pilih template'),
             ),
           ],
         ),

@@ -913,5 +913,129 @@ void main() {
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
     });
+
+    testWidgets('TaskCatalogScreen under 360x640 and textScale 2.0', (
+      tester,
+    ) async {
+      final controller = TaskCampaignController(_FakeTaskBoundary());
+      await tester.pumpApp(
+        TaskCatalogScreen(profile: _profile, controller: controller),
+        screenSize: smallScreen,
+        textScaleFactor: largeTextScale,
+      );
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('TaskCampaignConfirmationScreen under 360x640 and textScale 2.0', (
+      tester,
+    ) async {
+      final controller = TaskCampaignController(_FakeTaskBoundary());
+      await tester.pumpApp(
+        TaskCampaignConfirmationScreen(
+          profile: _profile,
+          campaign: _campaignRecord,
+          controller: controller,
+        ),
+        screenSize: smallScreen,
+        textScaleFactor: largeTextScale,
+      );
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('TaskActiveCampaignsScreen under 360x640 and textScale 2.0', (
+      tester,
+    ) async {
+      final controller = TaskCampaignController(_FakeTaskBoundary());
+      await tester.pumpApp(
+        TaskActiveCampaignsScreen(profile: _profile, controller: controller),
+        screenSize: smallScreen,
+        textScaleFactor: largeTextScale,
+      );
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('TaskHistoryScreen under 360x640 and textScale 2.0', (
+      tester,
+    ) async {
+      final controller = TaskCampaignController(_FakeTaskBoundary());
+      await tester.pumpApp(
+        TaskHistoryScreen(profile: _profile, controller: controller),
+        screenSize: smallScreen,
+        textScaleFactor: largeTextScale,
+      );
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('TaskVerificationQueueScreen under 360x640 and textScale 2.0', (
+      tester,
+    ) async {
+      final controller = TaskResponseController(
+        boundary: _FakeTaskResponseBoundary(),
+        evidenceBoundary: _FakeEvidenceBoundary(),
+        vault: _FakeVault(),
+      );
+      await tester.pumpApp(
+        TaskVerificationQueueScreen(
+          profile: _profile,
+          controller: controller,
+        ),
+        screenSize: smallScreen,
+        textScaleFactor: largeTextScale,
+      );
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('ResidentProposalReviewScreen under 360x640 and textScale 2.0', (
+      tester,
+    ) async {
+      final controller = ResidentProposalReviewController(
+        boundary: _FakeProposalBoundary(),
+      );
+      await tester.pumpApp(
+        ResidentProposalReviewScreen(
+          profile: _profile,
+          controller: controller,
+        ),
+        screenSize: smallScreen,
+        textScaleFactor: largeTextScale,
+      );
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('WeatherSuggestionReviewScreen under 360x640 and textScale 2.0', (
+      tester,
+    ) async {
+      final controller = TaskCampaignController(_FakeTaskBoundary());
+      await tester.pumpApp(
+        WeatherSuggestionReviewScreen(
+          profile: _profile,
+          suggestionBoundary: _FakeSuggestionBoundary(),
+          taskCampaignController: controller,
+        ),
+        screenSize: smallScreen,
+        textScaleFactor: largeTextScale,
+      );
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('ProxyResidentScreen under 360x640 and textScale 2.0', (
+      tester,
+    ) async {
+      final controller = ProxyResidentController(_FakeProxyBoundary());
+      await tester.pumpApp(
+        ProxyResidentScreen(profile: _profile, controller: controller),
+        screenSize: smallScreen,
+        textScaleFactor: largeTextScale,
+      );
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    });
   });
 }

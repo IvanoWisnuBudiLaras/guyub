@@ -142,80 +142,90 @@ final class _ResidentProposalReviewScreenState
     }
   }
 
+  Widget _buildHeader(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: Text(
+            '${widget.profile.role.label} · RT ${widget.profile.communityId}',
+            style: Theme.of(context).textTheme.labelLarge,
+          ),
+        ),
+      ),
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: TintedInfoBox.info(
+          text:
+              'Usulan bukan tugas aktif. RT hanya dapat memilih template aman untuk membuat draf. Teks usulan tidak menjadi instruksi, dan aktivasi memerlukan konfirmasi operator terpisah.',
+        ),
+      ),
+      if (_error != null)
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          child: Text(
+            _error!,
+            style: TextStyle(color: Theme.of(context).colorScheme.error),
+          ),
+        ),
+    ],
+  );
+
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: const Text('Tinjau Usulan Warga')),
-    body: Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              '${widget.profile.role.label} · RT ${widget.profile.communityId}',
-              style: Theme.of(context).textTheme.labelLarge,
-            ),
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: TintedInfoBox.info(
-            text:
-                'Usulan bukan tugas aktif. RT hanya dapat memilih template aman untuk membuat draf. Teks usulan tidak menjadi instruksi, dan aktivasi memerlukan konfirmasi operator terpisah.',
-          ),
-        ),
-        if (_error != null)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-            child: Text(
-              _error!,
-              style: TextStyle(color: Theme.of(context).colorScheme.error),
-            ),
-          ),
-        Expanded(
-          child: FutureBuilder<ResidentProposalQueue>(
-            future: _queue,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting &&
-                  !snapshot.hasData) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              if (snapshot.hasError || !snapshot.hasData) {
-                return RefreshIndicator(
-                  onRefresh: _refresh,
-                  child: ListView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    children: const [
-                      SizedBox(height: 100),
-                      Center(
-                        child: Text(
-                          'Usulan belum dapat dimuat. Tarik untuk mencoba lagi.',
-                        ),
-                      ),
-                    ],
+    body: FutureBuilder<ResidentProposalQueue>(
+      future: _queue,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting &&
+            !snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (snapshot.hasError || !snapshot.hasData) {
+          return RefreshIndicator(
+            onRefresh: _refresh,
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              children: [
+                _buildHeader(context),
+                const SizedBox(height: 60),
+                const Center(
+                  child: Text(
+                    'Usulan belum dapat dimuat. Tarik untuk mencoba lagi.',
                   ),
-                );
-              }
-              final queue = snapshot.data!;
-              if (queue.items.isEmpty) {
-                return RefreshIndicator(
-                  onRefresh: _refresh,
-                  child: ListView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    children: const [
-                      SizedBox(height: 120),
-                      Center(
-                        child: Text('Tidak ada usulan yang menunggu tinjauan.'),
-                      ),
-                    ],
-                  ),
-                );
-              }
-              return RefreshIndicator(
-                onRefresh: _refresh,
-                child: ListView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.all(16),
+                ),
+              ],
+            ),
+          );
+        }
+        final queue = snapshot.data!;
+        if (queue.items.isEmpty) {
+          return RefreshIndicator(
+            onRefresh: _refresh,
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              children: [
+                _buildHeader(context),
+                const SizedBox(height: 60),
+                const Center(
+                  child: Text('Tidak ada usulan yang menunggu tinjauan.'),
+                ),
+              ],
+            ),
+          );
+        }
+        return RefreshIndicator(
+          onRefresh: _refresh,
+          child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.only(bottom: 24),
+            children: [
+              _buildHeader(context),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Column(
                   children: [
                     if (queue.isPartial)
                       const Padding(
@@ -242,11 +252,11 @@ final class _ResidentProposalReviewScreenState
                       ),
                   ],
                 ),
-              );
-            },
+              ),
+            ],
           ),
-        ),
-      ],
+        );
+      },
     ),
   );
 }
@@ -338,49 +348,79 @@ final class _ProposalCard extends StatelessWidget {
               onOfficialReport != null) ...[
             const SizedBox(height: 14),
             if (onMap != null)
-              SizedBox(
-                width: double.infinity,
-                height: 48,
-                child: FilledButton.tonalIcon(
-                  key: Key('proposal-map-${proposal.proposalId}'),
-                  onPressed: busy ? null : onMap,
-                  icon: const Icon(Icons.fact_check_outlined, size: 18),
-                  label: const Text('Pilih template aman untuk draf'),
+              FilledButton.tonal(
+                key: Key('proposal-map-${proposal.proposalId}'),
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size.fromHeight(48),
+                ),
+                onPressed: busy ? null : onMap,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: const [
+                    Icon(Icons.fact_check_outlined, size: 18),
+                    SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        'Pilih template aman untuk draf',
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             if (onOfficialReport != null) ...[
               const SizedBox(height: 8),
-              SizedBox(
-                width: double.infinity,
-                height: 48,
-                child: OutlinedButton.icon(
-                  key: Key('proposal-official-${proposal.proposalId}'),
-                  onPressed: busy ? null : onOfficialReport,
-                  icon: busy
-                      ? const SizedBox.square(
-                          dimension: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.outbond_outlined, size: 18),
-                  label: const Text('Arahkan ke kanal resmi'),
+              OutlinedButton(
+                key: Key('proposal-official-${proposal.proposalId}'),
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size.fromHeight(48),
+                ),
+                onPressed: busy ? null : onOfficialReport,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    busy
+                        ? const SizedBox.square(
+                            dimension: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.outbond_outlined, size: 18),
+                    const SizedBox(width: 8),
+                    const Flexible(
+                      child: Text(
+                        'Arahkan ke kanal resmi',
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
             if (onDismiss != null) ...[
               const SizedBox(height: 8),
-              SizedBox(
-                width: double.infinity,
-                height: 48,
-                child: OutlinedButton.icon(
-                  key: Key('proposal-dismiss-${proposal.proposalId}'),
-                  onPressed: busy ? null : onDismiss,
-                  icon: busy
-                      ? const SizedBox.square(
-                          dimension: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.archive_outlined, size: 18),
-                  label: const Text('Tutup usulan'),
+              OutlinedButton(
+                key: Key('proposal-dismiss-${proposal.proposalId}'),
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size.fromHeight(48),
+                ),
+                onPressed: busy ? null : onDismiss,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    busy
+                        ? const SizedBox.square(
+                            dimension: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.archive_outlined, size: 18),
+                    const SizedBox(width: 8),
+                    const Flexible(
+                      child: Text(
+                        'Tutup usulan',
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],

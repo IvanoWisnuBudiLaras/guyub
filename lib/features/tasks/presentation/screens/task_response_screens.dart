@@ -1505,10 +1505,12 @@ final class _TaskVerificationQueueScreenState
                           children: [
                             const Icon(Icons.person_outline, size: 16),
                             const SizedBox(width: 4),
-                            Text(
-                              'Dikirim oleh ${record.nickname}',
-                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                fontWeight: FontWeight.w600,
+                            Expanded(
+                              child: Text(
+                                'Dikirim oleh ${record.nickname}',
+                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                             ),
                           ],
@@ -1548,19 +1550,19 @@ final class _TaskVerificationQueueScreenState
                         ),
                         if (record.evidenceId case final evidenceId?) ...[
                           const SizedBox(height: 12),
-                          SizedBox(
-                            height: 48,
-                            child: OutlinedButton.icon(
-                              key: Key('review-evidence-${record.responseId}'),
-                              onPressed: _busyEvidence.contains(evidenceId)
-                                  ? null
-                                  : () => _reviewEvidence(record),
-                              icon: const Icon(Icons.image_outlined),
-                              label: Text(
-                                _busyEvidence.contains(evidenceId)
-                                    ? 'Memuat foto…'
-                                    : 'Lihat foto bukti',
-                              ),
+                          OutlinedButton.icon(
+                            key: Key('review-evidence-${record.responseId}'),
+                            style: OutlinedButton.styleFrom(
+                              minimumSize: const Size.fromHeight(48),
+                            ),
+                            onPressed: _busyEvidence.contains(evidenceId)
+                                ? null
+                                : () => _reviewEvidence(record),
+                            icon: const Icon(Icons.image_outlined),
+                            label: Text(
+                              _busyEvidence.contains(evidenceId)
+                                  ? 'Memuat foto…'
+                                  : 'Lihat foto bukti',
                             ),
                           ),
                         ],
@@ -1569,34 +1571,31 @@ final class _TaskVerificationQueueScreenState
                           spacing: 8,
                           runSpacing: 8,
                           children: [
-                            SizedBox(
-                              height: 48,
-                              child: InlineActionButton(
-                                key: Key('verify-${record.responseId}'),
-                                onPressed:
-                                    _busyResponses.contains(record.responseId)
-                                    ? null
-                                    : () => _verify(record),
-                                icon: Icons.check_circle_outline,
-                                label: 'Tinjau dan Verifikasi',
-                                variant: InlineActionButtonVariant.tonal,
-                              ),
+                            InlineActionButton(
+                              key: Key('verify-${record.responseId}'),
+                              onPressed:
+                                  _busyResponses.contains(record.responseId)
+                                  ? null
+                                  : () => _verify(record),
+                              icon: Icons.check_circle_outline,
+                              label: 'Tinjau dan Verifikasi',
+                              variant: InlineActionButtonVariant.tonal,
                             ),
-                            SizedBox(
-                              height: 48,
-                              child: OutlinedButton(
-                                key: Key('recap-${record.taskId}'),
-                                onPressed: () => Navigator.of(context).push(
-                                  MaterialPageRoute<void>(
-                                    builder: (_) => TaskResponseRecapScreen(
-                                      profile: widget.profile,
-                                      taskId: record.taskId,
-                                      controller: widget.controller,
-                                    ),
+                            OutlinedButton(
+                              key: Key('recap-${record.taskId}'),
+                              style: OutlinedButton.styleFrom(
+                                minimumSize: const Size(0, 48),
+                              ),
+                              onPressed: () => Navigator.of(context).push(
+                                MaterialPageRoute<void>(
+                                  builder: (_) => TaskResponseRecapScreen(
+                                    profile: widget.profile,
+                                    taskId: record.taskId,
+                                    controller: widget.controller,
                                   ),
                                 ),
-                                child: const Text('Lihat Rekap'),
                               ),
+                              child: const Text('Lihat Rekap'),
                             ),
                           ],
                         ),
