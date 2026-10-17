@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../../core/utils/indonesian_date_formatter.dart';
 import '../../../../core/widgets/tinted_info_box.dart';
 import '../../../auth/application/operator_profile.dart';
 import '../../application/task_campaign_boundary.dart';
@@ -323,26 +324,6 @@ final class _SummaryRow extends StatelessWidget {
   }
 }
 
-String _formatDeadline(DateTime value) {
-  final local = value.toLocal();
-  const days = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
-  const months = [
-    'Januari',
-    'Februari',
-    'Maret',
-    'April',
-    'Mei',
-    'Juni',
-    'Juli',
-    'Agustus',
-    'September',
-    'Oktober',
-    'November',
-    'Desember',
-  ];
-  final dayName = days[local.weekday - 1];
-  final monthName = months[local.month - 1];
-  final hour = local.hour.toString().padLeft(2, '0');
-  final minute = local.minute.toString().padLeft(2, '0');
-  return '$dayName, ${local.day} $monthName ${local.year} • $hour:$minute WIB';
-}
+String _formatDeadline(DateTime value) =>
+    IndonesianDateFormatter.formatFull(value);
+

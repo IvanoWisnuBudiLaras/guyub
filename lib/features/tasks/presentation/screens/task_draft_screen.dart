@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../auth/application/operator_profile.dart';
+import '../../../../core/utils/indonesian_date_formatter.dart';
 import '../../application/task_campaign_boundary.dart';
 import '../../application/task_template.dart';
 import '../../application/task_location_reference.dart';
@@ -129,7 +130,7 @@ final class _TaskDraftScreenState extends State<TaskDraftScreen> {
           label: Text(
             _deadline == null
                 ? 'Pilih batas waktu'
-                : _formatDeadline(context, _deadline!),
+                : _formatDeadline(_deadline!),
           ),
         ),
         const SizedBox(height: 12),
@@ -176,10 +177,5 @@ final class _TaskDraftScreenState extends State<TaskDraftScreen> {
   );
 }
 
-String _formatDeadline(BuildContext context, DateTime value) {
-  final local = value.toLocal();
-  final date = MaterialLocalizations.of(context).formatMediumDate(local);
-  final time = MaterialLocalizations.of(context)
-      .formatTimeOfDay(TimeOfDay.fromDateTime(local));
-  return '$date · $time';
-}
+String _formatDeadline(DateTime value) =>
+    IndonesianDateFormatter.formatFull(value);

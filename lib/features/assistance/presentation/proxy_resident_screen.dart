@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/widgets/inline_action_button.dart';
 import '../../auth/application/operator_profile.dart';
 import '../../tasks/application/task_campaign_boundary.dart';
 import '../application/assistance_volunteer_boundary.dart';
@@ -424,23 +425,25 @@ final class _ProxyResidentScreenState extends State<ProxyResidentScreen> {
         }
         if (snapshot.hasError || snapshot.data == null) {
           return Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text('Data warga belum dapat dimuat untuk RT ini.'),
-                const SizedBox(height: 12),
-                OutlinedButton(
-                  key: const Key('proxy-resident-retry'),
-                  onPressed: _reload,
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 24,
-                      vertical: 12,
-                    ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    'Data warga belum dapat dimuat untuk RT ini.',
+                    textAlign: TextAlign.center,
                   ),
-                  child: const Text('Coba lagi'),
-                ),
-              ],
+                  const SizedBox(height: 12),
+                  InlineActionButton(
+                    key: const Key('proxy-resident-retry'),
+                    variant: InlineActionButtonVariant.outlined,
+                    icon: Icons.refresh,
+                    label: 'Coba lagi',
+                    onPressed: _reload,
+                  ),
+                ],
+              ),
             ),
           );
         }

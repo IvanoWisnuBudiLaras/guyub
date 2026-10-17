@@ -160,31 +160,92 @@ async function main() {
 
   // 3. Sumber & Snapshot Cuaca BMKG (Kedungwaru, Tulungagung: adm4Code = 35.04.03.2010)
   console.log('3. Menyiapkan snapshot cuaca BMKG (Kedungwaru: 35.04.03.2010)...');
-  const snapshotId = `snapshot-${RT_ID}-demo`;
-  await seedFirestoreDoc(`weather_sources/${RT_ID}`, {
+  const weatherSource = {
     rtId: RT_ID,
-    adm4Code: '35.04.03.2010',
+    source: 'BMKG',
     enabled: true,
+    reviewStatus: 'approved',
+    reviewedBy: 'Admin Wilayah Tulungagung',
+    reviewedAt: now,
+    endpoint: 'https://api.bmkg.go.id/publik/prakiraan-cuaca?adm4=35.04.03.2010',
+    maximumAgeSeconds: 86400,
+    normalization: {
+      rainfallMmPath: ['data', 0, 'forecast', 'rainfall_mm'],
+      sourceUpdatedAtPath: ['data', 0, 'forecast', 'source_updated_at'],
+    },
+  };
+  const sourceFingerprint = crypto.createHash('sha256').update(JSON.stringify([
+    weatherSource.rtId,
+    weatherSource.endpoint,
+    weatherSource.maximumAgeSeconds,
+    weatherSource.normalization.rainfallMmPath,
+    weatherSource.normalization.sourceUpdatedAtPath,
+  ]), 'utf8').digest('hex');
+
+  await seedFirestoreDoc(`weather_sources/${RT_ID}`, {
+    ...weatherSource,
+    sourceFingerprint,
   });
+
+  const rainfallMm = 14.5;
+  const snapshotId = crypto.createHash('sha256').update(JSON.stringify([
+    RT_ID,
+    sourceFingerprint,
+    now.toISOString(),
+    rainfallMm,
+  ]), 'utf8').digest('hex').slice(0, 40);
+
   await seedFirestoreDoc(`weather_snapshots/${snapshotId}`, {
     snapshotId,
     rtId: RT_ID,
     source: 'BMKG',
-    sourceFingerprint: 'demo-fingerprint-rt01-tulungagung',
+    sourceFingerprint,
     sourceUpdatedAt: now,
     fetchedAt: now,
-    rainfallMm: 14.5,
+    rainfallMm,
     isLastValid: true,
   });
   await seedFirestoreDoc(`weather_last_valid_snapshots/${RT_ID}`, {
     rtId: RT_ID,
     snapshotId,
-    sourceFingerprint: 'demo-fingerprint-rt01-tulungagung',
+    sourceFingerprint,
     sourceUpdatedAt: now,
     fetchedAt: now,
-    rainfallMm: 14.5,
+    rainfallMm,
   });
-  console.log(`   [✓] weather_snapshots & weather_last_valid_snapshots berhasil diseed`);
+  console.log(`   [✓] weather_snapshots & weather_last_valid_snapshots (${snapshotId}) berhasil diseed`);
+
+  // Hapus dokumen cuaca legacy jika ada
+  try {
+    const legacyWeatherUrl = `http://${FIRESTORE_HOST}/v1/projects/${PROJECT_ID}/databases/(default)/documents/weather_snapshots/snapshot-${RT_ID}-demo`;
+    await fetch(legacyWeatherUrl, { method: 'DELETE', headers: { Authorization: 'Bearer owner' } });
+  } catch (_) {}
+
+  // 3b. Seed 2 Profil Warga Rentan (Proxy Residents)
+  console.log('3b. Menyiapkan 2 profil warga rentan RT (Proxy Residents)...');
+  const proxy1 = crypto.createHash('sha256').update('resident-proxy-mbah-supardi-demo').digest('hex').slice(0, 40);
+  const proxy2 = crypto.createHash('sha256').update('resident-proxy-ibu-aminah-demo').digest('hex').slice(0, 40);
+
+  await seedFirestoreDoc(`resident_profiles/${proxy1}`, {
+    residentId: proxy1,
+    rtId: RT_ID,
+    nickname: 'Mbah Supardi (DEMO)',
+    houseNumber: '12',
+    needsAssistance: true,
+    createdBy: 'proxy',
+    createdAt: now,
+  });
+
+  await seedFirestoreDoc(`resident_profiles/${proxy2}`, {
+    residentId: proxy2,
+    rtId: RT_ID,
+    nickname: 'Ibu Aminah (DEMO)',
+    houseNumber: '05A',
+    needsAssistance: true,
+    createdBy: 'proxy',
+    createdAt: now,
+  });
+  console.log(`   [✓] resident_profiles (2 data warga rentan DEMO) berhasil diseed`);
 
   // 4. Template & Kampanye Tugas Kesiapsiagaan Aktif
   console.log('4. Menyiapkan katalog tugas siaga aktif...');

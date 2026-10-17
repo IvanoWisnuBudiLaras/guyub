@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/utils/indonesian_date_formatter.dart';
 import '../application/weather_snapshot.dart';
 import '../application/weather_snapshot_store.dart';
 
@@ -282,9 +283,6 @@ final class _WeatherSnapshotCardState extends State<WeatherSnapshotCard> {
   }
 }
 
-String _formatDate(DateTime value) {
-  final local = value.toLocal();
-  String two(int part) => part.toString().padLeft(2, '0');
-  return '${two(local.day)}/${two(local.month)}/${local.year} '
-      '${two(local.hour)}:${two(local.minute)}';
-}
+String _formatDate(DateTime value) =>
+    IndonesianDateFormatter.formatNumeric(value);
+

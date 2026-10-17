@@ -166,12 +166,76 @@ async function seedProxyResidents() {
   console.log(`Firestore resident_profiles (2 data warga rentan DEMO) berhasil diseed.`);
 }
 
+async function seedWeather() {
+  const now = new Date();
+  const weatherSource = {
+    rtId: RT_ID,
+    source: 'BMKG',
+    enabled: true,
+    reviewStatus: 'approved',
+    reviewedBy: 'Admin Wilayah Tulungagung',
+    reviewedAt: now,
+    endpoint: 'https://api.bmkg.go.id/publik/prakiraan-cuaca?adm4=35.04.03.2010',
+    maximumAgeSeconds: 86400,
+    normalization: {
+      rainfallMmPath: ['data', 0, 'forecast', 'rainfall_mm'],
+      sourceUpdatedAtPath: ['data', 0, 'forecast', 'source_updated_at'],
+    },
+  };
+  const sourceFingerprint = crypto.createHash('sha256').update(JSON.stringify([
+    weatherSource.rtId,
+    weatherSource.endpoint,
+    weatherSource.maximumAgeSeconds,
+    weatherSource.normalization.rainfallMmPath,
+    weatherSource.normalization.sourceUpdatedAtPath,
+  ]), 'utf8').digest('hex');
+
+  await seedFirestoreDoc(`weather_sources/${RT_ID}`, {
+    ...weatherSource,
+    sourceFingerprint,
+  });
+
+  const rainfallMm = 14.5;
+  const snapshotId = crypto.createHash('sha256').update(JSON.stringify([
+    RT_ID,
+    sourceFingerprint,
+    now.toISOString(),
+    rainfallMm,
+  ]), 'utf8').digest('hex').slice(0, 40);
+
+  await seedFirestoreDoc(`weather_snapshots/${snapshotId}`, {
+    snapshotId,
+    rtId: RT_ID,
+    source: 'BMKG',
+    sourceFingerprint,
+    sourceUpdatedAt: now,
+    fetchedAt: now,
+    rainfallMm,
+    isLastValid: true,
+  });
+  await seedFirestoreDoc(`weather_last_valid_snapshots/${RT_ID}`, {
+    rtId: RT_ID,
+    snapshotId,
+    sourceFingerprint,
+    sourceUpdatedAt: now,
+    fetchedAt: now,
+    rainfallMm,
+  });
+  console.log(`Firestore weather_snapshots (${snapshotId}) berhasil diseed.`);
+
+  try {
+    const legacyWeatherUrl = `http://${FIRESTORE_HOST}/v1/projects/${PROJECT_ID}/databases/(default)/documents/weather_snapshots/snapshot-${RT_ID}-demo`;
+    await fetch(legacyWeatherUrl, { method: 'DELETE', headers: { Authorization: 'Bearer owner' } });
+  } catch (_) {}
+}
+
 async function main() {
   console.log('=== Seeder Operator RT Tulungagung (emulator) ===');
   const uid = await createAuthUser();
   await seedFirestoreOperator(uid);
   await seedFirestoreCommunity();
   await seedProxyResidents();
+  await seedWeather();
   console.log('\n✅ Selesai!');
   console.log(`   Operator RT:`);
   console.log(`   Email   : ${OPERATOR_EMAIL}`);

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../auth/application/resident_session.dart';
+import '../../../core/utils/indonesian_date_formatter.dart';
 import '../../../core/widgets/inline_action_button.dart';
 import '../application/emergency_directory.dart';
 import '../application/emergency_directory_controller.dart';
@@ -237,7 +238,8 @@ final class _StatusCard extends StatelessWidget {
     final Color? backgroundColor;
     if (state.hasConflict && state.snapshot != null) {
       return TintedInfoBox.warning(
-        text: 'Versi direktori berbeda. Data tersimpan sebelumnya tetap ditampilkan.',
+        text:
+            'Pembaruan terbaru belum bisa diterapkan. Menampilkan data tersimpan sebelumnya.',
         icon: Icons.warning_amber_rounded,
       );
     } else if (state.hasConflict) {
@@ -960,12 +962,9 @@ final class _UnauthenticatedEmergencyView extends StatelessWidget {
   }
 }
 
-String _formatDate(DateTime value) {
-  final local = value.toLocal();
-  String two(int part) => part.toString().padLeft(2, '0');
-  return '${two(local.day)}/${two(local.month)}/${local.year} '
-      '${two(local.hour)}:${two(local.minute)}';
-}
+String _formatDate(DateTime value) =>
+    IndonesianDateFormatter.formatNumeric(value);
+
 
 /// Safe fallback for test or degraded runtimes with no local persistence.
 final class EmergencyDirectoryUnavailableScreen extends StatelessWidget {

@@ -110,11 +110,13 @@ final class _ResidentProposalScreenState extends State<ResidentProposalScreen> {
           textCapitalization: TextCapitalization.sentences,
           decoration: const InputDecoration(
             labelText: 'Penjelasan singkat',
-            helperText: 'Jangan masukkan NIK, nomor telepon,\nalamat, atau koordinat GPS.',
-            helperMaxLines: 2,
+            helperText:
+                'Jangan masukkan NIK, nomor telepon, alamat, atau koordinat GPS.',
+            helperMaxLines: 4,
             border: OutlineInputBorder(),
           ),
         ),
+        const SizedBox(height: 16),
         DropdownButtonFormField<ResidentProposalCategory>(
           key: const Key('proposal-category'),
           isExpanded: true,

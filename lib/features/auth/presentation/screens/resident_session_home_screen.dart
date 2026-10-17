@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/utils/indonesian_date_formatter.dart';
 import '../../application/resident_session.dart';
 import '../../application/resident_session_controller.dart';
 import '../../../assistance/application/assistance_volunteer_boundary.dart';
@@ -268,8 +269,6 @@ final class _ResidentSessionHomeScreenState
       appBar: _selectedTabIndex == 0
           ? null
           : AppBar(
-              backgroundColor: Colors.white,
-              elevation: 0,
               title: Text(
                 _selectedTabIndex == 1 ? 'Daftar Tugas' : 'Informasi Darurat',
               ),
@@ -747,33 +746,6 @@ final class _ResidentSessionHomeScreenState
     );
   }
 
-  String _formatTodayDate() {
-    final now = DateTime.now();
-    final days = [
-      'Minggu',
-      'Senin',
-      'Selasa',
-      'Rabu',
-      'Kamis',
-      'Jumat',
-      'Sabtu',
-    ];
-    final months = [
-      'Januari',
-      'Februari',
-      'Maret',
-      'April',
-      'Mei',
-      'Juni',
-      'Juli',
-      'Agustus',
-      'September',
-      'Oktober',
-      'November',
-      'Desember',
-    ];
-    final dayName = days[now.weekday % 7];
-    final monthName = months[now.month - 1];
-    return '$dayName, ${now.day} $monthName ${now.year}';
-  }
+  String _formatTodayDate() =>
+      IndonesianDateFormatter.formatDateOnly(DateTime.now());
 }

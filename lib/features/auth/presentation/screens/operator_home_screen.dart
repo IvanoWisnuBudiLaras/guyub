@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/utils/indonesian_date_formatter.dart';
 import '../../../../core/widgets/inline_action_button.dart';
 import '../../../../core/widgets/section_card.dart';
 import '../../../../core/widgets/task_category_presentation.dart';
@@ -138,35 +139,8 @@ final class _OperatorHomeScreenState extends State<OperatorHomeScreen> {
     }
   }
 
-  String _formatTodayDate() {
-    final now = DateTime.now();
-    const days = [
-      'Senin',
-      'Selasa',
-      'Rabu',
-      'Kamis',
-      'Jumat',
-      'Sabtu',
-      'Minggu',
-    ];
-    const months = [
-      'Januari',
-      'Februari',
-      'Maret',
-      'April',
-      'Mei',
-      'Juni',
-      'Juli',
-      'Agustus',
-      'September',
-      'Oktober',
-      'November',
-      'Desember',
-    ];
-    final dayName = days[now.weekday - 1];
-    final monthName = months[now.month - 1];
-    return '$dayName, ${now.day} $monthName ${now.year}';
-  }
+  String _formatTodayDate() =>
+      IndonesianDateFormatter.formatDateOnly(DateTime.now());
 
   @override
   Widget build(BuildContext context) {

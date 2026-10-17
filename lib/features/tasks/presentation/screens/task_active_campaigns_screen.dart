@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../../auth/application/operator_profile.dart';
+import '../../../../core/utils/indonesian_date_formatter.dart';
+import '../../../../core/widgets/inline_action_button.dart';
+import '../../../../core/widgets/tinted_info_box.dart';
 import '../../application/task_campaign_boundary.dart';
 import '../../application/task_location_reference.dart';
 import '../widgets/locked_instructions_card.dart';
@@ -306,7 +309,7 @@ final class _ActiveTaskCard extends StatelessWidget {
           const SizedBox(height: 8),
           _TaskDetailRow(
             label: 'Batas waktu',
-            value: _formatDeadline(context, task.deadline),
+            value: _formatDeadline(task.deadline),
           ),
           _TaskDetailRow(
             label: 'Lokasi umum',
@@ -375,18 +378,13 @@ final class _CancellationNotice extends StatelessWidget {
   const _CancellationNotice();
 
   @override
-  Widget build(BuildContext context) => Card(
-    color: Theme.of(context).colorScheme.tertiaryContainer,
-    child: const Padding(
-      padding: EdgeInsets.all(16),
-      child: Text(
-        'Pembatalan dan penutupan adalah tindakan operator yang dicatat dalam '
+  Widget build(BuildContext context) => TintedInfoBox.info(
+    text: 'Pembatalan dan penutupan adalah tindakan operator yang dicatat dalam '
         'riwayat audit. Penutupan tidak menandai tanggapan warga selesai; '
         'verifikasi RT tetap menjadi acuan. Pilihan warga yang masih antre '
         'secara offline dapat berkonflik saat disinkronkan; status server tetap '
         'menjadi acuan.',
-      ),
-    ),
+    icon: Icons.info_outline,
   );
 }
 
@@ -431,16 +429,12 @@ final class _LoadFailure extends StatelessWidget {
           ),
           if (onRetry != null) ...[
             const SizedBox(height: 16),
-            OutlinedButton(
+            InlineActionButton(
               key: const Key('active-task-retry'),
+              variant: InlineActionButtonVariant.outlined,
+              icon: Icons.refresh,
+              label: 'Coba lagi',
               onPressed: onRetry,
-              style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 12,
-                ),
-              ),
-              child: const Text('Coba lagi'),
             ),
           ],
         ],
@@ -449,10 +443,5 @@ final class _LoadFailure extends StatelessWidget {
   );
 }
 
-String _formatDeadline(BuildContext context, DateTime value) {
-  final local = value.toLocal();
-  final date = MaterialLocalizations.of(context).formatMediumDate(local);
-  final time = MaterialLocalizations.of(context)
-      .formatTimeOfDay(TimeOfDay.fromDateTime(local));
-  return '$date · $time';
-}
+String _formatDeadline(DateTime value) =>
+    IndonesianDateFormatter.formatFull(value);

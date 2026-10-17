@@ -13,8 +13,10 @@ import '../../application/task_response_boundary.dart';
 import '../../application/task_location_reference.dart';
 import '../widgets/locked_instructions_card.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/utils/indonesian_date_formatter.dart';
 import '../../../../core/widgets/task_category_presentation.dart';
 import '../../../../core/widgets/inline_action_button.dart';
+import '../../../../core/widgets/tinted_info_box.dart';
 
 typedef PickEvidenceImage = Future<Uint8List?> Function();
 
@@ -259,29 +261,23 @@ final class _ResidentTaskOfflineBanner extends StatelessWidget {
   final DateTime? lastSyncedAt;
 
   @override
-  Widget build(BuildContext context) => Card(
+  Widget build(BuildContext context) => TintedInfoBox(
     key: const Key('resident-task-offline-banner'),
-    color: Theme.of(context).colorScheme.tertiaryContainer,
-    child: Padding(
-      padding: const EdgeInsets.all(14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Mode offline • data tugas tersimpan, belum diperbarui.',
-            style: TextStyle(fontWeight: FontWeight.w600),
+    tint: TintType.warning,
+    icon: Icons.cloud_off_outlined,
+    title: 'Mode offline • data tugas tersimpan, belum diperbarui.',
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (lastSyncedAt != null)
+          Text(
+            'Terakhir tersinkron: ${IndonesianDateFormatter.formatNumeric(lastSyncedAt!)}',
           ),
-          if (lastSyncedAt != null) ...[
-            const SizedBox(height: 4),
-            Text('Terakhir tersinkron: ${_formatDate(lastSyncedAt!)}'),
-          ],
-          const SizedBox(height: 4),
-          const Text(
-            'Status server dapat berubah. Pilihan offline belum dihitung '
-            'sampai diterima server RT.',
-          ),
-        ],
-      ),
+        const Text(
+          'Status server dapat berubah. Pilihan offline belum dihitung '
+          'sampai diterima server RT.',
+        ),
+      ],
     ),
   );
 }
@@ -702,8 +698,6 @@ final class _ResidentTaskDetailScreenState
       appBar: AppBar(
         leading: const BackButton(),
         title: const Text('Detail Tugas'),
-        backgroundColor: Colors.white,
-        elevation: 0,
       ),
       backgroundColor: Colors.white,
       bottomNavigationBar:
@@ -1134,57 +1128,45 @@ final class _ResidentTaskDetailScreenState
       );
     }
     if (_task.completion == CompletionState.pendingRtVerification) {
-      return Card(
-        color: Theme.of(context).colorScheme.secondaryContainer,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Menunggu Verifikasi RT',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              if (_task.completionNote case final note?) ...[
-                const SizedBox(height: 8),
-                Text('Catatan: $note'),
-              ],
-              if (_task.evidenceId != null) ...[
-                const SizedBox(height: 8),
-                const Text('Foto bukti tersedia untuk ditinjau RT.'),
-                TextButton.icon(
-                  key: const Key('resident-delete-attached-evidence'),
-                  onPressed: _busy ? null : _deleteAttachedEvidence,
-                  icon: const Icon(Icons.delete_outline),
-                  label: const Text('Hapus foto bukti'),
-                ),
-              ],
+      return TintedInfoBox(
+        tint: TintType.warning,
+        icon: Icons.schedule_outlined,
+        title: 'Menunggu Verifikasi RT',
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (_task.completionNote case final note?) ...[
+              const SizedBox(height: 4),
+              Text('Catatan: $note'),
             ],
-          ),
+            if (_task.evidenceId != null) ...[
+              const SizedBox(height: 4),
+              const Text('Foto bukti tersedia untuk ditinjau RT.'),
+              TextButton.icon(
+                key: const Key('resident-delete-attached-evidence'),
+                onPressed: _busy ? null : _deleteAttachedEvidence,
+                icon: const Icon(Icons.delete_outline),
+                label: const Text('Hapus foto bukti'),
+              ),
+            ],
+          ],
         ),
       );
     }
     if (_task.completion == CompletionState.verifiedComplete) {
-      return Card(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('Penyelesaian telah diverifikasi oleh RT.'),
-              if (_task.evidenceId != null) ...[
-                const SizedBox(height: 8),
-                const Text('Foto bukti tersimpan sementara.'),
-                TextButton.icon(
-                  key: const Key('resident-delete-attached-evidence'),
-                  onPressed: _busy ? null : _deleteAttachedEvidence,
-                  icon: const Icon(Icons.delete_outline),
-                  label: const Text('Hapus foto bukti'),
-                ),
-              ],
-            ],
-          ),
-        ),
+      return TintedInfoBox.success(
+        title: 'Penyelesaian telah diverifikasi oleh RT.',
+        text: _task.evidenceId != null
+            ? 'Foto bukti tersimpan sementara (dihapus otomatis setelah 30 hari).'
+            : '',
+        action: _task.evidenceId != null
+            ? TextButton.icon(
+                key: const Key('resident-delete-attached-evidence'),
+                onPressed: _busy ? null : _deleteAttachedEvidence,
+                icon: const Icon(Icons.delete_outline),
+                label: const Text('Hapus foto bukti'),
+              )
+            : null,
       );
     }
     return Column(
@@ -1590,17 +1572,16 @@ final class _TaskVerificationQueueScreenState
                   key: record.taskId == widget.initialTaskId
                       ? Key('verification-notification-${record.taskId}')
                       : null,
-                  color: record.taskId == widget.initialTaskId
-                      ? Theme.of(context).colorScheme.tertiaryContainer
-                      : null,
                   child: Padding(
                     padding: const EdgeInsets.all(16),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         if (record.taskId == widget.initialTaskId) ...[
-                          const Text('Dibuka dari notifikasi'),
-                          const SizedBox(height: 6),
+                          TintedInfoBox.info(
+                            text: 'Dibuka dari notifikasi',
+                          ),
+                          const SizedBox(height: 8),
                         ],
                         Text(
                           record.taskTitle,
@@ -1785,11 +1766,5 @@ String _participationLabel(ParticipationState state) => switch (state) {
   ParticipationState.declined => 'Memilih tidak ikut',
 };
 
-String _formatDate(DateTime value) {
-  final local = value.toLocal();
-  final day = local.day.toString().padLeft(2, '0');
-  final month = local.month.toString().padLeft(2, '0');
-  final hour = local.hour.toString().padLeft(2, '0');
-  final minute = local.minute.toString().padLeft(2, '0');
-  return '$day/$month/${local.year} $hour:$minute';
-}
+String _formatDate(DateTime value) =>
+    IndonesianDateFormatter.formatNumeric(value);

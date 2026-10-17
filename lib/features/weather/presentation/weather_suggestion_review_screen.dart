@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../auth/application/operator_profile.dart';
+import '../../../core/utils/indonesian_date_formatter.dart';
 import '../../tasks/application/task_campaign_boundary.dart';
 import '../../tasks/application/task_template.dart';
 import '../../tasks/presentation/screens/task_catalog_screen.dart';
@@ -410,12 +411,9 @@ final class _ReviewMessage extends StatelessWidget {
   );
 }
 
-String _formatDate(DateTime value) {
-  final local = value.toLocal();
-  String two(int part) => part.toString().padLeft(2, '0');
-  return '${two(local.day)}/${two(local.month)}/${local.year} '
-      '${two(local.hour)}:${two(local.minute)}';
-}
+String _formatDate(DateTime value) =>
+    IndonesianDateFormatter.formatNumeric(value);
+
 
 TaskTemplate? _findTemplate(
   List<TaskTemplate> templates,

@@ -84,6 +84,7 @@ final class _OperatorLoginScreenState extends State<OperatorLoginScreen> {
       backgroundColor: Colors.white,
       appBar: AppBar(
         backgroundColor: Colors.white,
+        foregroundColor: context.appColors.textPrimary,
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),

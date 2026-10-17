@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../../auth/application/operator_profile.dart';
+import '../../../../core/utils/indonesian_date_formatter.dart';
+import '../../../../core/widgets/inline_action_button.dart';
 import '../../application/task_campaign_boundary.dart';
 import '../../application/task_location_reference.dart';
 import '../../application/task_response_boundary.dart';
@@ -118,16 +120,12 @@ final class _TaskHistoryScreenState extends State<TaskHistoryScreen> {
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 12),
-                  OutlinedButton(
+                  InlineActionButton(
                     key: const Key('task-history-retry'),
+                    variant: InlineActionButtonVariant.outlined,
+                    icon: Icons.refresh,
+                    label: 'Coba Lagi',
                     onPressed: _refresh,
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 24,
-                        vertical: 12,
-                      ),
-                    ),
-                    child: const Text('Coba Lagi'),
                   ),
                 ],
               ),
@@ -362,11 +360,6 @@ final class _HistoryTaskCardState extends State<_HistoryTaskCard> {
   };
 }
 
-String _formatDate(DateTime value) {
-  final local = value.toLocal();
-  final day = local.day.toString().padLeft(2, '0');
-  final month = local.month.toString().padLeft(2, '0');
-  final hour = local.hour.toString().padLeft(2, '0');
-  final minute = local.minute.toString().padLeft(2, '0');
-  return '$day/$month/${local.year} $hour:$minute';
-}
+String _formatDate(DateTime value) =>
+    IndonesianDateFormatter.formatNumeric(value);
+

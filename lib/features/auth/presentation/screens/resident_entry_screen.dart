@@ -97,6 +97,7 @@ final class _ResidentEntryScreenState extends State<ResidentEntryScreen> {
         backgroundColor: Colors.white,
         appBar: AppBar(
           backgroundColor: Colors.white,
+          foregroundColor: context.appColors.textPrimary,
           elevation: 0,
           leading: IconButton(
             icon: const Icon(Icons.arrow_back),
@@ -142,6 +143,7 @@ final class _ResidentEntryScreenState extends State<ResidentEntryScreen> {
         backgroundColor: Colors.white,
         appBar: AppBar(
           backgroundColor: Colors.white,
+          foregroundColor: context.appColors.textPrimary,
           elevation: 0,
           title: const Text('Masuk sebagai Warga'),
         ),
@@ -155,6 +157,7 @@ final class _ResidentEntryScreenState extends State<ResidentEntryScreen> {
         backgroundColor: Colors.white,
         appBar: AppBar(
           backgroundColor: Colors.white,
+          foregroundColor: context.appColors.textPrimary,
           elevation: 0,
           title: const Text('Masuk sebagai Warga'),
         ),
@@ -195,6 +198,7 @@ final class _ResidentEntryScreenState extends State<ResidentEntryScreen> {
       backgroundColor: Colors.white,
       appBar: AppBar(
         backgroundColor: Colors.white,
+        foregroundColor: context.appColors.textPrimary,
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),

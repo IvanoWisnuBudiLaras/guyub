@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../auth/application/operator_profile.dart';
+import '../../../core/utils/indonesian_date_formatter.dart';
 import '../../tasks/application/task_campaign_boundary.dart';
 import '../../tasks/application/task_location_reference.dart';
 import '../../tasks/application/task_template.dart';
@@ -463,7 +464,7 @@ final class _MapProposalDialogState extends State<_MapProposalDialog> {
               label: Text(
                 _deadline == null
                     ? 'Pilih tenggat tanggal dan waktu'
-                    : 'Tenggat: ${_deadline!.toLocal()}',
+                    : 'Tenggat: ${IndonesianDateFormatter.formatFull(_deadline!)}',
               ),
             ),
             const Text(
