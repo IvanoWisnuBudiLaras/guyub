@@ -409,6 +409,25 @@ final class _ResidentSessionHomeScreenState
               ),
             ),
             const SizedBox(height: 12),
+            // Tanggal hari ini
+            Row(
+              children: [
+                Icon(
+                  Icons.calendar_today_outlined,
+                  color: Colors.white.withOpacity(0.9),
+                  size: 16,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  _formatTodayDate(),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Colors.white.withOpacity(0.9),
+                        fontWeight: FontWeight.w500,
+                      ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
             // Sapaan
             Text(
               'Halo, ${session.nickname}',
@@ -722,5 +741,17 @@ final class _ResidentSessionHomeScreenState
         ],
       ),
     );
+  }
+
+  String _formatTodayDate() {
+    final now = DateTime.now();
+    final days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+    final months = [
+      'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+      'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+    ];
+    final dayName = days[now.weekday % 7];
+    final monthName = months[now.month - 1];
+    return '$dayName, ${now.day} $monthName ${now.year}';
   }
 }

@@ -114,39 +114,93 @@ final class _TaskPushOptInCardState extends State<TaskPushOptInCard> {
 
   @override
   Widget build(BuildContext context) => Card(
+    color: Theme.of(context).colorScheme.surfaceContainerLow,
     child: Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.primaryContainer,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  Icons.notifications_outlined,
+                  color: Theme.of(context).colorScheme.onPrimaryContainer,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Notifikasi Push',
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    FutureBuilder<bool>(
+                      future: _preference,
+                      builder: (context, snapshot) => Text(
+                        snapshot.data == true ? 'Aktif' : 'Nonaktif',
+                        key: const Key('task-push-preference-status'),
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
           Text(
-            'Notifikasi push opsional',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          const SizedBox(height: 6),
-          const Text(
-            'Pemberitahuan dapat terlambat atau tidak terkirim. Periksa status terbaru di aplikasi; keikutsertaan tugas tetap sukarela.',
-          ),
-          const SizedBox(height: 8),
-          FutureBuilder<bool>(
-            future: _preference,
-            builder: (context, snapshot) => Text(
-              'Preferensi aplikasi: ${snapshot.data == true ? 'aktif' : 'nonaktif'}',
-              key: const Key('task-push-preference-status'),
+            'Pemberitahuan dapat terlambat atau tidak terkirim. '
+            'Periksa status terbaru di aplikasi.',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
           ),
-          const SizedBox(height: 8),
-          FilledButton.icon(
-            key: const Key('enable-task-push-notifications'),
-            onPressed: _busy ? null : _enable,
-            icon: const Icon(Icons.notifications_active_outlined),
-            label: Text(_busy ? 'Memproses…' : 'Aktifkan atau sinkronkan'),
-          ),
-          TextButton.icon(
-            key: const Key('disable-task-push-notifications'),
-            onPressed: _busy ? null : _disable,
-            icon: const Icon(Icons.notifications_off_outlined),
-            label: const Text('Matikan notifikasi'),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  key: const Key('disable-task-push-notifications'),
+                  onPressed: _busy ? null : _disable,
+                  icon: const Icon(Icons.notifications_off_outlined, size: 18),
+                  label: const Text('Matikan'),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: FilledButton.icon(
+                  key: const Key('enable-task-push-notifications'),
+                  onPressed: _busy ? null : _enable,
+                  icon: _busy
+                      ? const SizedBox.square(
+                          dimension: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.notifications_active_outlined, size: 18),
+                  label: Text(_busy ? 'Proses…' : 'Aktifkan'),
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
