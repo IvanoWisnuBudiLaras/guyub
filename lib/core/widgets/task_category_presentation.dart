@@ -54,6 +54,22 @@ final class TaskCategoryPresentation {
           tintColor: const Color(0xFFE0F7FA),
           iconColor: const Color(0xFF00838F),
         );
+      case 'ENVIRONMENTAL_CLEANUP':
+      case 'KEBERSIHAN_LINGKUNGAN':
+        return TaskCategoryPresentation(
+          label: 'Kebersihan Lingkungan',
+          icon: Icons.cleaning_services_outlined,
+          tintColor: const Color(0xFFDCFCE7),
+          iconColor: const Color(0xFF15803D),
+        );
+      case 'SAFE_VISUAL_INSPECTION':
+      case 'PENGAMATAN_AMAN':
+        return TaskCategoryPresentation(
+          label: 'Pengamatan Tempat Aman',
+          icon: Icons.visibility_outlined,
+          tintColor: const Color(0xFFF3E8FF),
+          iconColor: const Color(0xFF7E22CE),
+        );
       case 'EVACUATION':
       case 'EVAKUASI':
         return TaskCategoryPresentation(

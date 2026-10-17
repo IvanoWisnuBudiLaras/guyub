@@ -120,17 +120,22 @@ final class _TaskDraftScreenState extends State<TaskDraftScreen> {
         const SizedBox(height: 16),
         Text(
           'Bagian yang dapat diatur',
-          style: Theme.of(context).textTheme.titleMedium,
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.bold,
+          ),
         ),
         const SizedBox(height: 8),
-        OutlinedButton.icon(
-          key: const Key('task-select-deadline'),
-          onPressed: _saving ? null : _chooseDeadline,
-          icon: const Icon(Icons.schedule),
-          label: Text(
-            _deadline == null
-                ? 'Pilih batas waktu'
-                : _formatDeadline(_deadline!),
+        SizedBox(
+          height: 48,
+          child: OutlinedButton.icon(
+            key: const Key('task-select-deadline'),
+            onPressed: _saving ? null : _chooseDeadline,
+            icon: const Icon(Icons.schedule),
+            label: Text(
+              _deadline == null
+                  ? 'Pilih batas waktu'
+                  : _formatDeadline(_deadline!),
+            ),
           ),
         ),
         const SizedBox(height: 12),
@@ -139,7 +144,9 @@ final class _TaskDraftScreenState extends State<TaskDraftScreen> {
           initialValue: _locationReference,
           decoration: const InputDecoration(
             labelText: 'Jenis lokasi umum (opsional)',
-            helperText: 'Pilih kategori saja; alamat dan instruksi bebas tidak diterima.',
+            helperText:
+                'Pilih kategori saja; alamat dan instruksi bebas tidak diterima.',
+            helperMaxLines: 3,
             border: OutlineInputBorder(),
           ),
           items: [
@@ -154,23 +161,29 @@ final class _TaskDraftScreenState extends State<TaskDraftScreen> {
               : (value) => setState(() => _locationReference = value),
         ),
         if (_error != null) ...[
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
           Text(
             _error!,
             style: TextStyle(color: Theme.of(context).colorScheme.error),
           ),
         ],
         const SizedBox(height: 16),
-        FilledButton.icon(
-          key: const Key('task-create-draft'),
-          onPressed: _saving ? null : _createDraft,
-          icon: _saving
-              ? const SizedBox.square(
-                  dimension: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Icon(Icons.arrow_forward),
-          label: const Text('Lanjut ke konfirmasi'),
+        SizedBox(
+          height: 48,
+          child: FilledButton.icon(
+            key: const Key('task-create-draft'),
+            onPressed: _saving ? null : _createDraft,
+            icon: _saving
+                ? const SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : const Icon(Icons.arrow_forward),
+            label: const Text('Lanjut ke konfirmasi'),
+          ),
         ),
       ],
     ),

@@ -234,11 +234,14 @@ final class _TaskCampaignConfirmationScreenState
             ),
           if (_isActive) ...[
             const SizedBox(height: 12),
-            OutlinedButton.icon(
-              key: const Key('task-copy-whatsapp'),
-              onPressed: _copyTaskSummary,
-              icon: const Icon(Icons.copy),
-              label: const Text('Salin teks untuk WhatsApp'),
+            SizedBox(
+              height: 48,
+              child: OutlinedButton.icon(
+                key: const Key('task-copy-whatsapp'),
+                onPressed: _copyTaskSummary,
+                icon: const Icon(Icons.copy),
+                label: const Text('Salin teks untuk WhatsApp'),
+              ),
             ),
           ],
           if (_error != null) ...[
@@ -246,25 +249,31 @@ final class _TaskCampaignConfirmationScreenState
             Text(_error!, style: TextStyle(color: colorScheme.error)),
           ],
           const SizedBox(height: 16),
-          FilledButton.icon(
-            key: const Key('task-confirm-activation'),
-            onPressed: _activating
-                ? null
-                : _isActive
-                ? () => Navigator.of(context).pop()
-                : _activate,
-            icon: _activating
-                ? const SizedBox.square(
-                    dimension: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : Icon(_isActive ? Icons.arrow_back : Icons.task_alt),
-            label: Text(
-              _activating
-                  ? 'Memproses…'
+          SizedBox(
+            height: 48,
+            child: FilledButton.icon(
+              key: const Key('task-confirm-activation'),
+              onPressed: _activating
+                  ? null
                   : _isActive
-                  ? 'Kembali ke katalog'
-                  : 'Konfirmasi dan aktifkan',
+                  ? () => Navigator.of(context).pop()
+                  : _activate,
+              icon: _activating
+                  ? const SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : Icon(_isActive ? Icons.arrow_back : Icons.task_alt),
+              label: Text(
+                _activating
+                    ? 'Memproses…'
+                    : _isActive
+                    ? 'Kembali ke katalog'
+                    : 'Konfirmasi dan aktifkan',
+              ),
             ),
           ),
         ],

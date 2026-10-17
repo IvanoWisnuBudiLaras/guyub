@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/task_category_presentation.dart';
 import '../../../auth/application/operator_profile.dart';
 import '../../application/task_campaign_boundary.dart';
 import '../../application/task_template.dart';
@@ -130,31 +132,90 @@ final class _TemplateCard extends StatelessWidget {
   final VoidCallback onSelect;
 
   @override
-  Widget build(BuildContext context) => Card(
-    child: Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(template.title, style: Theme.of(context).textTheme.titleLarge),
-          const SizedBox(height: 4),
-          Text(
-            '${_categoryLabel(template.category)} · Versi ${template.version}'
-            '${template.estimatedDurationMinutes == null ? '' : ' · ${template.estimatedDurationMinutes} menit'}',
-          ),
-          const SizedBox(height: 12),
-          LockedTaskInstructionsCard(snapshot: template.snapshot()),
-          const SizedBox(height: 8),
-          FilledButton.icon(
-            key: Key('task-template-${template.id}-select'),
-            onPressed: onSelect,
-            icon: const Icon(Icons.arrow_forward),
-            label: const Text('Pilih template'),
-          ),
-        ],
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: colors.primary.withValues(alpha: 0.15)),
       ),
-    ),
-  );
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                TaskCategoryChip(category: template.category),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: colors.primarySoft,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.lock, size: 14, color: colors.primaryDark),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Versi ${template.version}',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: colors.primaryDark,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(
+              template.title,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+            ),
+            if (template.estimatedDurationMinutes != null) ...[
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  Icon(Icons.timer_outlined, size: 15, color: colors.textSecondary),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Estimasi ${template.estimatedDurationMinutes} menit',
+                    style: TextStyle(fontSize: 12, color: colors.textSecondary),
+                  ),
+                ],
+              ),
+            ],
+            const SizedBox(height: 12),
+            LockedTaskInstructionsCard(snapshot: template.snapshot()),
+            const SizedBox(height: 12),
+            SizedBox(
+              height: 48,
+              child: FilledButton.icon(
+                key: Key('task-template-${template.id}-select'),
+                onPressed: onSelect,
+                icon: const Icon(Icons.arrow_forward, size: 18),
+                label: const Text('Pilih template'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 final class _CatalogMessage extends StatelessWidget {
@@ -176,23 +237,32 @@ final class _CatalogMessage extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.library_books_outlined, size: 40),
-          const SizedBox(height: 12),
+          Icon(
+            actionLabel != null
+                ? Icons.error_outline
+                : Icons.library_books_outlined,
+            size: 48,
+            color: actionLabel != null
+                ? Theme.of(context).colorScheme.error
+                : Theme.of(context).colorScheme.primary,
+          ),
+          const SizedBox(height: 16),
           Text(message, textAlign: TextAlign.center),
           if (actionLabel != null && onAction != null) ...[
-            const SizedBox(height: 16),
-            OutlinedButton(onPressed: onAction, child: Text(actionLabel!)),
+            const SizedBox(height: 24),
+            SizedBox(
+              height: 48,
+              child: OutlinedButton(
+                onPressed: onAction,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Text(actionLabel!),
+                ),
+              ),
+            ),
           ],
         ],
       ),
     ),
   );
 }
-
-String _categoryLabel(String category) => switch (category) {
-  'HOUSEHOLD_PREPARATION' => 'Persiapan rumah tangga',
-  'LOGISTICS' => 'Logistik',
-  'ENVIRONMENTAL_CLEANUP' => 'Kebersihan lingkungan',
-  'SAFE_VISUAL_INSPECTION' => 'Pengamatan dari tempat aman',
-  _ => 'Tugas kesiapsiagaan',
-};
