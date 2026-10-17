@@ -11,6 +11,7 @@ extension PumpApp on WidgetTester {
     Widget widget, {
     Size screenSize = const Size(400, 800),
     NavigatorObserver? navigatorObserver,
+    double textScaleFactor = 1.0,
   }) async {
     view.physicalSize = screenSize;
     view.devicePixelRatio = 1;
@@ -22,7 +23,13 @@ extension PumpApp on WidgetTester {
         theme: AppTheme.light,
         debugShowCheckedModeBanner: false,
         navigatorObservers: [?navigatorObserver],
-        home: widget,
+        home: MediaQuery(
+          data: MediaQueryData(
+            size: screenSize,
+            textScaler: TextScaler.linear(textScaleFactor),
+          ),
+          child: widget,
+        ),
       ),
     );
   }

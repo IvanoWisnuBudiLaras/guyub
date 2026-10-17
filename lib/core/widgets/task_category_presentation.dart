@@ -118,12 +118,14 @@ final class TaskCategoryChip extends StatelessWidget {
             Icon(info.icon, size: compact ? 12 : 14, color: info.iconColor),
             SizedBox(width: compact ? 4 : 6),
           ],
-          Text(
-            info.label,
-            style: TextStyle(
-              fontSize: compact ? 11 : 12,
-              fontWeight: FontWeight.w600,
-              color: info.iconColor,
+          Flexible(
+            child: Text(
+              info.label,
+              style: TextStyle(
+                fontSize: compact ? 11 : 12,
+                fontWeight: FontWeight.w600,
+                color: info.iconColor,
+              ),
             ),
           ),
         ],

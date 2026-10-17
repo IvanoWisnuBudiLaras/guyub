@@ -8,6 +8,7 @@ library;
 
 import 'dart:typed_data';
 
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:guyub/core/database/local_store.dart';
@@ -776,4 +777,141 @@ void main() {
       });
     },
   );
+
+  group('Smoke Tahap C: Responsive 360x640 and Text Scale 2.0 without layout exceptions', () {
+    const smallScreen = Size(360, 640);
+    const largeTextScale = 2.0;
+
+    testWidgets('ResidentSessionHomeScreen under 360x640 and textScale 2.0', (
+      tester,
+    ) async {
+      final vault = _FakeVault();
+      final controller = ResidentSessionController(
+        boundary: _FakeSessionBoundary(),
+        vault: vault,
+      );
+      final emergencyController = EmergencyDirectoryController(
+        boundary: _FakeEmergencyBoundary(),
+        cache: EmergencyDirectoryCache(_FakeLocalStore()),
+        vault: vault,
+      );
+      await tester.pumpApp(
+        ResidentSessionHomeScreen(
+          session: _session,
+          controller: controller,
+          emergencyDirectoryController: emergencyController,
+        ),
+        screenSize: smallScreen,
+        textScaleFactor: largeTextScale,
+      );
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      emergencyController.dispose();
+    });
+
+    testWidgets('ResidentTaskListScreen under 360x640 and textScale 2.0', (
+      tester,
+    ) async {
+      final controller = TaskResponseController(
+        boundary: _FakeTaskResponseBoundary(),
+        evidenceBoundary: _FakeEvidenceBoundary(),
+        vault: _FakeVault(),
+      );
+      await tester.pumpApp(
+        ResidentTaskListScreen(session: _session, controller: controller),
+        screenSize: smallScreen,
+        textScaleFactor: largeTextScale,
+      );
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('ResidentTaskDetailScreen under 360x640 and textScale 2.0', (
+      tester,
+    ) async {
+      final controller = TaskResponseController(
+        boundary: _FakeTaskResponseBoundary(),
+        evidenceBoundary: _FakeEvidenceBoundary(),
+        vault: _FakeVault(),
+      );
+      await tester.pumpApp(
+        ResidentTaskDetailScreen(
+          session: _session,
+          controller: controller,
+          task: _residentTask,
+        ),
+        screenSize: smallScreen,
+        textScaleFactor: largeTextScale,
+      );
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('EmergencyDirectoryScreen under 360x640 and textScale 2.0', (
+      tester,
+    ) async {
+      final controller = EmergencyDirectoryController(
+        boundary: _FakeEmergencyBoundary(),
+        cache: EmergencyDirectoryCache(_FakeLocalStore()),
+        vault: _FakeVault(),
+      );
+      await tester.pumpApp(
+        EmergencyDirectoryScreen(controller: controller, session: _session),
+        screenSize: smallScreen,
+        textScaleFactor: largeTextScale,
+      );
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      controller.dispose();
+    });
+
+    testWidgets('AssistanceVolunteerScreen under 360x640 and textScale 2.0', (
+      tester,
+    ) async {
+      final controller = AssistanceVolunteerController(
+        boundary: _FakeVolunteerBoundary(),
+        readSessionToken: () async => 'token',
+      );
+      await tester.pumpApp(
+        AssistanceVolunteerScreen(session: _session, controller: controller),
+        screenSize: smallScreen,
+        textScaleFactor: largeTextScale,
+      );
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('ResidentProposalScreen under 360x640 and textScale 2.0', (
+      tester,
+    ) async {
+      final controller = ResidentProposalController(
+        boundary: _FakeProposalBoundary(),
+        vault: _FakeVault(),
+        requestStore: InMemoryResidentProposalRequestStore(),
+      );
+      await tester.pumpApp(
+        ResidentProposalScreen(session: _session, controller: controller),
+        screenSize: smallScreen,
+        textScaleFactor: largeTextScale,
+      );
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('OperatorHomeScreen under 360x640 and textScale 2.0', (
+      tester,
+    ) async {
+      await tester.pumpApp(
+        OperatorHomeScreen(
+          profile: _profile,
+          authBoundary: _FakeAuthBoundary(),
+          taskCampaignBoundary: _FakeTaskBoundary(),
+        ),
+        screenSize: smallScreen,
+        textScaleFactor: largeTextScale,
+      );
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    });
+  });
 }

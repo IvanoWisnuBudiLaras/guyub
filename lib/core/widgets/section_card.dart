@@ -40,25 +40,54 @@ final class SectionCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               if (title != null) ...[
-                Row(
-                  children: [
-                    if (icon != null) ...[
-                      Icon(icon, size: 20, color: colors.primary),
-                      const SizedBox(width: 8),
-                    ],
-                    Expanded(
-                      child: Text(
-                        title!,
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(
-                              fontWeight: FontWeight.w700,
-                              color: colors.textPrimary,
-                            ),
+                if (trailing == null)
+                  Row(
+                    children: [
+                      if (icon != null) ...[
+                        Icon(icon, size: 20, color: colors.primary),
+                        const SizedBox(width: 8),
+                      ],
+                      Expanded(
+                        child: Text(
+                          title!,
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(
+                                fontWeight: FontWeight.w700,
+                                color: colors.textPrimary,
+                              ),
+                        ),
                       ),
-                    ),
-                    ?trailing,
-                  ],
-                ),
+                    ],
+                  )
+                else
+                  Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 8,
+                    runSpacing: 4,
+                    children: [
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (icon != null) ...[
+                            Icon(icon, size: 20, color: colors.primary),
+                            const SizedBox(width: 8),
+                          ],
+                          Flexible(
+                            child: Text(
+                              title!,
+                              style: Theme.of(context).textTheme.titleMedium
+                                  ?.copyWith(
+                                    fontWeight: FontWeight.w700,
+                                    color: colors.textPrimary,
+                                  ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      trailing!,
+                    ],
+                  ),
                 const SizedBox(height: 12),
               ],
               ...children,

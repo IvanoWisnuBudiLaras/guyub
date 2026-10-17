@@ -178,12 +178,14 @@ class TaskCard extends StatelessWidget {
                                     color: statusColor,
                                   ),
                                   const SizedBox(width: 4),
-                                  Text(
-                                    statusLabel,
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w600,
-                                      color: statusColor,
+                                  Flexible(
+                                    child: Text(
+                                      statusLabel,
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600,
+                                        color: statusColor,
+                                      ),
                                     ),
                                   ),
                                 ],

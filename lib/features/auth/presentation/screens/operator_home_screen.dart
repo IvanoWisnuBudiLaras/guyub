@@ -449,11 +449,12 @@ final class _OperatorHomeScreenState extends State<OperatorHomeScreen> {
       icon: Icons.task_alt,
       padding: const EdgeInsets.all(12),
       margin: const EdgeInsets.only(bottom: 8),
-      trailing: TextButton(
+      trailing: InlineActionButton(
         onPressed: () =>
             Navigator.of(context)
                 .pushNamed('/operator/tasks/active', arguments: widget.profile),
-        child: const Text('Lihat Semua'),
+        label: 'Lihat Semua',
+        variant: InlineActionButtonVariant.tonal,
       ),
       children: [
         for (final task in _activeTasks.take(2)) ...[
@@ -500,11 +501,13 @@ final class _OperatorHomeScreenState extends State<OperatorHomeScreen> {
                             color: colors.textSecondary,
                           ),
                           const SizedBox(width: 4),
-                          Text(
-                            '${task.deadline.difference(DateTime.now()).inHours.clamp(0, 999)} jam lagi',
-                            style: TextStyle(
-                              fontSize: 10,
-                              color: colors.textSecondary,
+                          Flexible(
+                            child: Text(
+                              '${task.deadline.difference(DateTime.now()).inHours.clamp(0, 999)} jam lagi',
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: colors.textSecondary,
+                              ),
                             ),
                           ),
                         ],

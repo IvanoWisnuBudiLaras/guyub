@@ -298,14 +298,11 @@ final class _ResidentSessionHomeScreenState
 
   List<Widget> _buildAppBarActions(BuildContext context) {
     return [
-      TextButton.icon(
+      IconButton(
         key: const Key('resident-switch-role-appbar'),
+        tooltip: 'Ganti Peran',
         onPressed: () => _switchRole(context),
-        icon: const Icon(Icons.swap_horiz, color: Colors.white, size: 18),
-        label: const Text(
-          'Ganti Peran',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
-        ),
+        icon: const Icon(Icons.swap_horiz),
       ),
       IconButton(
         key: const Key('resident-sign-out'),

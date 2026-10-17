@@ -74,12 +74,14 @@ final class HeroHeaderCard extends StatelessWidget {
                         Icon(icon, size: 13, color: Colors.white),
                         const SizedBox(width: 4),
                       ],
-                      Text(
-                        role,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 11,
+                      Flexible(
+                        child: Text(
+                          role,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 11,
+                          ),
                         ),
                       ),
                     ],
@@ -119,14 +121,16 @@ final class HeroHeaderCard extends StatelessWidget {
                       color: Colors.white.withValues(alpha: 0.85),
                     ),
                     const SizedBox(width: 4),
-                    Text(
-                      dateText ??
-                          IndonesianDateFormatter.formatDateOnly(
-                            DateTime.now(),
-                          ),
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.85),
-                        fontSize: 11,
+                    Flexible(
+                      child: Text(
+                        dateText ??
+                            IndonesianDateFormatter.formatDateOnly(
+                              DateTime.now(),
+                            ),
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.85),
+                          fontSize: 11,
+                        ),
                       ),
                     ),
                   ],
