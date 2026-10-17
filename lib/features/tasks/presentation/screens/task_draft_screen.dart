@@ -123,8 +123,9 @@ final class _TaskDraftScreenState extends State<TaskDraftScreen> {
   }
 
   Future<void> _openInstructionDialog() async {
-    final dialogController =
-        TextEditingController(text: _instructionController.text);
+    final dialogController = TextEditingController(
+      text: _instructionController.text,
+    );
     final result = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -137,9 +138,7 @@ final class _TaskDraftScreenState extends State<TaskDraftScreen> {
             children: [
               Text(
                 'Sesuaikan instruksi pelaksanaan untuk warga. Template aman tetap menjadi panduan keselamatan.',
-                style: Theme.of(ctx)
-                    .textTheme
-                    .bodySmall
+                style: Theme.of(ctx).textTheme.bodySmall
                     ?.copyWith(color: Colors.grey.shade700),
               ),
               const SizedBox(height: 12),
@@ -242,8 +241,8 @@ final class _TaskDraftScreenState extends State<TaskDraftScreen> {
           icon: const Icon(Icons.edit_note),
           label: Text(
             _instructionController.text.trim() !=
-                    widget.template.coreInstruction.trim() &&
-                _instructionController.text.trim().isNotEmpty
+                        widget.template.coreInstruction.trim() &&
+                    _instructionController.text.trim().isNotEmpty
                 ? 'Instruksi RT: Disesuaikan'
                 : 'Sesuaikan Instruksi RT (Opsional)',
           ),

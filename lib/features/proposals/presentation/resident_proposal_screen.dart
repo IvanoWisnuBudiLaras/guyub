@@ -164,8 +164,7 @@ final class _ResidentProposalScreenState extends State<ResidentProposalScreen>
           decoration: const InputDecoration(
             labelText: 'Penjelasan singkat',
             hintText: 'Jelaskan kondisi dan rencana persiapan...',
-            helperText:
-                'Jangan masukkan NIK, nomor telepon, alamat, atau koordinat GPS.',
+            helperText: 'Jangan masukkan NIK, nomor telepon, alamat, atau koordinat GPS.',
             helperMaxLines: 4,
             border: OutlineInputBorder(),
           ),
@@ -378,8 +377,12 @@ final class _ProposalStatusCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.appColors;
 
-    final (String badgeLabel, Color badgeColor, Color badgeBg, IconData badgeIcon) =
-        switch (proposal.state) {
+    final (
+      String badgeLabel,
+      Color badgeColor,
+      Color badgeBg,
+      IconData badgeIcon,
+    ) = switch (proposal.state) {
       'SUBMITTED' => (
         'Menunggu Tinjauan RT',
         const Color(0xFFB45309),
@@ -428,9 +431,8 @@ final class _ProposalStatusCard extends StatelessWidget {
                 Expanded(
                   child: Text(
                     proposal.title,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
+                    style: Theme.of(context).textTheme.titleMedium
+                        ?.copyWith(fontWeight: FontWeight.bold),
                   ),
                 ),
                 Container(
@@ -468,7 +470,11 @@ final class _ProposalStatusCard extends StatelessWidget {
             const SizedBox(height: 8),
             Row(
               children: [
-                Icon(Icons.label_outline, size: 14, color: colors.textSecondary),
+                Icon(
+                  Icons.label_outline,
+                  size: 14,
+                  color: colors.textSecondary,
+                ),
                 const SizedBox(width: 4),
                 Text(
                   proposal.category.label,
@@ -544,7 +550,10 @@ final class _ProposalStatusCard extends StatelessWidget {
             if (proposal.state == 'MAPPED_TO_SAFE_TEMPLATE') ...[
               const SizedBox(height: 10),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 8,
+                ),
                 decoration: BoxDecoration(
                   color: colors.successBg,
                   borderRadius: BorderRadius.circular(8),
@@ -568,7 +577,10 @@ final class _ProposalStatusCard extends StatelessWidget {
             if (proposal.state == 'DISMISSED') ...[
               const SizedBox(height: 10),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 8,
+                ),
                 decoration: BoxDecoration(
                   color: colors.background,
                   borderRadius: BorderRadius.circular(8),

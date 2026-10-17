@@ -9,8 +9,8 @@ import 'package:guyub/features/trees/presentation/screens/community_tree_map_scr
 
 final class _FakeTreePointBoundary implements TreePointBoundary {
   _FakeTreePointBoundary({CommunityTreeMap? treeMap, this.shouldFail = false})
-      : _treeMap = treeMap ??
-            const CommunityTreeMap(items: [], totalVerifiedTrees: 0);
+    : _treeMap =
+          treeMap ?? const CommunityTreeMap(items: [], totalVerifiedTrees: 0);
 
   final CommunityTreeMap _treeMap;
   final bool shouldFail;
@@ -59,10 +59,7 @@ final class _FakeTreePointBoundary implements TreePointBoundary {
 
 void main() {
   Widget buildTestableWidget(Widget child) {
-    return MaterialApp(
-      theme: AppTheme.light,
-      home: child,
-    );
+    return MaterialApp(theme: AppTheme.light, home: child);
   }
 
   final sampleTree = CommunityTreeItem(
@@ -78,7 +75,9 @@ void main() {
     hasEvidencePhoto: true,
   );
 
-  testWidgets('renders empty state when no trees verified in RT', (tester) async {
+  testWidgets('renders empty state when no trees verified in RT', (
+    tester,
+  ) async {
     final boundary = _FakeTreePointBoundary(
       treeMap: const CommunityTreeMap(items: [], totalVerifiedTrees: 0),
     );
@@ -88,9 +87,7 @@ void main() {
     );
 
     await tester.pumpWidget(
-      buildTestableWidget(
-        CommunityTreeMapScreen(controller: controller),
-      ),
+      buildTestableWidget(CommunityTreeMapScreen(controller: controller)),
     );
 
     // Initial loading indicator
@@ -98,15 +95,17 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('0 Pohon Resapan Terverifikasi'), findsOneWidget);
-    expect(find.text('Belum ada pohon terverifikasi di RT ini.'), findsOneWidget);
+    expect(
+      find.text('Belum ada pohon terverifikasi di RT ini.'),
+      findsOneWidget,
+    );
   });
 
-  testWidgets('switches to list view and shows tree details and attribution', (tester) async {
+  testWidgets('switches to list view and shows tree details and attribution', (
+    tester,
+  ) async {
     final boundary = _FakeTreePointBoundary(
-      treeMap: CommunityTreeMap(
-        items: [sampleTree],
-        totalVerifiedTrees: 1,
-      ),
+      treeMap: CommunityTreeMap(items: [sampleTree], totalVerifiedTrees: 1),
     );
     final controller = TreePointController(
       boundary: boundary,
@@ -114,9 +113,7 @@ void main() {
     );
 
     await tester.pumpWidget(
-      buildTestableWidget(
-        CommunityTreeMapScreen(controller: controller),
-      ),
+      buildTestableWidget(CommunityTreeMapScreen(controller: controller)),
     );
     await tester.pumpAndSettle();
 
@@ -139,11 +136,16 @@ void main() {
     // Verify bottom sheet content
     expect(find.text('Terverifikasi RT'), findsOneWidget);
     expect(find.textContaining('qw4z91p'), findsOneWidget);
-    expect(find.textContaining('Perkiraan area: Sel Geohash 7'), findsOneWidget);
+    expect(
+      find.textContaining('Perkiraan area: Sel Geohash 7'),
+      findsOneWidget,
+    );
     expect(find.textContaining('Lokasi persis disamarkan'), findsOneWidget);
   });
 
-  testWidgets('renders error view on load failure and retries successfully', (tester) async {
+  testWidgets('renders error view on load failure and retries successfully', (
+    tester,
+  ) async {
     final failingBoundary = _FakeTreePointBoundary(shouldFail: true);
     final controller = TreePointController(
       boundary: failingBoundary,
@@ -151,14 +153,14 @@ void main() {
     );
 
     await tester.pumpWidget(
-      buildTestableWidget(
-        CommunityTreeMapScreen(controller: controller),
-      ),
+      buildTestableWidget(CommunityTreeMapScreen(controller: controller)),
     );
     await tester.pumpAndSettle();
 
     expect(
-      find.text('Peta pohon belum dapat dimuat. Periksa koneksi dan coba lagi.'),
+      find.text(
+        'Peta pohon belum dapat dimuat. Periksa koneksi dan coba lagi.',
+      ),
       findsOneWidget,
     );
     expect(find.text('Coba Lagi'), findsOneWidget);

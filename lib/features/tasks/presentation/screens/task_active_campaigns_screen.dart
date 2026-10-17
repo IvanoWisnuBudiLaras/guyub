@@ -292,8 +292,8 @@ final class _TaskActiveCampaignsScreenState
               Text(
                 'Daftar tugas gotong royong yang sedang aktif di RT ini.',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
               ),
               const SizedBox(height: 12),
               const _CancellationNotice(),

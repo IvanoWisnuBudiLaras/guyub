@@ -17,7 +17,8 @@ final class LockedTaskInstructionsCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.appColors;
 
-    final hasCustom = snapshot.customInstruction != null &&
+    final hasCustom =
+        snapshot.customInstruction != null &&
         snapshot.customInstruction!.trim().isNotEmpty;
     final rawInstruction = hasCustom
         ? snapshot.customInstruction!.trim()

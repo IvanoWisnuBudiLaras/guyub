@@ -105,10 +105,7 @@ void main() {
 
     // Rationale bottom sheet must appear
     expect(find.text('Privasi Titik Pohon Guyub'), findsOneWidget);
-    expect(
-      find.textContaining('Grid Kasar (~150m)'),
-      findsOneWidget,
-    );
+    expect(find.textContaining('Grid Kasar (~150m)'), findsOneWidget);
 
     // Agree to consent
     final agreeButton = find.byKey(const Key('tree-privacy-agree-button'));

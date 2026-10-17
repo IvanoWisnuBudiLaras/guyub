@@ -342,9 +342,7 @@ final class AppRouter {
         final controller = treePointController;
         if (controller == null) return _roleSelection(settings);
         return MaterialPageRoute<void>(
-          builder: (_) => CommunityTreeMapScreen(
-            controller: controller,
-          ),
+          builder: (_) => CommunityTreeMapScreen(controller: controller),
           settings: settings,
         );
       default:

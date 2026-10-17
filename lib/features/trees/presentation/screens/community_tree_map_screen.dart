@@ -202,18 +202,13 @@ final class _CommunityTreeMapScreenState extends State<CommunityTreeMapScreen> {
             const SizedBox(height: 8),
             Row(
               children: [
-                const Icon(
-                  Icons.shield_outlined,
-                  size: 16,
-                  color: Colors.grey,
-                ),
+                const Icon(Icons.shield_outlined, size: 16, color: Colors.grey),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     'Perkiraan area: Sel Geohash 7 (${tree.coarseLocation.cellId.isNotEmpty ? tree.coarseLocation.cellId : "~153m x 153m"}). Lokasi persis disamarkan.',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: colors.textSecondary,
-                    ),
+                    style: Theme.of(context).textTheme.bodySmall
+                        ?.copyWith(color: colors.textSecondary),
                   ),
                 ),
               ],

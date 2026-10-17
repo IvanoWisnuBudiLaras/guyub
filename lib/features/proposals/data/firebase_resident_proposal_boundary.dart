@@ -82,8 +82,7 @@ final class FirebaseResidentProposalBoundary
     }
     return rawItems
         .map(
-          (item) =>
-              ResidentProposalRecord.fromWire(_wireMap(item, 'proposal')),
+          (item) => ResidentProposalRecord.fromWire(_wireMap(item, 'proposal')),
         )
         .toList(growable: false);
   }
