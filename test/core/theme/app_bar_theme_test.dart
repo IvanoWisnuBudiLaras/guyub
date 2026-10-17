@@ -70,13 +70,11 @@ void main() {
       expect(materialAfter.elevation, 0);
 
       // Text dan Icon tetap putih
-      final titleText = tester.widget<Text>(find.text('Uji AppBar'));
       final titleStyle = DefaultTextStyle.of(
         tester.element(find.text('Uji AppBar')),
       ).style;
       expect(titleStyle.color, Colors.white);
 
-      final icon = tester.widget<Icon>(find.byIcon(Icons.notifications));
       final iconTheme = IconTheme.of(
         tester.element(find.byIcon(Icons.notifications)),
       );
