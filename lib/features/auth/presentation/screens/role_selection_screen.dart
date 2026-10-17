@@ -36,7 +36,8 @@ final class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
   Future<void> _checkSavedSessions() async {
     try {
       if (widget.residentSessionController != null) {
-        final session = await widget.residentSessionController!.restoreSession();
+        final session = await widget.residentSessionController!
+            .restoreSession();
         if (mounted && session != null) {
           setState(() => _savedResidentSession = session);
         }
@@ -45,8 +46,8 @@ final class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
 
     try {
       if (widget.operatorAuthBoundary != null) {
-        final result =
-            await widget.operatorAuthBoundary!.restoreCurrentSession();
+        final result = await widget.operatorAuthBoundary!
+            .restoreCurrentSession();
         final profile = result.dataOrNull;
         if (mounted && profile != null) {
           setState(() => _savedOperatorProfile = profile);
@@ -92,7 +93,8 @@ final class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                   if (_savedResidentSession case final session?) ...[
                     _ResumeSessionCard(
                       key: const Key('resume-resident-session'),
-                      title: 'Lanjutkan sebagai ${session.nickname} (${session.rtLabel})',
+                      title:
+                          'Lanjutkan sebagai ${session.nickname} (${session.rtLabel})',
                       subtitle: session.communityName.isNotEmpty
                           ? session.communityName
                           : 'Sesi warga tersimpan',
@@ -107,7 +109,8 @@ final class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                   if (_savedOperatorProfile case final operator?) ...[
                     _ResumeSessionCard(
                       key: const Key('resume-operator-session'),
-                      title: 'Lanjutkan sebagai ${operator.displayName} (${operator.rtLabel})',
+                      title:
+                          'Lanjutkan sebagai ${operator.displayName} (${operator.rtLabel})',
                       subtitle: operator.humanizedCommunityName,
                       icon: Icons.admin_panel_settings_outlined,
                       onTap: () => Navigator.of(context).pushReplacementNamed(

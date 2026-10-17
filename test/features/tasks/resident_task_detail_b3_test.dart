@@ -35,8 +35,7 @@ final class _FakeBoundary implements TaskResponseBoundary {
   @override
   Future<ResidentTaskList> listResidentActiveTasks({
     required String sessionToken,
-  }) async =>
-      const ResidentTaskList(items: [], isPartial: false);
+  }) async => const ResidentTaskList(items: [], isPartial: false);
 
   @override
   Future<TaskResponseRecord> recordResidentTaskResponse({
@@ -44,14 +43,13 @@ final class _FakeBoundary implements TaskResponseBoundary {
     required String taskId,
     required ParticipationChoice choice,
     required String commandId,
-  }) async =>
-      TaskResponseRecord(
-        taskId: taskId,
-        participation: choice == ParticipationChoice.join
-            ? ParticipationState.joined
-            : ParticipationState.declined,
-        completion: CompletionState.notSubmitted,
-      );
+  }) async => TaskResponseRecord(
+    taskId: taskId,
+    participation: choice == ParticipationChoice.join
+        ? ParticipationState.joined
+        : ParticipationState.declined,
+    completion: CompletionState.notSubmitted,
+  );
 
   @override
   Future<TaskResponseRecord> submitTaskCompletion({
@@ -60,12 +58,11 @@ final class _FakeBoundary implements TaskResponseBoundary {
     required String? note,
     required String commandId,
     String? evidenceId,
-  }) async =>
-      TaskResponseRecord(
-        taskId: taskId,
-        participation: ParticipationState.joined,
-        completion: CompletionState.pendingRtVerification,
-      );
+  }) async => TaskResponseRecord(
+    taskId: taskId,
+    participation: ParticipationState.joined,
+    completion: CompletionState.pendingRtVerification,
+  );
 
   @override
   Future<TaskVerificationQueue> listPendingVerifications() async =>
@@ -75,12 +72,11 @@ final class _FakeBoundary implements TaskResponseBoundary {
   Future<TaskResponseRecord> verifyTaskCompletion({
     required String responseId,
     required String commandId,
-  }) async =>
-      const TaskResponseRecord(
-        taskId: 'task-1',
-        participation: ParticipationState.joined,
-        completion: CompletionState.verifiedComplete,
-      );
+  }) async => const TaskResponseRecord(
+    taskId: 'task-1',
+    participation: ParticipationState.joined,
+    completion: CompletionState.verifiedComplete,
+  );
 
   @override
   Future<TaskResponseRecap> getResponseRecap({required String taskId}) async =>
@@ -167,7 +163,10 @@ void main() {
       // 5. Kartu Lokasi
       expect(find.text('Lokasi Tugas'), findsOneWidget);
       expect(find.text('Titik Lokasi'), findsOneWidget);
-      expect(find.text('Area umum RT yang ditentukan operator'), findsOneWidget);
+      expect(
+        find.text('Area umum RT yang ditentukan operator'),
+        findsOneWidget,
+      );
 
       // 6. SectionCard dan InfoRow digunakan
       expect(find.byType(SectionCard), findsNWidgets(3));
@@ -182,14 +181,8 @@ void main() {
       );
 
       // 8. Sticky bottom bar dengan tombol Tidak Ikut & Ikut
-      expect(
-        find.byKey(const Key('resident-decline-task')),
-        findsOneWidget,
-      );
-      expect(
-        find.byKey(const Key('resident-join-task')),
-        findsOneWidget,
-      );
+      expect(find.byKey(const Key('resident-decline-task')), findsOneWidget);
+      expect(find.byKey(const Key('resident-join-task')), findsOneWidget);
     },
   );
 }

@@ -362,4 +362,3 @@ final class _HistoryTaskCardState extends State<_HistoryTaskCard> {
 
 String _formatDate(DateTime value) =>
     IndonesianDateFormatter.formatNumeric(value);
-

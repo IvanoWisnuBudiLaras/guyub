@@ -788,11 +788,12 @@ final class _ResidentTaskDetailScreenState
                     const SizedBox(width: 4),
                     Flexible(
                       child: Text(
-                        'Warga • ${widget.session.rtLabel} ${widget.session.communityName}'.trim(),
+                        'Warga • ${widget.session.rtLabel} ${widget.session.communityName}'
+                            .trim(),
                         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                              color: context.appColors.primary,
-                              fontWeight: FontWeight.w600,
-                            ),
+                          color: context.appColors.primary,
+                          fontWeight: FontWeight.w600,
+                        ),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
@@ -824,10 +825,8 @@ final class _ResidentTaskDetailScreenState
                 const SizedBox(height: 12),
                 Text(
                   _task.templateSnapshot.title,
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w700,
-                        height: 1.3,
-                      ),
+                  style: Theme.of(context).textTheme.titleLarge
+                      ?.copyWith(fontWeight: FontWeight.w700, height: 1.3),
                 ),
               ],
             ),
@@ -860,8 +859,8 @@ final class _ResidentTaskDetailScreenState
                   valueColor: isPastDeadline
                       ? context.appColors.danger
                       : isUrgent
-                          ? const Color(0xFFB45309)
-                          : null,
+                      ? const Color(0xFFB45309)
+                      : null,
                 ),
               ],
             ),
@@ -920,11 +919,7 @@ final class _ResidentTaskDetailScreenState
         colors.textSecondary,
         colors.background,
       ),
-      _ => (
-        'Belum Direspons',
-        colors.textSecondary,
-        colors.background,
-      ),
+      _ => ('Belum Direspons', colors.textSecondary, colors.background),
     };
 
     return Container(
@@ -936,11 +931,7 @@ final class _ResidentTaskDetailScreenState
       ),
       child: Text(
         label,
-        style: TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
-          color: fg,
-        ),
+        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: fg),
       ),
     );
   }
@@ -1666,9 +1657,7 @@ final class _TaskVerificationQueueScreenState
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         if (record.taskId == widget.initialTaskId) ...[
-                          TintedInfoBox.info(
-                            text: 'Dibuka dari notifikasi',
-                          ),
+                          TintedInfoBox.info(text: 'Dibuka dari notifikasi'),
                           const SizedBox(height: 8),
                         ],
                         Text(

@@ -234,7 +234,10 @@ final class _TaskActiveCampaignsScreenState
                     icon: const Icon(Icons.history, size: 18),
                     label: const Text('Riwayat'),
                     style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
                       minimumSize: const Size(0, 36),
                     ),
                   ),
@@ -412,7 +415,8 @@ final class _CancellationNotice extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => TintedInfoBox.info(
-    text: 'Pembatalan dan penutupan adalah tindakan operator yang dicatat dalam '
+    text:
+        'Pembatalan dan penutupan adalah tindakan operator yang dicatat dalam '
         'riwayat audit. Penutupan tidak menandai tanggapan warga selesai; '
         'verifikasi RT tetap menjadi acuan. Pilihan warga yang masih antre '
         'secara offline dapat berkonflik saat disinkronkan; status server tetap '

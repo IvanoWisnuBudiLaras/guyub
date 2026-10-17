@@ -48,7 +48,10 @@ final class OperatorProfile {
     }
     // Jika slug demo (misal "rt-01-demo"), tampilkan nama komunitas dari displayName
     if (communityId.toLowerCase().contains('demo')) {
-      final match = RegExp(r'(RT\s*\d+.*)', caseSensitive: false).firstMatch(displayName);
+      final match = RegExp(
+        r'(RT\s*\d+.*)',
+        caseSensitive: false,
+      ).firstMatch(displayName);
       if (match != null) {
         return match.group(1)!;
       }

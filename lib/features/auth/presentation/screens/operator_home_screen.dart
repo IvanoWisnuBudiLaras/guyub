@@ -167,10 +167,9 @@ final class _OperatorHomeScreenState extends State<OperatorHomeScreen> {
             IconButton(
               key: const Key('operator-appbar-history'),
               tooltip: 'Riwayat Tugas',
-              onPressed: () => Navigator.of(context).pushNamed(
-                '/operator/tasks/history',
-                arguments: profile,
-              ),
+              onPressed: () =>
+                  Navigator.of(context)
+                      .pushNamed('/operator/tasks/history', arguments: profile),
               icon: const Icon(Icons.history),
             ),
           IconButton(
@@ -226,252 +225,242 @@ final class _OperatorHomeScreenState extends State<OperatorHomeScreen> {
           _buildOperatorHeader(context),
           const SizedBox(height: 10),
 
-            // 2. Pendamping Push Opt-in (if applicable)
-            if (profile.role == OperatorRole.pendampingRt &&
-                widget.taskPushNotificationsController != null) ...[
-              TaskPushOptInCard.forPendamping(
-                controller: widget.taskPushNotificationsController!,
-                profile: profile,
-              ),
-              const SizedBox(height: 10),
-            ],
+          // 2. Pendamping Push Opt-in (if applicable)
+          if (profile.role == OperatorRole.pendampingRt &&
+              widget.taskPushNotificationsController != null) ...[
+            TaskPushOptInCard.forPendamping(
+              controller: widget.taskPushNotificationsController!,
+              profile: profile,
+            ),
+            const SizedBox(height: 10),
+          ],
 
-            // 3. Status koneksi katalog tugas
-            if (!hasCampaignBoundary) ...[
-              const TintedInfoBox(
-                tint: TintType.warning,
-                icon: Icons.cloud_off_outlined,
-                title: 'Katalog Belum Terhubung',
-                child: Text(
-                  'Akses operator terverifikasi. Katalog tugas belum terhubung.',
+          // 3. Status koneksi katalog tugas
+          if (!hasCampaignBoundary) ...[
+            const TintedInfoBox(
+              tint: TintType.warning,
+              icon: Icons.cloud_off_outlined,
+              title: 'Katalog Belum Terhubung',
+              child: Text(
+                'Akses operator terverifikasi. Katalog tugas belum terhubung.',
+              ),
+            ),
+            const SizedBox(height: 10),
+          ],
+
+          // 4. Kartu Cuaca BMKG
+          if (widget.weatherSnapshotStore != null) ...[
+            WeatherSnapshotCard(
+              key: ValueKey<int>(_weatherRevision),
+              store: widget.weatherSnapshotStore!,
+              communityId: profile.communityId,
+              onRefresh: widget.weatherSnapshotSyncController == null
+                  ? null
+                  : _refreshWeather,
+            ),
+            const SizedBox(height: 10),
+          ],
+
+          // 5. Banner Rekomendasi Cuaca (jika ada saran BMKG)
+          if (_weatherSuggestions.isNotEmpty &&
+              widget.weatherSuggestionBoundary != null &&
+              hasCampaignBoundary) ...[
+            TintedInfoBox(
+              tint: TintType.info,
+              icon: Icons.wb_cloudy_outlined,
+              title: 'Rekomendasi Tindakan dari Cuaca',
+              action: InlineActionButton(
+                variant: InlineActionButtonVariant.filled,
+                onPressed: () => Navigator.of(context).pushNamed(
+                  '/operator/weather-suggestions',
+                  arguments: profile,
                 ),
+                label: 'Tinjau',
               ),
-              const SizedBox(height: 10),
-            ],
-
-            // 4. Kartu Cuaca BMKG
-            if (widget.weatherSnapshotStore != null) ...[
-              WeatherSnapshotCard(
-                key: ValueKey<int>(_weatherRevision),
-                store: widget.weatherSnapshotStore!,
-                communityId: profile.communityId,
-                onRefresh: widget.weatherSnapshotSyncController == null
-                    ? null
-                    : _refreshWeather,
+              child: Text(
+                'BMKG mendeteksi potensi cuaca yang memerlukan persiapan. '
+                'Tersedia ${_weatherSuggestions.length} saran persiapan aman.',
               ),
-              const SizedBox(height: 10),
-            ],
+            ),
+            const SizedBox(height: 10),
+          ],
 
-            // 5. Banner Rekomendasi Cuaca (jika ada saran BMKG)
-            if (_weatherSuggestions.isNotEmpty &&
-                widget.weatherSuggestionBoundary != null &&
-                hasCampaignBoundary) ...[
-              TintedInfoBox(
-                tint: TintType.info,
-                icon: Icons.wb_cloudy_outlined,
-                title: 'Rekomendasi Tindakan dari Cuaca',
-                action: InlineActionButton(
-                  variant: InlineActionButtonVariant.filled,
-                  onPressed: () => Navigator.of(context).pushNamed(
-                    '/operator/weather-suggestions',
-                    arguments: profile,
-                  ),
-                  label: 'Tinjau',
-                ),
-                child: Text(
-                  'BMKG mendeteksi potensi cuaca yang memerlukan persiapan. '
-                  'Tersedia ${_weatherSuggestions.length} saran persiapan aman.',
-                ),
+          // 6. Kartu Metrik Kesiapan RT
+          if (hasCampaignBoundary) ...[
+            OperatorMetricsCard(
+              activeTasksCount: _activeTasksLoadFailed
+                  ? null
+                  : (isManagement ? _activeTasks.length : null),
+              pendingVerificationsCount: _pendingVerificationsCount,
+              vulnerableResidentsCount: _vulnerableResidentsCount,
+              onActiveTasksTap: isManagement
+                  ? () => Navigator.of(context)
+                        .pushNamed('/operator/tasks/active', arguments: profile)
+                  : null,
+              onVerificationsTap: widget.taskResponseController != null
+                  ? () => Navigator.of(context).pushNamed(
+                      '/operator/tasks/verification',
+                      arguments: profile,
+                    )
+                  : null,
+              onVulnerableResidentsTap: widget.proxyResidentController != null
+                  ? () => Navigator.of(context)
+                        .pushNamed('/operator/assistance', arguments: profile)
+                  : null,
+            ),
+            const SizedBox(height: 10),
+          ],
+
+          // 7. Banner Peringatan Warga Rentan
+          if ((_vulnerableResidentsCount ?? 0) > 0 &&
+              widget.proxyResidentController != null) ...[
+            TintedInfoBox.warning(
+              title: 'Perhatian Warga Rentan',
+              text:
+                  '$_vulnerableResidentsCount warga rentan tercatat memerlukan '
+                  'pendampingan evakuasi / persiapan.',
+              action: InlineActionButton(
+                variant: InlineActionButtonVariant.outlined,
+                onPressed: () =>
+                    Navigator.of(context)
+                        .pushNamed('/operator/assistance', arguments: profile),
+                label: 'Lihat Warga',
               ),
-              const SizedBox(height: 10),
-            ],
+            ),
+            const SizedBox(height: 10),
+          ],
 
-            // 6. Kartu Metrik Kesiapan RT
-            if (hasCampaignBoundary) ...[
-              OperatorMetricsCard(
-                activeTasksCount: _activeTasksLoadFailed
-                    ? null
-                    : (isManagement ? _activeTasks.length : null),
-                pendingVerificationsCount: _pendingVerificationsCount,
-                vulnerableResidentsCount: _vulnerableResidentsCount,
-                onActiveTasksTap: isManagement
-                    ? () => Navigator.of(
-                        context,
-                      ).pushNamed('/operator/tasks/active', arguments: profile)
-                    : null,
-                onVerificationsTap: widget.taskResponseController != null
-                    ? () => Navigator.of(context).pushNamed(
-                        '/operator/tasks/verification',
-                        arguments: profile,
-                      )
-                    : null,
-                onVulnerableResidentsTap: widget.proxyResidentController != null
-                    ? () => Navigator.of(context)
-                          .pushNamed('/operator/assistance', arguments: profile)
-                    : null,
+          // 8. Banner Verifikasi Tertunda (hanya jumlah + link ke antrean)
+          if ((_pendingVerificationsCount ?? 0) > 0 &&
+              widget.taskResponseController != null) ...[
+            TintedInfoBox.info(
+              title: 'Antrean Verifikasi',
+              text:
+                  '$_pendingVerificationsCount laporan tugas warga menunggu verifikasi.',
+              action: InlineActionButton(
+                variant: InlineActionButtonVariant.outlined,
+                onPressed: () => Navigator.of(
+                  context,
+                ).pushNamed('/operator/tasks/verification', arguments: profile),
+                label: 'Buka Antrean',
               ),
-              const SizedBox(height: 10),
-            ],
+            ),
+            const SizedBox(height: 10),
+          ],
 
-            // 7. Banner Peringatan Warga Rentan
-            if ((_vulnerableResidentsCount ?? 0) > 0 &&
-                widget.proxyResidentController != null) ...[
-              TintedInfoBox.warning(
-                title: 'Perhatian Warga Rentan',
-                text:
-                    '$_vulnerableResidentsCount warga rentan tercatat memerlukan '
-                    'pendampingan evakuasi / persiapan.',
-                action: InlineActionButton(
-                  variant: InlineActionButtonVariant.outlined,
-                  onPressed: () => Navigator.of(context)
-                      .pushNamed('/operator/assistance', arguments: profile),
-                  label: 'Lihat Warga',
-                ),
+          // 9. Error Card atau Pratinjau Tugas Aktif
+          if (isManagement && _activeTasksLoadFailed) ...[
+            Container(
+              key: const Key('operator-active-tasks-error-card'),
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: colors.danger.withValues(alpha: 0.3)),
               ),
-              const SizedBox(height: 10),
-            ],
-
-            // 8. Banner Verifikasi Tertunda (hanya jumlah + link ke antrean)
-            if ((_pendingVerificationsCount ?? 0) > 0 &&
-                widget.taskResponseController != null) ...[
-              TintedInfoBox.info(
-                title: 'Antrean Verifikasi',
-                text:
-                    '$_pendingVerificationsCount laporan tugas warga menunggu verifikasi.',
-                action: InlineActionButton(
-                  variant: InlineActionButtonVariant.outlined,
-                  onPressed: () => Navigator.of(context).pushNamed(
-                    '/operator/tasks/verification',
-                    arguments: profile,
-                  ),
-                  label: 'Buka Antrean',
-                ),
-              ),
-              const SizedBox(height: 10),
-            ],
-
-            // 9. Error Card atau Pratinjau Tugas Aktif
-            if (isManagement && _activeTasksLoadFailed) ...[
-              Container(
-                key: const Key('operator-active-tasks-error-card'),
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                    color: colors.danger.withValues(alpha: 0.3),
-                  ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.error_outline,
-                          color: colors.danger,
-                          size: 20,
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            'Gagal Memuat Tugas Aktif',
-                            style: Theme.of(context).textTheme.titleSmall
-                                ?.copyWith(
-                                  fontWeight: FontWeight.w700,
-                                  color: colors.danger,
-                                ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Daftar tugas aktif RT belum dapat dimuat dari server. '
-                      'Periksa koneksi internet Anda.',
-                      style: Theme.of(context).textTheme.bodySmall
-                          ?.copyWith(color: colors.textSecondary),
-                    ),
-                    const SizedBox(height: 10),
-                    InlineActionButton(
-                      key: const Key('operator-active-tasks-retry-button'),
-                      variant: InlineActionButtonVariant.outlined,
-                      icon: Icons.refresh,
-                      label: 'Coba Lagi',
-                      onPressed: () => _loadDashboardData(),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 10),
-            ] else if (isManagement && _activeTasks.isNotEmpty) ...[
-              _buildActiveTasksPreview(context),
-              const SizedBox(height: 10),
-            ],
-
-            // 10. Menu Operasional & Aksi Cepat
-            if (hasCampaignBoundary) ...[
-              SectionCard(
-                title: 'Menu Operasional RT',
-                icon: Icons.dashboard_outlined,
-                padding: const EdgeInsets.all(14),
-                margin: const EdgeInsets.only(bottom: 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  Row(
+                    children: [
+                      Icon(Icons.error_outline, color: colors.danger, size: 20),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Gagal Memuat Tugas Aktif',
+                          style: Theme.of(context).textTheme.titleSmall
+                              ?.copyWith(
+                                fontWeight: FontWeight.w700,
+                                color: colors.danger,
+                              ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
                   Text(
-                    'Gunakan template yang ditinjau. Aktivasi tugas tetap memerlukan '
-                    'konfirmasi operator.',
+                    'Daftar tugas aktif RT belum dapat dimuat dari server. '
+                    'Periksa koneksi internet Anda.',
                     style: Theme.of(context).textTheme.bodySmall
                         ?.copyWith(color: colors.textSecondary),
                   ),
-                  const SizedBox(height: 12),
-                  OperatorActionShortcuts(
-                    onOpenCatalog: () => Navigator.of(
-                      context,
-                    ).pushNamed('/operator/tasks/catalog', arguments: profile),
-                    onWeatherSuggestions:
-                        widget.weatherSuggestionBoundary != null
-                        ? () => Navigator.of(context).pushNamed(
-                            '/operator/weather-suggestions',
-                            arguments: profile,
-                          )
-                        : null,
-                    onActiveTasks: isManagement
-                        ? () => Navigator.of(context).pushNamed(
-                            '/operator/tasks/active',
-                            arguments: profile,
-                          )
-                        : null,
-                    onVerification: widget.taskResponseController != null
-                        ? () => Navigator.of(context).pushNamed(
-                            '/operator/tasks/verification',
-                            arguments: profile,
-                          )
-                        : null,
-                    onProposalReview: widget.proposalReviewController != null
-                        ? () => Navigator.of(
-                            context,
-                          ).pushNamed('/operator/proposals', arguments: profile)
-                        : null,
-                    onProxyAssistance: widget.proxyResidentController != null
-                        ? () => Navigator.of(context).pushNamed(
-                            '/operator/assistance',
-                            arguments: profile,
-                          )
-                        : null,
-                    onTaskHistory: isHistory
-                        ? () => Navigator.of(context).pushNamed(
-                            '/operator/tasks/history',
-                            arguments: profile,
-                          )
-                        : null,
+                  const SizedBox(height: 10),
+                  InlineActionButton(
+                    key: const Key('operator-active-tasks-retry-button'),
+                    variant: InlineActionButtonVariant.outlined,
+                    icon: Icons.refresh,
+                    label: 'Coba Lagi',
+                    onPressed: () => _loadDashboardData(),
                   ),
                 ],
               ),
-            ],
-            const SizedBox(height: 12),
+            ),
+            const SizedBox(height: 10),
+          ] else if (isManagement && _activeTasks.isNotEmpty) ...[
+            _buildActiveTasksPreview(context),
+            const SizedBox(height: 10),
           ],
-        ),
-      );
+
+          // 10. Menu Operasional & Aksi Cepat
+          if (hasCampaignBoundary) ...[
+            SectionCard(
+              title: 'Menu Operasional RT',
+              icon: Icons.dashboard_outlined,
+              padding: const EdgeInsets.all(14),
+              margin: const EdgeInsets.only(bottom: 8),
+              children: [
+                Text(
+                  'Gunakan template yang ditinjau. Aktivasi tugas tetap memerlukan '
+                  'konfirmasi operator.',
+                  style: Theme.of(context).textTheme.bodySmall
+                      ?.copyWith(color: colors.textSecondary),
+                ),
+                const SizedBox(height: 12),
+                OperatorActionShortcuts(
+                  onOpenCatalog: () => Navigator.of(context)
+                      .pushNamed('/operator/tasks/catalog', arguments: profile),
+                  onWeatherSuggestions: widget.weatherSuggestionBoundary != null
+                      ? () => Navigator.of(context).pushNamed(
+                          '/operator/weather-suggestions',
+                          arguments: profile,
+                        )
+                      : null,
+                  onActiveTasks: isManagement
+                      ? () => Navigator.of(context).pushNamed(
+                          '/operator/tasks/active',
+                          arguments: profile,
+                        )
+                      : null,
+                  onVerification: widget.taskResponseController != null
+                      ? () => Navigator.of(context).pushNamed(
+                          '/operator/tasks/verification',
+                          arguments: profile,
+                        )
+                      : null,
+                  onProposalReview: widget.proposalReviewController != null
+                      ? () => Navigator.of(
+                          context,
+                        ).pushNamed('/operator/proposals', arguments: profile)
+                      : null,
+                  onProxyAssistance: widget.proxyResidentController != null
+                      ? () => Navigator.of(
+                          context,
+                        ).pushNamed('/operator/assistance', arguments: profile)
+                      : null,
+                  onTaskHistory: isHistory
+                      ? () => Navigator.of(context).pushNamed(
+                          '/operator/tasks/history',
+                          arguments: profile,
+                        )
+                      : null,
+                ),
+              ],
+            ),
+          ],
+          const SizedBox(height: 12),
+        ],
+      ),
+    );
   }
 
   Widget _buildOperatorHeader(BuildContext context) {

@@ -144,19 +144,16 @@ final class _ShortcutCard extends StatelessWidget {
               const SizedBox(height: 10),
               Text(
                 label,
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
+                style: Theme.of(context).textTheme.titleSmall
+                    ?.copyWith(fontWeight: FontWeight.w600),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
               const SizedBox(height: 2),
               Text(
                 description,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: colors.textSecondary,
-                      fontSize: 11,
-                    ),
+                style: Theme.of(context).textTheme.bodySmall
+                    ?.copyWith(color: colors.textSecondary, fontSize: 11),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),

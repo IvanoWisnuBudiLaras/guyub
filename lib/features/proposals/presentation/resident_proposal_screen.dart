@@ -110,8 +110,7 @@ final class _ResidentProposalScreenState extends State<ResidentProposalScreen> {
           textCapitalization: TextCapitalization.sentences,
           decoration: const InputDecoration(
             labelText: 'Penjelasan singkat',
-            helperText:
-                'Jangan masukkan NIK, nomor telepon, alamat, atau koordinat GPS.',
+            helperText: 'Jangan masukkan NIK, nomor telepon, alamat, atau koordinat GPS.',
             helperMaxLines: 4,
             border: OutlineInputBorder(),
           ),

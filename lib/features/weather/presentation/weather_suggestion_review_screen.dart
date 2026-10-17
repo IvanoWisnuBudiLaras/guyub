@@ -414,7 +414,6 @@ final class _ReviewMessage extends StatelessWidget {
 String _formatDate(DateTime value) =>
     IndonesianDateFormatter.formatNumeric(value);
 
-
 TaskTemplate? _findTemplate(
   List<TaskTemplate> templates,
   String id,

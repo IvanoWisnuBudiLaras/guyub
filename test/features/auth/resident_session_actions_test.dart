@@ -57,11 +57,10 @@ final class _FakeResidentBoundary implements ResidentSessionBoundary {
     required String joinCode,
     required String nickname,
     required String requestId,
-  }) async =>
-      ResidentSessionGrant(
-        session: session,
-        sessionToken: 'saved-opaque-token',
-      );
+  }) async => ResidentSessionGrant(
+    session: session,
+    sessionToken: 'saved-opaque-token',
+  );
 
   @override
   Future<ResidentSession> validateSession(String sessionToken) async => session;
@@ -113,11 +112,7 @@ void main() {
   });
 
   Widget buildApp({required Widget home, Map<String, WidgetBuilder>? routes}) {
-    return MaterialApp(
-      theme: AppTheme.light,
-      home: home,
-      routes: routes ?? {},
-    );
+    return MaterialApp(theme: AppTheme.light, home: home, routes: routes ?? {});
   }
 
   testWidgets(
@@ -138,9 +133,9 @@ void main() {
           initialRoute: '/resident',
           routes: {
             '/resident': (_) => ResidentSessionHomeScreen(
-                  session: boundary.session,
-                  controller: controller,
-                ),
+              session: boundary.session,
+              controller: controller,
+            ),
             '/': (_) {
               navigatedToRoot = true;
               return const Scaffold(body: Text('Role Selection Root'));
@@ -183,9 +178,8 @@ void main() {
         MaterialApp(
           theme: AppTheme.light,
           routes: {
-            '/': (_) => RoleSelectionScreen(
-                  residentSessionController: controller,
-                ),
+            '/': (_) =>
+                RoleSelectionScreen(residentSessionController: controller),
             '/resident/home': (context) {
               resumedResidentHome = true;
               final arg = ModalRoute.of(context)?.settings.arguments;
@@ -200,10 +194,7 @@ void main() {
 
       // Kartu Lanjutkan sebagai warga muncul
       expect(find.byKey(const Key('resume-resident-session')), findsOneWidget);
-      expect(
-        find.text('Lanjutkan sebagai Budi (RT 01)'),
-        findsOneWidget,
-      );
+      expect(find.text('Lanjutkan sebagai Budi (RT 01)'), findsOneWidget);
 
       // Tap kartu untuk melanjutkan sesi
       await tester.tap(find.byKey(const Key('resume-resident-session')));
@@ -231,9 +222,7 @@ void main() {
         MaterialApp(
           theme: AppTheme.light,
           routes: {
-            '/': (_) => RoleSelectionScreen(
-                  operatorAuthBoundary: operatorAuth,
-                ),
+            '/': (_) => RoleSelectionScreen(operatorAuthBoundary: operatorAuth),
             '/operator/home': (context) {
               resumedOperatorHome = true;
               final arg = ModalRoute.of(context)?.settings.arguments;
@@ -250,10 +239,7 @@ void main() {
 
       // Kartu Lanjutkan sebagai operator muncul
       expect(find.byKey(const Key('resume-operator-session')), findsOneWidget);
-      expect(
-        find.textContaining('Lanjutkan sebagai Pak Joko'),
-        findsOneWidget,
-      );
+      expect(find.textContaining('Lanjutkan sebagai Pak Joko'), findsOneWidget);
 
       // Tap kartu untuk melanjutkan sesi operator
       await tester.tap(find.byKey(const Key('resume-operator-session')));
@@ -354,9 +340,9 @@ void main() {
           initialRoute: '/resident',
           routes: {
             '/resident': (_) => ResidentSessionHomeScreen(
-                  session: boundary.session,
-                  controller: controller,
-                ),
+              session: boundary.session,
+              controller: controller,
+            ),
             '/': (_) {
               navigatedToRoot = true;
               return const Scaffold(body: Text('Root Role Selection'));
@@ -403,13 +389,15 @@ void main() {
       await tester.pumpAndSettle();
 
       // Urutan tombol di UI: Ganti Peran, Keluar, lalu Hapus Data Saya
-      final switchRoleY =
-          tester.getTopLeft(find.byKey(const Key('resident-switch-role'))).dy;
+      final switchRoleY = tester
+          .getTopLeft(find.byKey(const Key('resident-switch-role')))
+          .dy;
       final signOutY = tester
           .getTopLeft(find.byKey(const Key('resident-sign-out-button')))
           .dy;
-      final deleteDataY =
-          tester.getTopLeft(find.byKey(const Key('resident-delete-data'))).dy;
+      final deleteDataY = tester
+          .getTopLeft(find.byKey(const Key('resident-delete-data')))
+          .dy;
 
       expect(switchRoleY < signOutY, isTrue);
       expect(signOutY < deleteDataY, isTrue);

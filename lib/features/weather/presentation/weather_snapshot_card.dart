@@ -285,4 +285,3 @@ final class _WeatherSnapshotCardState extends State<WeatherSnapshotCard> {
 
 String _formatDate(DateTime value) =>
     IndonesianDateFormatter.formatNumeric(value);
-

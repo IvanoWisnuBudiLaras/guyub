@@ -31,9 +31,8 @@ void main() {
             body: ListView.builder(
               key: const Key('scrollable-content'),
               itemCount: 50,
-              itemBuilder: (context, index) => ListTile(
-                title: Text('Item $index'),
-              ),
+              itemBuilder: (context, index) =>
+                  ListTile(title: Text('Item $index')),
             ),
           ),
         ),
@@ -42,10 +41,12 @@ void main() {
       // Helper untuk inspect Material widget di dalam AppBar
       Material getAppBarMaterial() {
         return tester.widget<Material>(
-          find.descendant(
-            of: find.byType(AppBar),
-            matching: find.byType(Material),
-          ).first,
+          find
+              .descendant(
+                of: find.byType(AppBar),
+                matching: find.byType(Material),
+              )
+              .first,
         );
       }
 
@@ -56,7 +57,10 @@ void main() {
       expect(materialBefore.elevation, 0);
 
       // Scroll listview ke bawah sejauh 400 pixel
-      await tester.drag(find.byKey(const Key('scrollable-content')), const Offset(0, -400));
+      await tester.drag(
+        find.byKey(const Key('scrollable-content')),
+        const Offset(0, -400),
+      );
       await tester.pumpAndSettle();
 
       // State setelah scroll: background, surfaceTintColor, dan elevation tetap tidak berubah
@@ -67,11 +71,15 @@ void main() {
 
       // Text dan Icon tetap putih
       final titleText = tester.widget<Text>(find.text('Uji AppBar'));
-      final titleStyle = DefaultTextStyle.of(tester.element(find.text('Uji AppBar'))).style;
+      final titleStyle = DefaultTextStyle.of(
+        tester.element(find.text('Uji AppBar')),
+      ).style;
       expect(titleStyle.color, Colors.white);
 
       final icon = tester.widget<Icon>(find.byIcon(Icons.notifications));
-      final iconTheme = IconTheme.of(tester.element(find.byIcon(Icons.notifications)));
+      final iconTheme = IconTheme.of(
+        tester.element(find.byIcon(Icons.notifications)),
+      );
       expect(iconTheme.color, Colors.white);
     },
   );

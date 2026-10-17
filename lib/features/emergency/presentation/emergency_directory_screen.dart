@@ -238,8 +238,7 @@ final class _StatusCard extends StatelessWidget {
     final Color? backgroundColor;
     if (state.hasConflict && state.snapshot != null) {
       return TintedInfoBox.warning(
-        text:
-            'Pembaruan terbaru belum bisa diterapkan. Menampilkan data tersimpan sebelumnya.',
+        text: 'Pembaruan terbaru belum bisa diterapkan. Menampilkan data tersimpan sebelumnya.',
         icon: Icons.warning_amber_rounded,
       );
     } else if (state.hasConflict) {
@@ -964,7 +963,6 @@ final class _UnauthenticatedEmergencyView extends StatelessWidget {
 
 String _formatDate(DateTime value) =>
     IndonesianDateFormatter.formatNumeric(value);
-
 
 /// Safe fallback for test or degraded runtimes with no local persistence.
 final class EmergencyDirectoryUnavailableScreen extends StatelessWidget {

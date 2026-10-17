@@ -25,6 +25,7 @@ final class _FakeTaskBoundary
   }) {
     throw UnimplementedError();
   }
+
   @override
   Future<TaskCampaignRecord> activateCampaign({
     required String campaignId,
@@ -32,8 +33,10 @@ final class _FakeTaskBoundary
   }) {
     throw UnimplementedError();
   }
+
   @override
-  Future<List<ActiveTaskCampaignRecord>> listActiveTaskCampaigns() async => const [];
+  Future<List<ActiveTaskCampaignRecord>> listActiveTaskCampaigns() async =>
+      const [];
   @override
   Future<TaskCampaignCancellationRecord> cancelTaskCampaign({
     required String taskId,
@@ -41,6 +44,7 @@ final class _FakeTaskBoundary
   }) {
     throw UnimplementedError();
   }
+
   @override
   Future<TaskCampaignClosureRecord> closeTaskCampaign({
     required String taskId,
@@ -48,8 +52,11 @@ final class _FakeTaskBoundary
   }) {
     throw UnimplementedError();
   }
+
   @override
-  Future<List<RtTaskLifecycleEvent>> listTaskLifecycleEvents({required String taskId}) async => const [];
+  Future<List<RtTaskLifecycleEvent>> listTaskLifecycleEvents({
+    required String taskId,
+  }) async => const [];
   @override
   Future<RtTaskHistoryPage> listRtTaskHistory({
     int pageSize = 50,
@@ -58,7 +65,9 @@ final class _FakeTaskBoundary
 }
 
 void main() {
-  testWidgets('OperatorHomeScreen renders Tahap B3 improvements correctly', (tester) async {
+  testWidgets('OperatorHomeScreen renders Tahap B3 improvements correctly', (
+    tester,
+  ) async {
     final profile = OperatorProfile(
       uid: 'op-123',
       communityId: 'rt-01-demo',

@@ -16,7 +16,8 @@ import '../../helpers/pump_app.dart';
 
 // --- Fakes for Testing ---
 
-class _FailingCampaignBoundary implements TaskCampaignBoundary, TaskCampaignManagementBoundary {
+class _FailingCampaignBoundary
+    implements TaskCampaignBoundary, TaskCampaignManagementBoundary {
   @override
   Future<List<ActiveTaskCampaignRecord>> listActiveTaskCampaigns() async {
     throw Exception('Simulated network error');
@@ -26,7 +27,8 @@ class _FailingCampaignBoundary implements TaskCampaignBoundary, TaskCampaignMana
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
-class _FailingHistoryBoundary implements TaskCampaignBoundary, TaskCampaignHistoryBoundary {
+class _FailingHistoryBoundary
+    implements TaskCampaignBoundary, TaskCampaignHistoryBoundary {
   @override
   Future<RtTaskHistoryPage> listRtTaskHistory({
     int pageSize = 25,
@@ -116,9 +118,21 @@ void main() {
         final topRight = tester.getTopRight(retryFinder);
 
         // Verifikasi tombol tidak menempel ke tepi layar (lebar < 350 dan margin kiri/kanan > 0)
-        expect(buttonSize.width, lessThan(350), reason: 'Button should be shrink-wrapped inline');
-        expect(topLeft.dx, greaterThan(20), reason: 'Button must have left margin from screen edge');
-        expect(topRight.dx, lessThan(380), reason: 'Button must have right margin from screen edge');
+        expect(
+          buttonSize.width,
+          lessThan(350),
+          reason: 'Button should be shrink-wrapped inline',
+        );
+        expect(
+          topLeft.dx,
+          greaterThan(20),
+          reason: 'Button must have left margin from screen edge',
+        );
+        expect(
+          topRight.dx,
+          lessThan(380),
+          reason: 'Button must have right margin from screen edge',
+        );
       },
     );
 
@@ -132,10 +146,7 @@ void main() {
         );
 
         await tester.pumpApp(
-          TaskHistoryScreen(
-            profile: operatorProfile,
-            controller: controller,
-          ),
+          TaskHistoryScreen(profile: operatorProfile, controller: controller),
           screenSize: const Size(400, 800),
         );
         await tester.pumpAndSettle();
@@ -147,9 +158,21 @@ void main() {
         final topLeft = tester.getTopLeft(retryFinder);
         final topRight = tester.getTopRight(retryFinder);
 
-        expect(buttonSize.width, lessThan(350), reason: 'Button should be shrink-wrapped inline');
-        expect(topLeft.dx, greaterThan(20), reason: 'Button must have left margin from screen edge');
-        expect(topRight.dx, lessThan(380), reason: 'Button must have right margin from screen edge');
+        expect(
+          buttonSize.width,
+          lessThan(350),
+          reason: 'Button should be shrink-wrapped inline',
+        );
+        expect(
+          topLeft.dx,
+          greaterThan(20),
+          reason: 'Button must have left margin from screen edge',
+        );
+        expect(
+          topRight.dx,
+          lessThan(380),
+          reason: 'Button must have right margin from screen edge',
+        );
       },
     );
 
@@ -163,10 +186,7 @@ void main() {
         );
 
         await tester.pumpApp(
-          ProxyResidentScreen(
-            profile: operatorProfile,
-            controller: controller,
-          ),
+          ProxyResidentScreen(profile: operatorProfile, controller: controller),
           screenSize: const Size(400, 800),
         );
         await tester.pumpAndSettle();
@@ -178,9 +198,21 @@ void main() {
         final topLeft = tester.getTopLeft(retryFinder);
         final topRight = tester.getTopRight(retryFinder);
 
-        expect(buttonSize.width, lessThan(350), reason: 'Button should be shrink-wrapped inline');
-        expect(topLeft.dx, greaterThanOrEqualTo(24), reason: 'Padding horizontal >= 24');
-        expect(topRight.dx, lessThanOrEqualTo(376), reason: 'Padding horizontal >= 24');
+        expect(
+          buttonSize.width,
+          lessThan(350),
+          reason: 'Button should be shrink-wrapped inline',
+        );
+        expect(
+          topLeft.dx,
+          greaterThanOrEqualTo(24),
+          reason: 'Padding horizontal >= 24',
+        );
+        expect(
+          topRight.dx,
+          lessThanOrEqualTo(376),
+          reason: 'Padding horizontal >= 24',
+        );
       },
     );
   });
@@ -216,10 +248,7 @@ void main() {
         );
 
         await tester.pumpApp(
-          ProxyResidentScreen(
-            profile: operatorProfile,
-            controller: controller,
-          ),
+          ProxyResidentScreen(profile: operatorProfile, controller: controller),
           screenSize: const Size(400, 800),
         );
         await tester.pumpAndSettle();
@@ -312,7 +341,8 @@ void main() {
         expect(
           helperBottom,
           lessThanOrEqualTo(categoryTop),
-          reason: 'Helper text (bottom: $helperBottom) must not overlap category dropdown (top: $categoryTop)',
+          reason:
+              'Helper text (bottom: $helperBottom) must not overlap category dropdown (top: $categoryTop)',
         );
       },
     );

@@ -272,8 +272,8 @@ final class _ResidentSessionHomeScreenState
           _selectedTabIndex == 0
               ? 'Guyub.id'
               : _selectedTabIndex == 1
-                  ? 'Daftar Tugas'
-                  : 'Informasi Darurat',
+              ? 'Daftar Tugas'
+              : 'Informasi Darurat',
         ),
         actions: _buildAppBarActions(context),
       ),
@@ -340,8 +340,9 @@ final class _ResidentSessionHomeScreenState
       ),
     );
     if (confirmed != true || !context.mounted) return;
-    await taskPushNotificationsController
-        ?.unregisterResidentBeforeSignOut(session);
+    await taskPushNotificationsController?.unregisterResidentBeforeSignOut(
+      session,
+    );
     taskPushNotificationsController?.clearActiveTarget();
     await controller.signOut();
     if (context.mounted) {

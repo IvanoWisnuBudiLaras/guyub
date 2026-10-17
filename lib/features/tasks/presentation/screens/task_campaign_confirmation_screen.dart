@@ -326,4 +326,3 @@ final class _SummaryRow extends StatelessWidget {
 
 String _formatDeadline(DateTime value) =>
     IndonesianDateFormatter.formatFull(value);
-
