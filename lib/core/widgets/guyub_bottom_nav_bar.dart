@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
 
+/// Alias umum untuk bottom navigation bersama.
+typedef AppBottomNav = GuyubBottomNavBar;
+
 /// Bottom navigation bar bersama untuk Warga dan Operator RT
 /// yang menjaga konsistensi visual 3 tab: Beranda, Tugas, Darurat.
 final class GuyubBottomNavBar extends StatelessWidget {

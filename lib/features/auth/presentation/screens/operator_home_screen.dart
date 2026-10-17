@@ -4,7 +4,9 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/indonesian_date_formatter.dart';
+import '../../../../core/widgets/alert_banner.dart';
 import '../../../../core/widgets/guyub_bottom_nav_bar.dart';
+import '../../../../core/widgets/hero_header_card.dart';
 import '../../../../core/widgets/inline_action_button.dart';
 import '../../../../core/widgets/section_card.dart';
 import '../../../../core/widgets/task_category_presentation.dart';
@@ -237,13 +239,10 @@ final class _OperatorHomeScreenState extends State<OperatorHomeScreen> {
 
           // 3. Status koneksi katalog tugas
           if (!hasCampaignBoundary) ...[
-            const TintedInfoBox(
-              tint: TintType.warning,
-              icon: Icons.cloud_off_outlined,
+            const AlertBanner.warning(
               title: 'Katalog Belum Terhubung',
-              child: Text(
-                'Akses operator terverifikasi. Katalog tugas belum terhubung.',
-              ),
+              message: 'Akses operator terverifikasi. Katalog tugas belum terhubung.',
+              icon: Icons.cloud_off_outlined,
             ),
             const SizedBox(height: 10),
           ],
@@ -350,50 +349,16 @@ final class _OperatorHomeScreenState extends State<OperatorHomeScreen> {
 
           // 9. Error Card atau Pratinjau Tugas Aktif
           if (isManagement && _activeTasksLoadFailed) ...[
-            Container(
+            AlertBanner.danger(
               key: const Key('operator-active-tasks-error-card'),
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: colors.danger.withValues(alpha: 0.3)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(Icons.error_outline, color: colors.danger, size: 20),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'Gagal Memuat Tugas Aktif',
-                          style: Theme.of(context).textTheme.titleSmall
-                              ?.copyWith(
-                                fontWeight: FontWeight.w700,
-                                color: colors.danger,
-                              ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Daftar tugas aktif RT belum dapat dimuat dari server. '
-                    'Periksa koneksi internet Anda.',
-                    style: Theme.of(context).textTheme.bodySmall
-                        ?.copyWith(color: colors.textSecondary),
-                  ),
-                  const SizedBox(height: 10),
-                  InlineActionButton(
-                    key: const Key('operator-active-tasks-retry-button'),
-                    variant: InlineActionButtonVariant.outlined,
-                    icon: Icons.refresh,
-                    label: 'Coba Lagi',
-                    onPressed: () => _loadDashboardData(),
-                  ),
-                ],
-              ),
+              title: 'Gagal Memuat Tugas Aktif',
+              message:
+                  'Daftar tugas aktif RT belum dapat dimuat dari server. '
+                  'Periksa koneksi internet Anda.',
+              actionLabel: 'Coba Lagi',
+              actionIcon: Icons.refresh,
+              actionKey: const Key('operator-active-tasks-retry-button'),
+              onAction: () => _loadDashboardData(),
             ),
             const SizedBox(height: 10),
           ] else if (isManagement && _activeTasks.isNotEmpty) ...[
@@ -464,114 +429,15 @@ final class _OperatorHomeScreenState extends State<OperatorHomeScreen> {
   }
 
   Widget _buildOperatorHeader(BuildContext context) {
-    final colors = context.appColors;
     final profile = widget.profile;
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [colors.primary, colors.primaryDark],
-        ),
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(
-            color: colors.primary.withValues(alpha: 0.15),
-            blurRadius: 8,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Badges row — use Wrap to prevent overflow
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.3),
-                  ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(
-                      Icons.shield_outlined,
-                      size: 13,
-                      color: Colors.white,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      profile.role.label,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 11,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Text(
-                  profile.humanizedCommunityName,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 11,
-                  ),
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.calendar_today_outlined,
-                      size: 11,
-                      color: Colors.white.withValues(alpha: 0.85),
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      _formatTodayDate(),
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.85),
-                        fontSize: 11,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          // Greeting & Name
-          Text(
-            'Selamat Bertugas, ${profile.displayName.isNotEmpty ? profile.displayName : profile.role.label}',
-            style: Theme.of(context).textTheme.titleMedium
-                ?.copyWith(color: Colors.white, fontWeight: FontWeight.w700),
-          ),
-        ],
-      ),
+    return HeroHeaderCard(
+      title:
+          'Selamat Bertugas, ${profile.displayName.isNotEmpty ? profile.displayName : profile.role.label}',
+      roleLabel: profile.role.label,
+      roleIcon: Icons.shield_outlined,
+      communityLabel: profile.humanizedCommunityName,
+      dateText: _formatTodayDate(),
     );
   }
 
