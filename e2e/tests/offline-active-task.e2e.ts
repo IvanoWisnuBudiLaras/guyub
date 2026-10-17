@@ -85,6 +85,9 @@ async function signOut(app: { open: () => Promise<void> }, screen: Screen) {
   // Role selection means the session is already gone; nothing to do.
   if (await screen.getByText('Saya Warga').isVisible()) return;
   await screen.getByText('Keluar').tap();
+  if (await screen.getByText('Keluar dari sesi ini?').isVisible()) {
+    await screen.getByText('Keluar').tap();
+  }
   await expect(screen.getByText('Saya Warga')).toBeVisible({ timeout: 30_000 });
 }
 

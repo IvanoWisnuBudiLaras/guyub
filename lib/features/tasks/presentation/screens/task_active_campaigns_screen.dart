@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../auth/application/operator_profile.dart';
 import '../../../../core/utils/indonesian_date_formatter.dart';
 import '../../../../core/widgets/inline_action_button.dart';
 import '../../../../core/widgets/tinted_info_box.dart';
 import '../../application/task_campaign_boundary.dart';
+import '../../application/task_campaign_copy_boundary.dart';
+import '../../application/task_campaign_share_text.dart';
 import '../../application/task_location_reference.dart';
 import '../widgets/locked_instructions_card.dart';
 
@@ -16,6 +19,7 @@ final class TaskActiveCampaignsScreen extends StatefulWidget {
     required this.controller,
     this.initialTaskId,
     this.showAppBar = true,
+    this.copyBoundary,
     super.key,
   });
 
@@ -23,6 +27,7 @@ final class TaskActiveCampaignsScreen extends StatefulWidget {
   final TaskCampaignController controller;
   final String? initialTaskId;
   final bool showAppBar;
+  final TaskCampaignCopyBoundary? copyBoundary;
 
   @override
   State<TaskActiveCampaignsScreen> createState() =>
@@ -173,6 +178,45 @@ final class _TaskActiveCampaignsScreenState
     }
   }
 
+  Future<void> _copyWhatsApp(ActiveTaskCampaignRecord task) async {
+    final campaign = TaskCampaignRecord(
+      campaignId: task.taskId,
+      rtId: widget.profile.communityId,
+      templateSnapshot: task.templateSnapshot,
+      deadline: task.deadline,
+      status: 'ACTIVE',
+      createdAt: null,
+      locationReference: task.locationReference,
+    );
+    final text = buildTaskCampaignWhatsAppText(
+      campaign: campaign,
+      formattedDeadline: _formatDeadline(task.deadline),
+    );
+    try {
+      await (widget.copyBoundary ?? const _ClipboardTaskCampaignCopyBoundary())
+          .copy(text);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Teks disalin. Periksa kembali sebelum membagikannya ke grup RT.',
+            ),
+          ),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Teks tidak dapat disalin. Tidak ada pesan yang dikirim.',
+            ),
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: widget.showAppBar
@@ -290,6 +334,7 @@ final class _TaskActiveCampaignsScreenState
                     onCancel: () => _cancel(task),
                     closing: _closingTaskIds.contains(task.taskId),
                     onClose: () => _close(task),
+                    onCopyWhatsApp: () => _copyWhatsApp(task),
                   ),
                   const SizedBox(height: 12),
                 ],
@@ -310,6 +355,7 @@ final class _ActiveTaskCard extends StatelessWidget {
     required this.actionsDisabled,
     required this.onCancel,
     required this.onClose,
+    required this.onCopyWhatsApp,
   });
 
   final ActiveTaskCampaignRecord task;
@@ -319,6 +365,7 @@ final class _ActiveTaskCard extends StatelessWidget {
   final bool actionsDisabled;
   final VoidCallback onCancel;
   final VoidCallback onClose;
+  final VoidCallback onCopyWhatsApp;
 
   @override
   Widget build(BuildContext context) => Card(
@@ -352,6 +399,13 @@ final class _ActiveTaskCard extends StatelessWidget {
             value: task.locationReference == null
                 ? 'Belum ditentukan'
                 : TaskLocationReferences.label(task.locationReference!),
+          ),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            key: Key('task-copy-whatsapp-${task.taskId}'),
+            onPressed: actionsDisabled ? null : onCopyWhatsApp,
+            icon: const Icon(Icons.copy),
+            label: const Text('Salin teks untuk WhatsApp'),
           ),
           const SizedBox(height: 8),
           FilledButton.icon(
@@ -482,3 +536,12 @@ final class _LoadFailure extends StatelessWidget {
 
 String _formatDeadline(DateTime value) =>
     IndonesianDateFormatter.formatFull(value);
+
+final class _ClipboardTaskCampaignCopyBoundary
+    implements TaskCampaignCopyBoundary {
+  const _ClipboardTaskCampaignCopyBoundary();
+
+  @override
+  Future<void> copy(String text) =>
+      Clipboard.setData(ClipboardData(text: text));
+}
