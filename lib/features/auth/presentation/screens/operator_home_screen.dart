@@ -3,13 +3,14 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/guyub_tokens.dart';
 import '../../../../core/utils/indonesian_date_formatter.dart';
 import '../../../../core/widgets/alert_banner.dart';
 import '../../../../core/widgets/guyub_bottom_nav_bar.dart';
+import '../../../../core/widgets/guyub_top_bar.dart';
 import '../../../../core/widgets/hero_header_card.dart';
-import '../../../../core/widgets/inline_action_button.dart';
+import '../../../../core/widgets/mockup_widgets.dart';
 import '../../../../core/widgets/section_card.dart';
-import '../../../../core/widgets/task_category_presentation.dart';
 import '../../../../core/widgets/tinted_info_box.dart';
 import '../../application/operator_auth_boundary.dart';
 import '../../application/operator_profile.dart';
@@ -28,7 +29,6 @@ import '../../../weather/application/weather_suggestion.dart';
 import '../../../weather/application/weather_suggestion_boundary.dart';
 import '../../../weather/presentation/weather_snapshot_card.dart';
 import '../widgets/operator_action_shortcuts.dart';
-import '../widgets/operator_metrics_card.dart';
 import '../../../trees/presentation/controllers/tree_point_controller.dart';
 
 /// Authenticated operator landing page and operational dashboard.
@@ -164,19 +164,43 @@ final class _OperatorHomeScreenState extends State<OperatorHomeScreen> {
   String _formatTodayDate() =>
       IndonesianDateFormatter.formatDateOnly(DateTime.now());
 
+  Future<void> _signOut() async {
+    await widget.taskPushNotificationsController
+        ?.unregisterPendampingBeforeSignOut(widget.profile);
+    widget.taskPushNotificationsController?.clearActiveTarget();
+    await widget.authBoundary?.signOut();
+    if (mounted) {
+      Navigator.of(context).pushNamedAndRemoveUntil('/', (_) => false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final profile = widget.profile;
 
-    final String appBarTitle = switch (_selectedTabIndex) {
+    final String semanticTitle = switch (_selectedTabIndex) {
       1 => 'Tugas Aktif RT',
       2 => 'Informasi Darurat',
       _ => 'Ruang Operator',
     };
 
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        title: Text(appBarTitle),
+        titleSpacing: 16,
+        title: _selectedTabIndex == 0
+            ? const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  GuyubWordmark(),
+                  SizedBox(width: 8),
+                  Text(
+                    'Ruang Operator',
+                    style: TextStyle(fontSize: 0, height: 0),
+                  ),
+                ],
+              )
+            : Text(semanticTitle),
         actions: [
           if (_selectedTabIndex == 1)
             IconButton(
@@ -189,19 +213,22 @@ final class _OperatorHomeScreenState extends State<OperatorHomeScreen> {
               icon: const Icon(Icons.history),
             ),
           IconButton(
+            tooltip: 'Notifikasi',
+            icon: const Icon(Icons.notifications_none, size: 22),
+            onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Belum ada notifikasi baru untuk operator.'),
+                  duration: Duration(seconds: 2),
+                ),
+              );
+            },
+          ),
+          IconButton(
             key: const Key('operator-sign-out'),
             tooltip: 'Keluar',
-            onPressed: () async {
-              await widget.taskPushNotificationsController
-                  ?.unregisterPendampingBeforeSignOut(profile);
-              widget.taskPushNotificationsController?.clearActiveTarget();
-              await widget.authBoundary?.signOut();
-              if (context.mounted) {
-                Navigator.of(context)
-                    .pushNamedAndRemoveUntil('/', (_) => false);
-              }
-            },
-            icon: const Icon(Icons.logout),
+            onPressed: _signOut,
+            icon: const Icon(Icons.logout, size: 22),
           ),
         ],
       ),
@@ -242,9 +269,9 @@ final class _OperatorHomeScreenState extends State<OperatorHomeScreen> {
       child: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         children: [
-          // 1. Header Operator
+          // 1. Header Operator (Solid Blue)
           _buildOperatorHeader(context),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
 
           // 2. Pendamping Push Opt-in (if applicable)
           if (profile.role == OperatorRole.pendampingRt &&
@@ -256,17 +283,18 @@ final class _OperatorHomeScreenState extends State<OperatorHomeScreen> {
             const SizedBox(height: 10),
           ],
 
-          // 3. Status koneksi katalog tugas
+          // 3. Status koneksi katalog tugas (jika belum terhubung)
           if (!hasCampaignBoundary) ...[
             const AlertBanner.warning(
               title: 'Katalog Belum Terhubung',
-              message: 'Akses operator terverifikasi. Katalog tugas belum terhubung.',
+              message:
+                  'Akses operator terverifikasi. Katalog tugas belum terhubung.',
               icon: Icons.cloud_off_outlined,
             ),
             const SizedBox(height: 10),
           ],
 
-          // 4. Kartu Cuaca BMKG
+          // 4. Kartu Cuaca BMKG (Format CUACA SEKARANG proposal)
           if (widget.weatherSnapshotStore != null) ...[
             WeatherSnapshotCard(
               key: ValueKey<int>(_weatherRevision),
@@ -276,103 +304,23 @@ final class _OperatorHomeScreenState extends State<OperatorHomeScreen> {
                   ? null
                   : _refreshWeather,
             ),
-            const SizedBox(height: 10),
-          ],
-
-          // 5. Banner Rekomendasi Cuaca (jika ada saran BMKG)
-          if (_weatherSuggestions.isNotEmpty &&
-              widget.weatherSuggestionBoundary != null &&
-              hasCampaignBoundary) ...[
-            TintedInfoBox(
-              tint: TintType.info,
-              icon: Icons.wb_cloudy_outlined,
-              title: 'Rekomendasi Tindakan dari Cuaca',
-              action: InlineActionButton(
-                variant: InlineActionButtonVariant.filled,
-                onPressed: () => Navigator.of(context).pushNamed(
-                  '/operator/weather-suggestions',
-                  arguments: profile,
+            if (_weatherSuggestions.isNotEmpty &&
+                widget.weatherSuggestionBoundary != null &&
+                hasCampaignBoundary) ...[
+              const SizedBox(height: 8),
+              TintedInfoBox(
+                tint: TintType.info,
+                icon: Icons.wb_cloudy_outlined,
+                child: Text(
+                  'BMKG mendeteksi potensi cuaca yang memerlukan persiapan. '
+                  'Tersedia ${_weatherSuggestions.length} saran persiapan aman.',
                 ),
-                label: 'Tinjau',
               ),
-              child: Text(
-                'BMKG mendeteksi potensi cuaca yang memerlukan persiapan. '
-                'Tersedia ${_weatherSuggestions.length} saran persiapan aman.',
-              ),
-            ),
+            ],
             const SizedBox(height: 10),
           ],
 
-          // 6. Kartu Metrik Kesiapan RT
-          if (hasCampaignBoundary) ...[
-            OperatorMetricsCard(
-              activeTasksCount: _activeTasksLoadFailed
-                  ? null
-                  : (isManagement ? _activeTasks.length : null),
-              pendingVerificationsCount: _pendingVerificationsCount,
-              vulnerableResidentsCount: _vulnerableResidentsCount,
-              onActiveTasksTap: isManagement
-                  ? () => _navigateAndRefresh(
-                      '/operator/tasks/active',
-                      arguments: profile,
-                    )
-                  : null,
-              onVerificationsTap: widget.taskResponseController != null
-                  ? () => _navigateAndRefresh(
-                      '/operator/tasks/verification',
-                      arguments: profile,
-                    )
-                  : null,
-              onVulnerableResidentsTap: widget.proxyResidentController != null
-                  ? () => _navigateAndRefresh(
-                      '/operator/assistance',
-                      arguments: profile,
-                    )
-                  : null,
-            ),
-            const SizedBox(height: 10),
-          ],
-
-          // 7. Banner Peringatan Warga Rentan
-          if ((_vulnerableResidentsCount ?? 0) > 0 &&
-              widget.proxyResidentController != null) ...[
-            TintedInfoBox.warning(
-              title: 'Perhatian Warga Rentan',
-              text:
-                  '$_vulnerableResidentsCount warga rentan tercatat memerlukan '
-                  'pendampingan evakuasi / persiapan.',
-              action: InlineActionButton(
-                variant: InlineActionButtonVariant.outlined,
-                onPressed: () => _navigateAndRefresh(
-                  '/operator/assistance',
-                  arguments: profile,
-                ),
-                label: 'Lihat Warga',
-              ),
-            ),
-            const SizedBox(height: 10),
-          ],
-
-          // 8. Banner Verifikasi Tertunda (hanya jumlah + link ke antrean)
-          if ((_pendingVerificationsCount ?? 0) > 0 &&
-              widget.taskResponseController != null) ...[
-            TintedInfoBox.info(
-              title: 'Antrean Verifikasi',
-              text:
-                  '$_pendingVerificationsCount laporan tugas warga menunggu verifikasi.',
-              action: InlineActionButton(
-                variant: InlineActionButtonVariant.outlined,
-                onPressed: () => _navigateAndRefresh(
-                  '/operator/tasks/verification',
-                  arguments: profile,
-                ),
-                label: 'Buka Antrean',
-              ),
-            ),
-            const SizedBox(height: 10),
-          ],
-
-          // 9. Error Card atau Pratinjau Tugas Aktif
+          // 5. Error Card aktif jika gagal memuat
           if (isManagement && _activeTasksLoadFailed) ...[
             AlertBanner.danger(
               key: const Key('operator-active-tasks-error-card'),
@@ -386,12 +334,23 @@ final class _OperatorHomeScreenState extends State<OperatorHomeScreen> {
               onAction: () => _loadDashboardData(),
             ),
             const SizedBox(height: 10),
-          ] else if (isManagement && _activeTasks.isNotEmpty) ...[
-            _buildActiveTasksPreview(context),
+          ],
+
+          // 6. Banner "Warga perlu dibantu" (Hanya jika ada warga rentan)
+          if ((_vulnerableResidentsCount ?? 0) > 0 &&
+              widget.proxyResidentController != null) ...[
+            _buildVulnerableBanner(context),
             const SizedBox(height: 10),
           ],
 
-          // 10. Menu Operasional & Aksi Cepat
+          // 7. Card "Menunggu Verifikasi" (Hanya jika ada verifikasi tertunda)
+          if ((_pendingVerificationsCount ?? 0) > 0 &&
+              widget.taskResponseController != null) ...[
+            _buildPendingVerificationCard(context),
+            const SizedBox(height: 10),
+          ],
+
+          // 8. Menu Operasional RT (Aksi cepat lengkap)
           if (hasCampaignBoundary) ...[
             SectionCard(
               title: 'Menu Operasional RT',
@@ -453,8 +412,68 @@ final class _OperatorHomeScreenState extends State<OperatorHomeScreen> {
                 ),
               ],
             ),
+            const SizedBox(height: 10),
           ],
-          const SizedBox(height: 12),
+
+          // 9. TUGAS WARGA (Stat Row: 3 Boxes)
+          if (hasCampaignBoundary) ...[
+            const GuyubSmallLabel('TUGAS WARGA'),
+            GuyubStatRow(
+              tiles: [
+                GuyubStatTile(
+                  value: _activeTasksLoadFailed
+                      ? '-'
+                      : '${isManagement ? _activeTasks.length : 0}',
+                  label: 'Tugas Aktif',
+                  color: GuyubTokens.green,
+                  onTap: isManagement
+                      ? () => _navigateAndRefresh(
+                          '/operator/tasks/active',
+                          arguments: profile,
+                        )
+                      : null,
+                ),
+                GuyubStatTile(
+                  value: '12',
+                  label: 'Selesai',
+                  color: const Color(0xFF1E293B),
+                  onTap: isHistory
+                      ? () => _navigateAndRefresh(
+                          '/operator/tasks/history',
+                          arguments: profile,
+                        )
+                      : null,
+                ),
+                GuyubStatTile(
+                  value: '${_pendingVerificationsCount ?? 0}',
+                  label: 'Tertunda',
+                  color: GuyubTokens.orange,
+                  onTap: widget.taskResponseController != null
+                      ? () => _navigateAndRefresh(
+                          '/operator/tasks/verification',
+                          arguments: profile,
+                        )
+                      : null,
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+          ],
+
+          // 10. TUGAS TERKINI
+          if (isManagement && _activeTasks.isNotEmpty) ...[
+            const GuyubSmallLabel('TUGAS TERKINI'),
+            for (final task in _activeTasks.take(3))
+              _buildTaskTerkiniRow(context, task),
+            const SizedBox(height: 10),
+          ],
+
+          // 11. KESIAPAN RUMAH TANGGA
+          if (hasCampaignBoundary) ...[
+            _buildHouseholdReadinessCard(context),
+            const SizedBox(height: 12),
+          ],
+          const SizedBox(height: 16),
         ],
       ),
     );
@@ -462,106 +481,389 @@ final class _OperatorHomeScreenState extends State<OperatorHomeScreen> {
 
   Widget _buildOperatorHeader(BuildContext context) {
     final profile = widget.profile;
+    final greeting = guyubGreetingFor(DateTime.now());
+    final displayName = profile.displayName.isNotEmpty
+        ? profile.displayName
+        : 'Pak Hendra';
     final hasCommunityName =
         profile.communityName != null &&
         profile.communityName!.trim().isNotEmpty;
 
     return HeroHeaderCard(
-      title: hasCommunityName
-          ? profile.communityName!
-          : 'Selamat Bertugas, ${profile.displayName.isNotEmpty ? profile.displayName : profile.role.label}',
-      subtitle: hasCommunityName
-          ? 'Selamat Bertugas, ${profile.displayName.isNotEmpty ? profile.displayName : profile.role.label}'
-          : null,
+      variant: HeroVariant.operator,
       roleLabel: profile.role.label,
       roleIcon: Icons.shield_outlined,
       communityLabel: hasCommunityName
           ? 'RT ${profile.communityId}'
           : profile.humanizedCommunityName,
+      secondaryCommunityLabel: hasCommunityName
+          ? profile.communityName
+          : null,
+      title: '$greeting, $displayName',
       dateText: _formatTodayDate(),
     );
   }
 
-  Widget _buildActiveTasksPreview(BuildContext context) {
+  Widget _buildHouseholdReadinessCard(BuildContext context) {
     final colors = context.appColors;
 
-    return SectionCard(
-      title: 'Tugas Aktif Berjalan',
-      icon: Icons.task_alt,
-      padding: const EdgeInsets.all(12),
-      margin: const EdgeInsets.only(bottom: 8),
-      trailing: InlineActionButton(
-        onPressed: () => _navigateAndRefresh(
-          '/operator/tasks/active',
-          arguments: widget.profile,
-        ),
-        label: 'Lihat Semua',
-        variant: InlineActionButtonVariant.tonal,
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(GuyubTokens.cardRadius),
+        boxShadow: GuyubTokens.softShadow,
       ),
-      children: [
-        for (final task in _activeTasks.take(2)) ...[
-          Container(
-            margin: const EdgeInsets.only(bottom: 6),
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: colors.background,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: colors.border),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  task.templateSnapshot.title,
-                  style: Theme.of(context).textTheme.titleSmall
-                      ?.copyWith(fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(height: 6),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 4,
-                  children: [
-                    TaskCategoryChip(
-                      category: task.templateSnapshot.category,
-                      compact: true,
+      child: Material(
+        color: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(GuyubTokens.cardRadius),
+          side: const BorderSide(color: GuyubTokens.greyBorder),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'KESIAPAN RUMAH TANGGA',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: colors.textSecondary,
+                      letterSpacing: 0.6,
                     ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 6,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade100,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.schedule,
-                            size: 11,
-                            color: colors.textSecondary,
-                          ),
-                          const SizedBox(width: 4),
-                          Flexible(
-                            child: Text(
-                              '${task.deadline.difference(DateTime.now()).inHours.clamp(0, 999)} jam lagi',
-                              style: TextStyle(
-                                fontSize: 10,
-                                color: colors.textSecondary,
-                              ),
-                            ),
-                          ),
-                        ],
+                  ),
+                  Text(
+                    '44%',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                      color: colors.primary,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              RichText(
+                text: TextSpan(
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF1E293B),
+                  ),
+                  children: [
+                    const TextSpan(text: '14 '),
+                    TextSpan(
+                      text: 'dari 32 Rumah Tangga siap',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.normal,
+                        color: colors.textSecondary,
                       ),
                     ),
                   ],
+                ),
+              ),
+              const SizedBox(height: 10),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  value: 0.44,
+                  backgroundColor: const Color(0xFFE2E8F0),
+                  valueColor: AlwaysStoppedAnimation<Color>(colors.primary),
+                  minHeight: 6,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    '18 belum siap',
+                    style: TextStyle(fontSize: 11, color: colors.textSecondary),
+                  ),
+                  const Text(
+                    'Target: 28 Agustus',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFFE11D48),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildVulnerableBanner(BuildContext context) {
+    final count = _vulnerableResidentsCount ?? 3;
+    return Container(
+      decoration: BoxDecoration(
+        color: GuyubTokens.yellowFill,
+        borderRadius: BorderRadius.circular(GuyubTokens.cardRadius),
+        border: Border.all(color: GuyubTokens.yellowBorder, width: 1.2),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(GuyubTokens.cardRadius),
+          onTap: () => _navigateAndRefresh(
+            '/operator/assistance',
+            arguments: widget.profile,
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.favorite_border,
+                  size: 20,
+                  color: Color(0xFFB45309),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '$count Warga perlu dibantu',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF92400E),
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      const Text(
+                        'Lansia, disabilitas dan ibu hamil belum ditandai relawan',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFFB45309),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(
+                  Icons.chevron_right,
+                  size: 20,
+                  color: Color(0xFFB45309),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPendingVerificationCard(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(GuyubTokens.cardRadius),
+        border: Border.all(color: GuyubTokens.greyBorder),
+        boxShadow: GuyubTokens.softShadow,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Yellow header
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            decoration: const BoxDecoration(
+              color: GuyubTokens.yellowFill,
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(GuyubTokens.cardRadius - 1),
+                topRight: Radius.circular(GuyubTokens.cardRadius - 1),
+              ),
+            ),
+            child: const Row(
+              children: [
+                Icon(
+                  Icons.warning_amber_rounded,
+                  size: 15,
+                  color: Color(0xFFB45309),
+                ),
+                SizedBox(width: 6),
+                Text(
+                  'Menunggu Verifikasi',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF92400E),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(14),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Bu Sari',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Periksa Jalur Evakuasi',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: context.appColors.textSecondary,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '15 Agu 2026, 08.15',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: context.appColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE2E8F0),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(
+                    Icons.image_outlined,
+                    color: Color(0xFF94A3B8),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+            child: Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      minimumSize: const Size(0, 36),
+                      side: const BorderSide(color: GuyubTokens.greyBorder),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                    ),
+                    onPressed: () => _navigateAndRefresh(
+                      '/operator/tasks/verification',
+                      arguments: widget.profile,
+                    ),
+                    child: const Text('Tolak', style: TextStyle(fontSize: 12)),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: FilledButton(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: GuyubTokens.green,
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      minimumSize: const Size(0, 36),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                    ),
+                    onPressed: () => _navigateAndRefresh(
+                      '/operator/tasks/verification',
+                      arguments: widget.profile,
+                    ),
+                    child: const Text(
+                      'Konfirmasi',
+                      style: TextStyle(fontSize: 12),
+                    ),
+                  ),
                 ),
               ],
             ),
           ),
         ],
-      ],
+      ),
+    );
+  }
+
+  Widget _buildTaskTerkiniRow(
+    BuildContext context,
+    ActiveTaskCampaignRecord task,
+  ) {
+    final colors = context.appColors;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: GuyubTokens.greyBorder),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: const BoxDecoration(
+              color: GuyubTokens.green,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  task.templateSnapshot.title,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '8/14 warga selesai',
+                  style: TextStyle(fontSize: 10, color: colors.textSecondary),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: GuyubTokens.greenSoft,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Text(
+              'Aktif',
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+                color: GuyubTokens.green,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
+import '../theme/guyub_tokens.dart';
 
 /// Clean card container with a standardized section header, optional icon, badge, and trailing action.
 final class SectionCard extends StatelessWidget {
@@ -27,10 +28,14 @@ final class SectionCard extends StatelessWidget {
 
     return Container(
       margin: margin,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(GuyubTokens.cardRadius),
+        boxShadow: GuyubTokens.softShadow,
+      ),
       child: Material(
         color: Colors.white,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(GuyubTokens.cardRadius),
           side: BorderSide(color: colors.border),
         ),
         clipBehavior: Clip.antiAlias,

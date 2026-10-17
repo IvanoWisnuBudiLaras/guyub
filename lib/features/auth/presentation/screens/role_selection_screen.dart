@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/widgets/app_logo.dart';
+import '../../../../core/widgets/guyub_top_bar.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/guyub_tokens.dart';
 import '../../application/operator_auth_boundary.dart';
 import '../../application/operator_profile.dart';
 import '../../application/resident_session.dart';
@@ -72,21 +73,25 @@ final class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Center(child: AppLogo(size: isCompact ? 64 : 80)),
-                  SizedBox(height: isCompact ? 12 : 16),
-                  Text(
-                    'Guyub.id',
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.displayLarge,
+                  // Header: logo + wordmark GUYUB.ID (kiri atas, sesuai proposal)
+                  const Align(
+                    alignment: Alignment.centerLeft,
+                    child: GuyubWordmark(showLogo: true),
                   ),
-                  SizedBox(height: isCompact ? 4 : 8),
+                  SizedBox(height: isCompact ? 20 : 28),
                   Text(
-                    'Kesiapsiagaan banjir bersama warga',
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.bodyLarge
-                        ?.copyWith(color: context.appColors.textSecondary),
+                    'Masuk sebagai\nsiapa Anda?',
+                    style: Theme.of(context).textTheme.displayLarge?.copyWith(
+                      fontSize: isCompact ? 24 : 28,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
-                  SizedBox(height: isCompact ? 24 : 32),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Pilih peran Anda di RT/RW.',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  SizedBox(height: isCompact ? 20 : 28),
 
                   // Kartu Lanjutkan Sesi jika ada sesi tersimpan
                   if (_savedResidentSession case final session?) ...[
@@ -120,26 +125,22 @@ final class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                     const SizedBox(height: 16),
                   ],
 
-                  Text(
-                    'Masuk sebagai siapa Anda?',
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                  SizedBox(height: isCompact ? 16 : 24),
-                  // Operator card (kartu biru primary)
+                  // Operator card (kartu biru solid)
                   _RoleCard(
                     key: const Key('role-selection-operator'),
-                    title: 'Saya Ketua RT/RW atau Pendamping',
-                    description: 'Kelola tugas, pantau kesiapan warga, koordinasi banjir',
-                    icon: Icons.admin_panel_settings_outlined,
+                    title: 'Saya Ketua RT/RW',
+                    semanticTitle: 'Saya Ketua RT/RW atau Pendamping',
+                    description:
+                        'Kelola Tugas, pantau kesiapan warga, koordinasi banjir',
+                    icon: Icons.assignment_outlined,
                     actionLabel: 'MASUK DENGAN AKUN',
                     isPrimary: true,
                     isCompact: isCompact,
                     onTap: () =>
                         Navigator.of(context).pushNamed('/operator/login'),
                   ),
-                  SizedBox(height: isCompact ? 12 : 16),
-                  // Warga card (kartu outline)
+                  SizedBox(height: isCompact ? 14 : 20),
+                  // Warga card (kartu outline biru muda)
                   _RoleCard(
                     key: const Key('role-selection-resident'),
                     title: 'Saya Warga',
@@ -261,19 +262,29 @@ final class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                     ),
                   ),
                   SizedBox(height: isCompact ? 16 : 24),
-                  // Disclaimer
+                  // Disclaimer + tagline aplikasi
                   Container(
                     padding: EdgeInsets.all(isCompact ? 12 : 16),
                     decoration: BoxDecoration(
-                      color: context.appColors.background,
+                      color: GuyubTokens.greyFill,
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: context.appColors.border),
                     ),
-                    child: Text(
-                      'Guyub.id membantu koordinasi persiapan. Aplikasi ini bukan '
-                      'prediksi banjir tingkat RT atau pengganti layanan darurat resmi.',
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.bodySmall,
+                    child: Column(
+                      children: [
+                        Text(
+                          'Kesiapsiagaan banjir bersama warga',
+                          textAlign: TextAlign.center,
+                          style: Theme.of(context).textTheme.labelMedium
+                              ?.copyWith(fontWeight: FontWeight.w700),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'Guyub.id membantu koordinasi persiapan. Aplikasi ini bukan '
+                          'prediksi banjir tingkat RT atau pengganti layanan darurat resmi.',
+                          textAlign: TextAlign.center,
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ],
                     ),
                   ),
                 ],
@@ -390,10 +401,14 @@ class _RoleCard extends StatelessWidget {
     required this.isPrimary,
     required this.isCompact,
     required this.onTap,
+    this.semanticTitle,
     super.key,
   });
 
   final String title;
+
+  /// Label aksesibilitas penuh bila berbeda dari judul visual.
+  final String? semanticTitle;
   final String description;
   final IconData icon;
   final String actionLabel;
@@ -404,86 +419,108 @@ class _RoleCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    final bgColor = isPrimary ? colors.primary : Colors.white;
-    final fgColor = isPrimary ? Colors.white : colors.textPrimary;
-    final borderColor = isPrimary ? colors.primary : colors.border;
+    final bgColor = isPrimary ? GuyubTokens.heroBlue : Colors.white;
+    final titleColor = isPrimary ? Colors.white : colors.primary;
+    final bodyColor = isPrimary
+        ? Colors.white.withValues(alpha: 0.92)
+        : colors.textSecondary;
+    final footerColor = isPrimary ? Colors.white : colors.textSecondary;
+
+    final titleText = Text(
+      title,
+      style: TextStyle(
+        color: titleColor,
+        fontWeight: FontWeight.w700,
+        fontSize: isCompact ? 17 : 19,
+      ),
+    );
 
     return Material(
       color: bgColor,
-      borderRadius: BorderRadius.circular(16),
-      elevation: isPrimary ? 2 : 0,
+      borderRadius: BorderRadius.circular(20),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         child: Container(
-          padding: EdgeInsets.all(isCompact ? 16 : 24),
+          padding: EdgeInsets.fromLTRB(
+            18,
+            isCompact ? 16 : 20,
+            18,
+            isCompact ? 14 : 18,
+          ),
           decoration: BoxDecoration(
-            border: Border.all(color: borderColor, width: 1.5),
-            borderRadius: BorderRadius.circular(16),
+            border: isPrimary
+                ? null
+                : Border.all(color: GuyubTokens.wargaHeroBorder, width: 1.2),
+            borderRadius: BorderRadius.circular(20),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Icon in semi-transparent box
-              Container(
-                width: isCompact ? 48 : 56,
-                height: isCompact ? 48 : 56,
-                decoration: BoxDecoration(
-                  color: isPrimary
-                      ? Colors.white.withValues(alpha: 0.2)
-                      : colors.primary.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(
-                  icon,
-                  size: isCompact ? 28 : 32,
-                  color: isPrimary ? Colors.white : colors.primary,
-                ),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Ikon pada kotak semi-transparan
+                  Container(
+                    width: isCompact ? 44 : 50,
+                    height: isCompact ? 44 : 50,
+                    decoration: BoxDecoration(
+                      color: isPrimary
+                          ? Colors.white.withValues(alpha: 0.25)
+                          : GuyubTokens.templateFill,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      icon,
+                      size: isCompact ? 24 : 28,
+                      color: isPrimary ? Colors.white : colors.primary,
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (semanticTitle case final label?)
+                          Semantics(
+                            label: label,
+                            child: ExcludeSemantics(child: titleText),
+                          )
+                        else
+                          titleText,
+                        const SizedBox(height: 4),
+                        Text(
+                          description,
+                          style: TextStyle(
+                            color: bodyColor,
+                            fontSize: isCompact ? 12 : 13,
+                            height: 1.35,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-              SizedBox(height: isCompact ? 12 : 16),
-              // Title
-              Text(
-                title,
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: fgColor,
-                  fontWeight: FontWeight.w600,
-                  fontSize: isCompact ? 16 : null,
-                ),
-              ),
-              SizedBox(height: isCompact ? 6 : 8),
-              // Description
-              Text(
-                description,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: isPrimary
-                      ? Colors.white.withValues(alpha: 0.9)
-                      : colors.textSecondary,
-                  fontSize: isCompact ? 13 : null,
-                ),
-              ),
-              SizedBox(height: isCompact ? 14 : 20),
-              // Action footer
+              SizedBox(height: isCompact ? 24 : 36),
+              // Footer aksi
               Row(
                 children: [
                   Flexible(
                     child: Text(
                       actionLabel,
-                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                        color: fgColor,
+                      style: TextStyle(
+                        color: footerColor,
                         fontWeight: FontWeight.w600,
-                        letterSpacing: 0.5,
-                        fontSize: isCompact ? 12 : null,
+                        letterSpacing: 0.4,
+                        fontSize: 12,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
                   const SizedBox(width: 4),
-                  Icon(
-                    Icons.arrow_forward,
-                    size: isCompact ? 14 : 16,
-                    color: fgColor,
-                  ),
+                  Icon(Icons.chevron_right, size: 18, color: footerColor),
                 ],
               ),
             ],

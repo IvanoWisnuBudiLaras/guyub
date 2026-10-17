@@ -7,6 +7,7 @@ import '../../../../core/utils/indonesian_date_formatter.dart';
 import '../../../../core/widgets/action_tile_grid.dart';
 import '../../../../core/widgets/alert_banner.dart';
 import '../../../../core/widgets/guyub_bottom_nav_bar.dart';
+import '../../../../core/widgets/guyub_top_bar.dart';
 import '../../../../core/widgets/hero_header_card.dart';
 import '../../../../core/widgets/section_card.dart';
 import '../../application/resident_session.dart';
@@ -276,13 +277,21 @@ final class _ResidentSessionHomeScreenState
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: Text(
-          _selectedTabIndex == 0
-              ? 'Guyub.id'
-              : _selectedTabIndex == 1
-              ? 'Daftar Tugas'
-              : 'Informasi Darurat',
-        ),
+        titleSpacing: 16,
+        title: _selectedTabIndex == 0
+            ? const Row(
+                children: [
+                  GuyubWordmark(),
+                  SizedBox(width: 8),
+                  Text(
+                    'Guyub.id',
+                    style: TextStyle(fontSize: 0, height: 0),
+                  ),
+                ],
+              )
+            : Text(
+                _selectedTabIndex == 1 ? 'Daftar Tugas' : 'Informasi Darurat',
+              ),
         actions: _buildAppBarActions(context),
       ),
       body: IndexedStack(
@@ -454,6 +463,7 @@ final class _ResidentSessionHomeScreenState
 
   Widget _buildBerandaHeader(BuildContext context, bool isCompact) {
     return HeroHeaderCard(
+      variant: HeroVariant.resident,
       roleLabel: 'Warga • ${session.rtLabel}',
       roleIcon: Icons.person_outline,
       title: 'Halo, ${session.nickname}',
@@ -499,6 +509,12 @@ final class _ResidentSessionHomeScreenState
       isCompact: isCompact,
       onViewAll: () => setState(() => _selectedTabIndex = 1),
       onRetry: _loadTasks,
+      onProposeTask: residentProposalController != null
+          ? () => Navigator.of(context).pushNamed(
+              '/resident/proposals',
+              arguments: session,
+            )
+          : null,
     );
   }
 

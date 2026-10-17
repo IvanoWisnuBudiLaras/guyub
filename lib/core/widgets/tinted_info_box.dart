@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
+import '../theme/guyub_tokens.dart';
 
 enum TintType { info, success, warning, danger, neutral }
 
@@ -107,11 +108,9 @@ final class TintedInfoBox extends StatelessWidget {
         iconColor = colors.success;
         titleColor = colors.textPrimary;
       case TintType.warning:
-        bgColor = colors.warningBg;
-        borderColor = colors.warning.withValues(alpha: 0.4);
-        iconColor = const Color(
-          0xFFB45309,
-        ); // Dark amber for high contrast >= 4.5:1
+        bgColor = GuyubTokens.yellowFill;
+        borderColor = GuyubTokens.yellowBorder;
+        iconColor = GuyubTokens.yellowText; // Dark amber, kontras >= 4.5:1
         titleColor = const Color(0xFF92400E);
       case TintType.danger:
         bgColor = colors.dangerBg;
@@ -119,7 +118,7 @@ final class TintedInfoBox extends StatelessWidget {
         iconColor = colors.danger;
         titleColor = colors.danger;
       case TintType.neutral:
-        bgColor = colors.background;
+        bgColor = GuyubTokens.greyFill;
         borderColor = colors.border;
         iconColor = colors.textSecondary;
         titleColor = colors.textPrimary;

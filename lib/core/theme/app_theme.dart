@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'app_colors.dart';
+import 'guyub_tokens.dart';
 
 /// Theme Guyub.id — Material 3 dengan custom colors dan typography
 final class AppTheme {
@@ -99,12 +100,16 @@ final class AppTheme {
         backgroundColor: colors.primary,
         foregroundColor: Colors.white,
         iconTheme: const IconThemeData(color: Colors.white),
+        actionsIconTheme: const IconThemeData(color: Colors.white),
         titleTextStyle: const TextStyle(
-          fontSize: 20,
-          fontWeight: FontWeight.w600,
+          fontSize: 18,
+          fontWeight: FontWeight.w700,
           height: 1.3,
           color: Colors.white,
         ),
+      ),
+      actionIconTheme: ActionIconThemeData(
+        backButtonIconBuilder: (_) => const Icon(Icons.chevron_left, size: 30),
       ),
 
       // Card
@@ -121,17 +126,15 @@ final class AppTheme {
       // Button — Filled
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
-          backgroundColor: colors.primary,
+          backgroundColor: GuyubTokens.ctaBlue,
           foregroundColor: Colors.white,
-          textStyle: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-            letterSpacing: 0.5,
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-          minimumSize: const Size(double.infinity, 56),
+          disabledBackgroundColor: GuyubTokens.ctaBlue.withValues(alpha: 0.45),
+          disabledForegroundColor: Colors.white,
+          textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+          minimumSize: const Size(double.infinity, 52),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(10),
           ),
           elevation: 0,
         ),
@@ -140,17 +143,13 @@ final class AppTheme {
       // Button — Outlined
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          foregroundColor: colors.primary,
-          side: BorderSide(color: colors.border, width: 1.5),
-          textStyle: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-            letterSpacing: 0.5,
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-          minimumSize: const Size(double.infinity, 56),
+          foregroundColor: colors.textSecondary,
+          side: BorderSide(color: GuyubTokens.greyBorder, width: 1),
+          textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          minimumSize: const Size(double.infinity, 48),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(8),
           ),
         ),
       ),
@@ -173,26 +172,26 @@ final class AppTheme {
       // Input field
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: colors.background,
+        fillColor: Colors.white,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: colors.border),
+          borderRadius: BorderRadius.circular(GuyubTokens.inputRadius),
+          borderSide: const BorderSide(color: GuyubTokens.greyBorder),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: colors.border),
+          borderRadius: BorderRadius.circular(GuyubTokens.inputRadius),
+          borderSide: const BorderSide(color: GuyubTokens.greyBorder),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: colors.primary, width: 2),
+          borderRadius: BorderRadius.circular(GuyubTokens.inputRadius),
+          borderSide: BorderSide(color: colors.primary, width: 1.5),
         ),
         errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(GuyubTokens.inputRadius),
           borderSide: BorderSide(color: colors.danger),
         ),
         contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 16,
+          horizontal: 14,
+          vertical: 14,
         ),
         labelStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
         hintStyle: TextStyle(fontSize: 14, color: colors.textSecondary),
@@ -216,9 +215,9 @@ final class AppTheme {
 
       // BottomNavigationBar
       bottomNavigationBarTheme: BottomNavigationBarThemeData(
-        backgroundColor: Colors.white,
+        backgroundColor: GuyubTokens.navBackground,
         selectedItemColor: colors.primary,
-        unselectedItemColor: colors.textSecondary,
+        unselectedItemColor: const Color(0xFF9AA5B1),
         selectedLabelStyle: const TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.w600,
@@ -228,7 +227,7 @@ final class AppTheme {
           fontWeight: FontWeight.normal,
         ),
         type: BottomNavigationBarType.fixed,
-        elevation: 8,
+        elevation: 0,
       ),
 
       // SnackBar

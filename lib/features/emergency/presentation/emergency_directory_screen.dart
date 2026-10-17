@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../auth/application/resident_session.dart';
+import '../../../core/theme/guyub_tokens.dart';
 import '../../../core/utils/indonesian_date_formatter.dart';
 import '../../../core/widgets/inline_action_button.dart';
+import '../../../core/widgets/mockup_widgets.dart';
 import '../../../core/widgets/section_card.dart';
 import '../../../core/widgets/tinted_info_box.dart';
 import '../application/emergency_directory.dart';
@@ -241,10 +243,51 @@ final class _StatusCard extends StatelessWidget {
         icon: Icons.warning_amber_rounded,
       );
     } else if (state.isOffline) {
-      message =
-          'Mode offline • menampilkan direktori yang tersimpan di perangkat.';
-      icon = Icons.cloud_off_outlined;
-      backgroundColor = Theme.of(context).colorScheme.surfaceContainerHighest;
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: GuyubTokens.darkCard,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: GuyubTokens.yellowFill,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: GuyubTokens.yellowBorder),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.offline_bolt_outlined, size: 12, color: GuyubTokens.yellowText),
+                  SizedBox(width: 4),
+                  Text(
+                    'Offline',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      color: GuyubTokens.yellowText,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Mode offline • menampilkan direktori yang tersimpan di perangkat.',
+                key: const Key('emergency-directory-status'),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
     } else if (state.isRefreshing) {
       message = 'Memeriksa pembaruan direktori…';
       icon = Icons.sync;
@@ -348,20 +391,21 @@ final class _ContactSection extends StatelessWidget {
             margin: const EdgeInsets.only(bottom: 12),
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surfaceContainerLow,
-              borderRadius: BorderRadius.circular(8),
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: GuyubTokens.greyBorder),
             ),
             child: Row(
               children: [
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primaryContainer,
+                    color: GuyubTokens.greenSoft,
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Icon(
+                  child: const Icon(
                     Icons.phone_outlined,
-                    color: Theme.of(context).colorScheme.onPrimaryContainer,
+                    color: GuyubTokens.green,
                     size: 20,
                   ),
                 ),
@@ -438,8 +482,9 @@ final class _AssemblySection extends StatelessWidget {
             margin: const EdgeInsets.only(bottom: 12),
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surfaceContainerLow,
-              borderRadius: BorderRadius.circular(8),
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: GuyubTokens.greyBorder),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -450,14 +495,12 @@ final class _AssemblySection extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.tertiaryContainer,
+                        color: GuyubTokens.wargaHeroFill,
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: Icon(
+                      child: const Icon(
                         Icons.location_on_outlined,
-                        color: Theme.of(context)
-                            .colorScheme
-                            .onTertiaryContainer,
+                        color: GuyubTokens.ctaBlue,
                         size: 20,
                       ),
                     ),
@@ -480,6 +523,16 @@ final class _AssemblySection extends StatelessWidget {
                                       .colorScheme
                                       .onSurfaceVariant,
                                 ),
+                          ),
+                          const SizedBox(height: 6),
+                          Row(
+                            children: const [
+                              GuyubPill(
+                                label: 'Terkonfirmasi',
+                                background: GuyubTokens.greenSoft,
+                                foreground: GuyubTokens.green,
+                              ),
+                            ],
                           ),
                         ],
                       ),
