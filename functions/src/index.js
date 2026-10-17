@@ -12,6 +12,7 @@ const {
   toServiceError,
   scheduledTasks,
   scheduledTaskNames,
+  customCallableNames,
 } = require('./app');
 const dispatch = require('./dispatch');
 const { protectedCallableOptions } = require('./callable_options');
@@ -64,11 +65,11 @@ for (const row of dispatch) {
   registerCallable(row.name, optionsByName[row.options] ?? callableOptions);
 }
 
-// The five callables whose bodies do not fit the generated table. Their work
-// lives in app.js; they are listed here only so the runtime exposes them.
-for (const name of ['createResidentSession', 'validateResidentSession',
-  'revokeResidentSession', 'listApprovedTaskTemplates',
-  'getLastValidWeatherSnapshot']) {
+// Register all custom callables whose bodies do not fit the generated table
+// (createResidentSession, validateResidentSession, revokeResidentSession,
+// listApprovedTaskTemplates, getLastValidWeatherSnapshot, listCommunityTreeMap,
+// deleteTreePoint). Their logic lives in app.js.
+for (const name of customCallableNames) {
   registerCallable(name, callableOptions);
 }
 

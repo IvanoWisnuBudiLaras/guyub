@@ -325,6 +325,7 @@ module.exports = {
   invoke,
   toWire,
   callableNames,
+  customCallableNames: Object.freeze(Object.keys(customCallables)),
   scheduledTasks,
   scheduledTaskNames,
   services,
