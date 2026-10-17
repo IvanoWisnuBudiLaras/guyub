@@ -399,7 +399,7 @@ final class _ResidentSessionHomeScreenState
                 border: Border.all(color: Colors.white.withOpacity(0.3)),
               ),
               child: Text(
-                session.rtLabel,
+                'Warga • ${session.rtLabel}',
                 style: Theme.of(context).textTheme.labelMedium?.copyWith(
                   color: Colors.white,
                   fontWeight: FontWeight.w600,
