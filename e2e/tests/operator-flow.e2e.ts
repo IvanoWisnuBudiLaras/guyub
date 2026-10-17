@@ -1,5 +1,5 @@
 import { test } from '@e2e-dev/mobile';
-import { expect } from 'e2e';
+import { expect, type App, type Screen } from 'e2e';
 
 // The operator journey through the real app: sign in with Firebase Auth,
 // land on the operator home, and open the reviewed safe catalog.
@@ -26,19 +26,8 @@ const SAFETY_TEXT = new RegExp(
   'Jangan mendekati air banjir atau instalasi listrik basah',
 );
 
-type Screen = {
-  getByText: (text: string | RegExp) => {
-    tap: () => Promise<void>;
-    isVisible: () => Promise<boolean>;
-  };
-  getByPlaceholder: (text: string) => {
-    fill: (value: string) => Promise<void>;
-    isVisible: () => Promise<boolean>;
-  };
-};
-
 async function signInOperator(
-  app: { open: () => Promise<void> },
+  app: App,
   screen: Screen,
 ) {
   await app.open();

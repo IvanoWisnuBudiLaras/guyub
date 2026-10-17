@@ -1,5 +1,5 @@
 import { test } from '@e2e-dev/mobile';
-import { expect } from 'e2e';
+import { expect, type App, type Screen } from 'e2e';
 
 // AT-006 / O-01: an active task and its locked safety instruction must stay
 // readable with no network, and the UI must say the data is cached rather than
@@ -24,23 +24,11 @@ const SAFETY_TEXT = new RegExp(
   'Jangan mendekati air banjir atau instalasi listrik basah',
 );
 
-type Screen = {
-  getByText: (text: string | RegExp) => {
-    tap: () => Promise<void>;
-    isVisible: () => Promise<boolean>;
-    first: () => { tap: () => Promise<void> };
-  };
-  getByPlaceholder: (text: string) => {
-    fill: (value: string) => Promise<void>;
-    isVisible: () => Promise<boolean>;
-  };
-};
-
 // Opens the app and ends on the task list, whether or not a session was already
 // stored. Enrollment only happens when the form is actually on screen, so the
 // tests do not depend on each other's leftover state.
 async function openTaskList(
-  app: { open: () => Promise<void>; restart: () => Promise<void> },
+  app: App,
   screen: Screen,
   nickname: string,
   { restart = false }: { restart?: boolean } = {},
@@ -80,7 +68,7 @@ async function openTaskList(
 // stored session. Uses the app's own "Keluar" action, which clears the local
 // session without deleting server data. `app.clearState()` is not used: it
 // destabilises this emulator (the package manager service dies).
-async function signOut(app: { open: () => Promise<void> }, screen: Screen) {
+async function signOut(app: App, screen: Screen) {
   await app.open();
   // Role selection means the session is already gone; nothing to do.
   if (await screen.getByText('Saya Warga').isVisible()) return;
