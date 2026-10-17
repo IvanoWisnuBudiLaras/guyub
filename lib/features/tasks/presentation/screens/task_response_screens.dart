@@ -1208,7 +1208,7 @@ final class _ResidentTaskDetailScreenState
                   ),
                 )
               : const Icon(Icons.send_outlined),
-          label: Text(_busy ? 'Mengirim...' : 'Tandai Selesai'),
+          label: Text(_busy ? 'Mengirim...' : 'Kirim untuk Verifikasi RT'),
           style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),
         ),
 

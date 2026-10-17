@@ -80,25 +80,39 @@ class TaskSummaryCard extends StatelessWidget {
     }
 
     if (tasks.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: Column(
-            children: [
-              Icon(
-                Icons.check_circle_outline,
-                size: 36,
-                color: colors.textSecondary.withValues(alpha: 0.5),
+      return Column(
+        children: [
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Column(
+                children: [
+                  Icon(
+                    Icons.check_circle_outline,
+                    size: 36,
+                    color: colors.textSecondary.withValues(alpha: 0.5),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Belum ada tugas aktif',
+                    style: Theme.of(context).textTheme.bodyMedium
+                        ?.copyWith(color: colors.textSecondary),
+                  ),
+                ],
               ),
-              const SizedBox(height: 6),
-              Text(
-                'Belum ada tugas aktif',
-                style: Theme.of(context).textTheme.bodyMedium
-                    ?.copyWith(color: colors.textSecondary),
-              ),
-            ],
+            ),
           ),
-        ),
+          const SizedBox(height: 8),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: InlineActionButton(
+              onPressed: onViewAll,
+              icon: Icons.arrow_forward,
+              label: 'Lihat Tugas Kesiapsiagaan',
+              variant: InlineActionButtonVariant.outlined,
+            ),
+          ),
+        ],
       );
     }
 
@@ -136,7 +150,7 @@ class TaskSummaryCard extends StatelessWidget {
           child: InlineActionButton(
             onPressed: onViewAll,
             icon: Icons.arrow_forward,
-            label: 'Lihat Semua Tugas',
+            label: 'Lihat Tugas Kesiapsiagaan',
             variant: InlineActionButtonVariant.outlined,
           ),
         ),

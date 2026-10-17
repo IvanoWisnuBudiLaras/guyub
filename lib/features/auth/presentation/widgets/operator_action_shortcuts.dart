@@ -32,7 +32,8 @@ final class OperatorActionShortcuts extends StatelessWidget {
           key: const Key('operator-task-catalog'),
           icon: Icons.checklist,
           label: 'Katalog Tugas',
-          description: 'Pilih template aman',
+          description: 'Buka Katalog Tugas Aman',
+          semanticsLabel: 'Buka Katalog Tugas Aman',
           onTap: onOpenCatalog,
         ),
         if (onWeatherSuggestions != null)
@@ -41,6 +42,7 @@ final class OperatorActionShortcuts extends StatelessWidget {
             icon: Icons.cloud_outlined,
             label: 'Saran Cuaca',
             description: 'Rekomendasi BMKG',
+            semanticsLabel: 'Saran Cuaca: Rekomendasi BMKG',
             onTap: onWeatherSuggestions,
           ),
         if (onActiveTasks != null)
@@ -48,7 +50,8 @@ final class OperatorActionShortcuts extends StatelessWidget {
             key: const Key('operator-active-task-campaigns'),
             icon: Icons.task_alt_outlined,
             label: 'Tugas Aktif',
-            description: 'Pantau tugas berjalan',
+            description: 'Tinjau Tugas Aktif',
+            semanticsLabel: 'Tinjau Tugas Aktif',
             onTap: onActiveTasks,
           ),
         if (onVerification != null)
@@ -56,7 +59,8 @@ final class OperatorActionShortcuts extends StatelessWidget {
             key: const Key('operator-task-verification'),
             icon: Icons.fact_check_outlined,
             label: 'Verifikasi',
-            description: 'Laporan tugas warga',
+            description: 'Tinjau Penyelesaian Warga',
+            semanticsLabel: 'Tinjau Penyelesaian Warga',
             onTap: onVerification,
           ),
         if (onProposalReview != null)
@@ -64,7 +68,8 @@ final class OperatorActionShortcuts extends StatelessWidget {
             key: const Key('operator-proposal-review'),
             icon: Icons.rate_review_outlined,
             label: 'Usulan Warga',
-            description: 'Tinjau ide persiapan',
+            description: 'Tinjau Usulan Warga',
+            semanticsLabel: 'Tinjau Usulan Warga',
             onTap: onProposalReview,
           ),
         if (onProxyAssistance != null)
@@ -73,6 +78,7 @@ final class OperatorActionShortcuts extends StatelessWidget {
             icon: Icons.support_outlined,
             label: 'Dukungan Warga',
             description: 'Bantuan & status proxy',
+            semanticsLabel: 'Dukungan Warga: Bantuan & status proxy',
             onTap: onProxyAssistance,
           ),
         if (onTaskHistory != null)
@@ -80,7 +86,8 @@ final class OperatorActionShortcuts extends StatelessWidget {
             key: const Key('operator-task-history'),
             icon: Icons.history,
             label: 'Riwayat Tugas',
-            description: 'Catatan tugas lampau',
+            description: 'Lihat Riwayat Tugas RT',
+            semanticsLabel: 'Lihat Riwayat Tugas RT',
             onTap: onTaskHistory,
           ),
       ],
