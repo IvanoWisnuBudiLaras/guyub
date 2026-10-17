@@ -110,7 +110,7 @@ const MAX_ACTIVE_CAMPAIGNS = 200;
 function campaignTemplateSnapshot(value) {
   const allowedKeys = new Set([
     'templateId', 'version', 'title', 'category', 'coreInstruction',
-    'safetyInstruction', 'estimatedDurationMinutes',
+    'safetyInstruction', 'estimatedDurationMinutes', 'customInstruction',
   ]);
   const requiredTextValue = (text, maxLength) => typeof text === 'string' &&
     text === text.normalize('NFC').trim() && text.length > 0 && [...text].length <= maxLength;
@@ -123,7 +123,9 @@ function campaignTemplateSnapshot(value) {
       !requiredTextValue(value.safetyInstruction, 3000) ||
       (Object.hasOwn(value, 'estimatedDurationMinutes') &&
         (!Number.isInteger(value.estimatedDurationMinutes) ||
-          value.estimatedDurationMinutes < 1 || value.estimatedDurationMinutes > 480))) {
+          value.estimatedDurationMinutes < 1 || value.estimatedDurationMinutes > 480)) ||
+      (Object.hasOwn(value, 'customInstruction') &&
+        (!requiredTextValue(value.customInstruction, 3000)))) {
     throw new TaskCampaignError('failed-precondition', 'Data tugas tidak konsisten.');
   }
   return {
@@ -135,6 +137,9 @@ function campaignTemplateSnapshot(value) {
     safetyInstruction: value.safetyInstruction,
     ...(Object.hasOwn(value, 'estimatedDurationMinutes') ? {
       estimatedDurationMinutes: value.estimatedDurationMinutes,
+    } : {}),
+    ...(Object.hasOwn(value, 'customInstruction') ? {
+      customInstruction: value.customInstruction,
     } : {}),
   };
 }
@@ -211,7 +216,8 @@ function campaignTemplateMatches(campaign, template) {
     return false;
   }
   const expected = publicTemplate(template);
-  const actual = campaign.templateSnapshot;
+  const actual = { ...campaign.templateSnapshot };
+  delete actual.customInstruction;
   return JSON.stringify(Object.keys(expected).sort().map((key) => [key, expected[key]])) ===
     JSON.stringify(Object.keys(actual).sort().map((key) => [key, actual[key]]));
 }
@@ -357,13 +363,17 @@ class FirestoreTaskCampaignRepository {
         throw new TaskCampaignError('invalid-argument', 'Batas waktu tugas harus di masa depan.');
       }
 
+      const campaignTemplate = {
+        ...publicTemplate(template),
+        ...(input.customInstruction ? { customInstruction: input.customInstruction } : {}),
+      };
       result = {
         campaignId: input.campaignId,
         rtId: operator.rtId,
         templateId: template.templateId,
         templateVersion: template.version,
         templateFingerprint: template.fingerprint,
-        templateSnapshot: publicTemplate(template),
+        templateSnapshot: campaignTemplate,
         deadline: input.deadline,
         locationReference: input.locationReference,
         status: 'DRAFT',

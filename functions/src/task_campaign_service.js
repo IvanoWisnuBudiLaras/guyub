@@ -6,6 +6,7 @@ const TASK_CATEGORIES = new Set([
   'LOGISTICS',
   'ENVIRONMENTAL_CLEANUP',
   'SAFE_VISUAL_INSPECTION',
+  'GREENING',
 ]);
 const TEMPLATE_ID_PATTERN = /^[a-z][a-z0-9_-]{0,63}$/;
 const REQUEST_ID_PATTERN = /^[A-Za-z0-9_-]{32,128}$/;
@@ -203,6 +204,9 @@ function publicTemplate(template) {
     ...(template.estimatedDurationMinutes == null ? {} : {
       estimatedDurationMinutes: template.estimatedDurationMinutes,
     }),
+    ...(template.customInstruction == null ? {} : {
+      customInstruction: template.customInstruction,
+    }),
   };
 }
 
@@ -241,6 +245,7 @@ class TaskCampaignService {
     validateOperatorAuth(auth);
     assertOnlyKeys(data, [
       'templateId', 'version', 'deadline', 'locationReference', 'requestId',
+      'customInstruction',
     ]);
     const templateId = requiredText(data.templateId, 'Template', 64);
     const version = data.version;
@@ -249,6 +254,19 @@ class TaskCampaignService {
     }
     if (typeof data.requestId !== 'string' || !REQUEST_ID_PATTERN.test(data.requestId)) {
       throw invalidArgument('Permintaan tugas tidak valid.');
+    }
+    let customInstruction = null;
+    if (data.customInstruction != null) {
+      if (typeof data.customInstruction !== 'string') {
+        throw invalidArgument('Instruksi khusus tidak valid.');
+      }
+      const trimmed = data.customInstruction.normalize('NFC').trim();
+      if ([...trimmed].length > 3000) {
+        throw invalidArgument('Instruksi khusus maksimal 3000 karakter.');
+      }
+      if (trimmed.length > 0) {
+        customInstruction = trimmed;
+      }
     }
     const now = this.clock();
     const deadline = parseFutureDeadline(data.deadline, now);
@@ -260,6 +278,7 @@ class TaskCampaignService {
       version,
       deadline.toISOString(),
       locationReference,
+      customInstruction,
     ]));
     const campaign = await this.repository.createDraft({
       operatorUid: auth.operatorUid,
@@ -268,6 +287,7 @@ class TaskCampaignService {
       version,
       deadline,
       locationReference,
+      customInstruction,
       now,
       requestFingerprint,
     });
