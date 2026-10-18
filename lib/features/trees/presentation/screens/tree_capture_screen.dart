@@ -441,8 +441,7 @@ final class _TreeCaptureScreenState extends State<TreeCaptureScreen> {
             icon: const Icon(Icons.photo_library_outlined, size: 18),
             label: const Text('Atau pilih foto dari galeri'),
           ),
-        ]
-        else ...[
+        ] else ...[
           ClipRRect(
             borderRadius: BorderRadius.circular(10),
             child: Image.memory(

@@ -57,10 +57,8 @@ final class StandaloneDemoEngine {
       version: 1,
       title: 'Siapkan Tas Siaga & Dokumen Penting',
       category: 'HOUSEHOLD_PREPARATION',
-      coreInstruction:
-          'Kumpulkan dokumen KK, KTP, ijazah, surat berharga, obat pribadi, senter, dan pakaian ganti ke dalam tas tahan air.',
-      safetyInstruction:
-          'Jangan meletakkan dokumen berharga di lantai dasar. Letakkan tas di area mudah dijangkau saat darurat.',
+      coreInstruction: 'Kumpulkan dokumen KK, KTP, ijazah, surat berharga, obat pribadi, senter, dan pakaian ganti ke dalam tas tahan air.',
+      safetyInstruction: 'Jangan meletakkan dokumen berharga di lantai dasar. Letakkan tas di area mudah dijangkau saat darurat.',
       estimatedDurationMinutes: 30,
     );
 
@@ -69,10 +67,8 @@ final class StandaloneDemoEngine {
       version: 1,
       title: 'Pembersihan Saluran Air Depan Rumah',
       category: 'DRAINAGE_MAINTENANCE',
-      coreInstruction:
-          'Angkat sampah daun dan plastik yang menyumbat grill saluran depan rumah secara mandiri.',
-      safetyInstruction:
-          'DILARANG masuk ke dalam gorong-gorong atau mendekati arus air deras. Gunakan sarung tangan dan alat bantu garuk.',
+      coreInstruction: 'Angkat sampah daun dan plastik yang menyumbat grill saluran depan rumah secara mandiri.',
+      safetyInstruction: 'DILARANG masuk ke dalam gorong-gorong atau mendekati arus air deras. Gunakan sarung tangan dan alat bantu garuk.',
       estimatedDurationMinutes: 45,
     );
 
@@ -81,10 +77,8 @@ final class StandaloneDemoEngine {
       version: 1,
       title: 'Tanam Bibit Pohon Resapan Lingkungan',
       category: 'GREENING',
-      coreInstruction:
-          'Tanam bibit pohon pelindung/resapan di halaman atau area resapan yang telah ditentukan RT.',
-      safetyInstruction:
-          'Pastikan tidak menggali dekat instalasi pipa air atau kabel listrik tanah.',
+      coreInstruction: 'Tanam bibit pohon pelindung/resapan di halaman atau area resapan yang telah ditentukan RT.',
+      safetyInstruction: 'Pastikan tidak menggali dekat instalasi pipa air atau kabel listrik tanah.',
       estimatedDurationMinutes: 60,
     );
 
@@ -93,10 +87,8 @@ final class StandaloneDemoEngine {
       version: 1,
       title: 'Pemeriksaan Jalur & Titik Kumpul Darurat',
       category: 'SAFE_VISUAL_INSPECTION',
-      coreInstruction:
-          'Pastikan akses jalan menuju Balai RW 02 bebas dari hambatan material atau pohon tumbang.',
-      safetyInstruction:
-          'DILARANG mendekati kabel putus atau tiang listrik yang miring. Segera laporkan ke pihak PLN.',
+      coreInstruction: 'Pastikan akses jalan menuju Balai RW 02 bebas dari hambatan material atau pohon tumbang.',
+      safetyInstruction: 'DILARANG mendekati kabel putus atau tiang listrik yang miring. Segera laporkan ke pihak PLN.',
       estimatedDurationMinutes: 30,
     );
 
@@ -237,8 +229,7 @@ final class StandaloneDemoEngine {
         status: 'ACTIVE',
         participation: ParticipationState.joined,
         completion: CompletionState.verifiedComplete,
-        completionNote:
-            'Akses jalan menuju Balai RW bersih dan penerangan jalan menyala baik.',
+        completionNote: 'Akses jalan menuju Balai RW bersih dan penerangan jalan menyala baik.',
       ),
     );
 
@@ -262,8 +253,7 @@ final class StandaloneDemoEngine {
         taskTitle: templateSaluran.title,
         nickname: 'Ibu Siti Aminah (No. 14)',
         submittedAt: now.subtract(const Duration(hours: 1, minutes: 10)),
-        completionNote:
-            'Saluran air depan rumah sudah dibersihkan dari daun kering dan sampah plastik.',
+        completionNote: 'Saluran air depan rumah sudah dibersihkan dari daun kering dan sampah plastik.',
       ),
     );
 
@@ -285,8 +275,7 @@ final class StandaloneDemoEngine {
         taskTitle: templateTitikKumpul.title,
         nickname: 'Mbak Dewi (No. 21)',
         submittedAt: now.subtract(const Duration(hours: 4)),
-        completionNote:
-            'Jalur evakuasi gang 3 menuju balai RW bersih dan lampu penerangan normal.',
+        completionNote: 'Jalur evakuasi gang 3 menuju balai RW bersih dan lampu penerangan normal.',
       ),
     );
 
@@ -307,8 +296,7 @@ final class StandaloneDemoEngine {
       ResidentProposalRecord(
         proposalId: 'b1b2c3d4e5f60718293a4b5c6d7e8f901a2b3c4e',
         title: 'Pengadaan Karung Pasir Mandiri di Pos Ronda',
-        description:
-            'Perlu cadangan karung pasir untuk antisipasi rembesan air ke rumah warga lansia.',
+        description: 'Perlu cadangan karung pasir untuk antisipasi rembesan air ke rumah warga lansia.',
         category: ResidentProposalCategory.safeVisualInspection,
         state: 'SUBMITTED',
         submittedAt: now.subtract(const Duration(hours: 8)),
@@ -319,8 +307,7 @@ final class StandaloneDemoEngine {
       ResidentProposalRecord(
         proposalId: 'c1b2c3d4e5f60718293a4b5c6d7e8f901a2b3c4f',
         title: 'Kerja Bakti Rutin Bersihkan Saluran Induk',
-        description:
-            'Pembersihan berkala sedimen lumpur saluran induk bersama warga RT tetangga.',
+        description: 'Pembersihan berkala sedimen lumpur saluran induk bersama warga RT tetangga.',
         category: ResidentProposalCategory.environmentalCleanup,
         state: 'APPROVED',
         submittedAt: now.subtract(const Duration(days: 2)),
@@ -332,8 +319,7 @@ final class StandaloneDemoEngine {
       ResidentProposalRecord(
         proposalId: 'b2c3d4e5f60718293a4b5c6d7e8f901a2b3c4d5e',
         title: 'Sampah Menumpuk di Tiang Jembatan Utama',
-        description:
-            'Tumpukan batang kayu besar tersangkut di tiang jembatan, butuh alat berat dinas.',
+        description: 'Tumpukan batang kayu besar tersangkut di tiang jembatan, butuh alat berat dinas.',
         category: ResidentProposalCategory.safeVisualInspection,
         state: 'NEEDS_OFFICIAL_REPORT',
         submittedAt: now.subtract(const Duration(days: 3)),
@@ -677,10 +663,8 @@ final class _DemoTaskCampaignBoundary
       version: 1,
       title: 'Siapkan Tas Siaga & Dokumen Penting',
       category: 'HOUSEHOLD_PREPARATION',
-      coreInstruction:
-          'Kumpulkan dokumen KK, KTP, ijazah, surat berharga, obat pribadi, senter, dan pakaian ganti ke dalam tas tahan air.',
-      safetyInstruction:
-          'Jangan meletakkan dokumen berharga di lantai dasar. Letakkan tas di area mudah dijangkau saat darurat.',
+      coreInstruction: 'Kumpulkan dokumen KK, KTP, ijazah, surat berharga, obat pribadi, senter, dan pakaian ganti ke dalam tas tahan air.',
+      safetyInstruction: 'Jangan meletakkan dokumen berharga di lantai dasar. Letakkan tas di area mudah dijangkau saat darurat.',
       enabled: true,
       estimatedDurationMinutes: 30,
     ),
@@ -689,10 +673,8 @@ final class _DemoTaskCampaignBoundary
       version: 1,
       title: 'Pembersihan Saluran Air Depan Rumah',
       category: 'DRAINAGE_MAINTENANCE',
-      coreInstruction:
-          'Angkat sampah daun dan plastik yang menyumbat grill saluran depan rumah secara mandiri.',
-      safetyInstruction:
-          'DILARANG masuk ke dalam gorong-gorong atau mendekati arus air deras. Gunakan sarung tangan dan alat bantu garuk.',
+      coreInstruction: 'Angkat sampah daun dan plastik yang menyumbat grill saluran depan rumah secara mandiri.',
+      safetyInstruction: 'DILARANG masuk ke dalam gorong-gorong atau mendekati arus air deras. Gunakan sarung tangan dan alat bantu garuk.',
       enabled: true,
       estimatedDurationMinutes: 45,
     ),
@@ -701,10 +683,8 @@ final class _DemoTaskCampaignBoundary
       version: 1,
       title: 'Tanam Bibit Pohon Resapan Lingkungan',
       category: 'GREENING',
-      coreInstruction:
-          'Tanam bibit pohon pelindung/resapan di halaman atau area resapan yang telah ditentukan RT.',
-      safetyInstruction:
-          'Pastikan tidak menggali dekat instalasi pipa air atau kabel listrik tanah.',
+      coreInstruction: 'Tanam bibit pohon pelindung/resapan di halaman atau area resapan yang telah ditentukan RT.',
+      safetyInstruction: 'Pastikan tidak menggali dekat instalasi pipa air atau kabel listrik tanah.',
       enabled: true,
       estimatedDurationMinutes: 60,
     ),
@@ -713,10 +693,8 @@ final class _DemoTaskCampaignBoundary
       version: 1,
       title: 'Pemeriksaan Jalur & Titik Kumpul Darurat',
       category: 'SAFE_VISUAL_INSPECTION',
-      coreInstruction:
-          'Pastikan akses jalan menuju Balai RW 02 bebas dari hambatan material atau pohon tumbang.',
-      safetyInstruction:
-          'DILARANG mendekati kabel putus atau tiang listrik yang miring. Segera laporkan ke pihak PLN.',
+      coreInstruction: 'Pastikan akses jalan menuju Balai RW 02 bebas dari hambatan material atau pohon tumbang.',
+      safetyInstruction: 'DILARANG mendekati kabel putus atau tiang listrik yang miring. Segera laporkan ke pihak PLN.',
       enabled: true,
       estimatedDurationMinutes: 30,
     ),
@@ -822,10 +800,7 @@ final class _DemoTaskCampaignBoundary
     int pageSize = 25,
     String? cursor,
   }) async {
-    return RtTaskHistoryPage(
-      tasks: engine._taskHistory,
-      nextCursor: null,
-    );
+    return RtTaskHistoryPage(tasks: engine._taskHistory, nextCursor: null);
   }
 
   // --- TaskCampaignLifecycleBoundary ---
@@ -1261,11 +1236,10 @@ final class _DemoProxyResidentBoundary implements ProxyResidentBoundary {
     required String residentId,
     required String helperResidentId,
     required String commandId,
-  }) async =>
-      const HelperAssignmentResult(
-        assignmentId: 'a1b2c3d4e5f60718293a4b5c6d7e8f901a2b3c41',
-        state: 'OFFERED',
-      );
+  }) async => const HelperAssignmentResult(
+    assignmentId: 'a1b2c3d4e5f60718293a4b5c6d7e8f901a2b3c41',
+    state: 'OFFERED',
+  );
 
   @override
   Future<ProxyTaskStatusRecord> getProxyTaskStatus({
