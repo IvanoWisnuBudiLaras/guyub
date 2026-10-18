@@ -113,15 +113,49 @@ final class _TreeCaptureScreenState extends State<TreeCaptureScreen> {
     }
   }
 
+  Future<void> _pickFromGallery() async {
+    try {
+      final file = await ImagePicker().pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1280,
+        maxHeight: 1280,
+        imageQuality: 85,
+        requestFullMetadata: false,
+      );
+      final bytes = await file?.readAsBytes();
+      if (bytes != null && mounted) {
+        setState(() {
+          _capturedImageBytes = bytes;
+          _submitError = null;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _submitError = 'Gagal mengakses galeri: $e');
+      }
+    }
+  }
+
   Future<Uint8List?> _defaultCameraPicker() async {
-    final file = await ImagePicker().pickImage(
-      source: ImageSource.camera,
-      maxWidth: 1280,
-      maxHeight: 1280,
-      imageQuality: 85,
-      requestFullMetadata: false,
-    );
-    return file?.readAsBytes();
+    try {
+      final file = await ImagePicker().pickImage(
+        source: ImageSource.camera,
+        maxWidth: 1280,
+        maxHeight: 1280,
+        imageQuality: 85,
+        requestFullMetadata: false,
+      );
+      return await file?.readAsBytes();
+    } catch (_) {
+      final file = await ImagePicker().pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1280,
+        maxHeight: 1280,
+        imageQuality: 85,
+        requestFullMetadata: false,
+      );
+      return await file?.readAsBytes();
+    }
   }
 
   Future<void> _submit() async {
@@ -390,7 +424,7 @@ final class _TreeCaptureScreenState extends State<TreeCaptureScreen> {
       title: 'Foto Pohon Langsung (Kamera)',
       icon: Icons.photo_camera_outlined,
       children: [
-        if (bytes == null)
+        if (bytes == null) ...[
           OutlinedButton.icon(
             key: const Key('tree-capture-camera-button'),
             onPressed: _submitting ? null : _takePhoto,
@@ -399,7 +433,15 @@ final class _TreeCaptureScreenState extends State<TreeCaptureScreen> {
             style: OutlinedButton.styleFrom(
               minimumSize: const Size.fromHeight(52),
             ),
-          )
+          ),
+          const SizedBox(height: 8),
+          TextButton.icon(
+            key: const Key('tree-pick-gallery-button'),
+            onPressed: _submitting ? null : _pickFromGallery,
+            icon: const Icon(Icons.photo_library_outlined, size: 18),
+            label: const Text('Atau pilih foto dari galeri'),
+          ),
+        ]
         else ...[
           ClipRRect(
             borderRadius: BorderRadius.circular(10),
