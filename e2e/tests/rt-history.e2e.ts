@@ -1,5 +1,5 @@
 import { test } from '@e2e-dev/mobile';
-import { expect } from 'e2e';
+import { expect, type App, type Screen } from 'e2e';
 
 // RT-owned history through the real app: an operator sees the RT's tasks, their
 // status, and the lifecycle events the server recorded — then closes an active
@@ -21,25 +21,13 @@ const OPERATOR_PASSWORD = 'test-password-123';
 const TASK_TITLE = 'Persiapan rumah tangga';
 const TASK_ROW = new RegExp(TASK_TITLE);
 
-type Screen = {
-  getByText: (text: string | RegExp) => {
-    tap: () => Promise<void>;
-    isVisible: () => Promise<boolean>;
-    first: () => { tap: () => Promise<void> };
-  };
-  getByPlaceholder: (text: string) => {
-    fill: (value: string) => Promise<void>;
-    isVisible: () => Promise<boolean>;
-  };
-};
-
 // The operator login screen restores a stored session asynchronously when it
 // opens, so it briefly shows the form and then navigates on. Let that settle
 // before deciding which screen is actually there.
 const RESTORE_SETTLE_MS = 5_000;
 
 async function signInOperator(
-  app: { open: () => Promise<void> },
+  app: App,
   screen: Screen,
 ) {
   await app.open();

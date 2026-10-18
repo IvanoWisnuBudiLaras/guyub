@@ -240,6 +240,21 @@ class FirestoreResidentProposalRepository {
     });
   }
 
+  async listMyProposals({ residentId, rtId }) {
+    const query = this.firestore.collection(PROPOSAL_COLLECTION)
+      .where('rtId', '==', rtId)
+      .where('residentId', '==', residentId);
+    const snapshot = await query.get();
+    const items = snapshot.docs
+      .map((doc) => proposalFromSnapshot(doc))
+      .filter((item) => item !== null && item.rtId === rtId && item.residentId === residentId)
+      .sort((left, right) => {
+        return (asDate(right.submittedAt)?.getTime() ?? 0) -
+          (asDate(left.submittedAt)?.getTime() ?? 0);
+      });
+    return { items };
+  }
+
   async reviewProposal(input) {
     if (!['DISMISSED', 'NEEDS_OFFICIAL_REPORT'].includes(input.decision)) {
       throw fail('invalid-argument', 'Keputusan peninjauan tidak valid.');

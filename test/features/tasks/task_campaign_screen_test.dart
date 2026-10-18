@@ -44,6 +44,7 @@ final class _FakeTaskBoundary implements TaskCampaignBoundary {
     required DateTime deadline,
     required String? locationReference,
     required String requestId,
+    String? customInstruction,
   }) async {
     draftCalls += 1;
     lastRequestId = requestId;

@@ -69,6 +69,25 @@ final class FirebaseResidentProposalBoundary
   }
 
   @override
+  Future<List<ResidentProposalRecord>> listMyProposals({
+    required String sessionToken,
+  }) async {
+    final result = await _call('listMyResidentProposals', <String, Object?>{
+      'sessionToken': sessionToken,
+    });
+    final wire = _wireMap(result, 'my proposals');
+    final rawItems = wire['items'];
+    if (rawItems is! List) {
+      throw const FormatException('Invalid my proposals response.');
+    }
+    return rawItems
+        .map(
+          (item) => ResidentProposalRecord.fromWire(_wireMap(item, 'proposal')),
+        )
+        .toList(growable: false);
+  }
+
+  @override
   Future<ResidentProposalRecord> reviewResidentProposal({
     required String proposalId,
     required String decision,

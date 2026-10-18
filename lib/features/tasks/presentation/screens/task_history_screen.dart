@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../../auth/application/operator_profile.dart';
+import '../../../../core/utils/indonesian_date_formatter.dart';
+import '../../../../core/widgets/inline_action_button.dart';
+import '../../../../core/widgets/task_category_presentation.dart';
 import '../../application/task_campaign_boundary.dart';
 import '../../application/task_location_reference.dart';
 import '../../application/task_response_boundary.dart';
@@ -118,10 +121,12 @@ final class _TaskHistoryScreenState extends State<TaskHistoryScreen> {
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 12),
-                  OutlinedButton(
+                  InlineActionButton(
                     key: const Key('task-history-retry'),
+                    variant: InlineActionButtonVariant.outlined,
+                    icon: Icons.refresh,
+                    label: 'Coba Lagi',
                     onPressed: _refresh,
-                    child: const Text('Coba Lagi'),
                   ),
                 ],
               ),
@@ -228,23 +233,75 @@ final class _HistoryTaskCardState extends State<_HistoryTaskCard> {
     _ => 'Aktif',
   };
 
+  Color get _statusBgColor => switch (widget.task.status) {
+    'CANCELLED' => const Color(0xFFFEE2E2),
+    'CLOSED' => const Color(0xFFF3F4F6),
+    _ => const Color(0xFFE0F2FE),
+  };
+
+  Color get _statusBorderColor => switch (widget.task.status) {
+    'CANCELLED' => const Color(0xFFFECACA),
+    'CLOSED' => const Color(0xFFE5E7EB),
+    _ => const Color(0xFFBAE6FD),
+  };
+
+  Color get _statusTextColor => switch (widget.task.status) {
+    'CANCELLED' => const Color(0xFFB91C1C),
+    'CLOSED' => const Color(0xFF4B5563),
+    _ => const Color(0xFF0369A1),
+  };
+
   @override
   Widget build(BuildContext context) {
     final task = widget.task;
     return Card(
       key: Key('history-task-${task.taskId}'),
+      elevation: 0,
       margin: const EdgeInsets.only(bottom: 12),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
+      ),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                TaskCategoryChip(category: task.templateSnapshot.category),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: _statusBgColor,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: _statusBorderColor),
+                  ),
+                  child: Text(
+                    'Status: $_statusLabel',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: _statusTextColor,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
             Text(
               task.templateSnapshot.title,
-              style: Theme.of(context).textTheme.titleMedium,
+              style: Theme.of(context).textTheme.titleMedium
+                  ?.copyWith(fontWeight: FontWeight.bold),
             ),
-            const SizedBox(height: 6),
-            Text('Status: $_statusLabel'),
+            const SizedBox(height: 8),
             Text('Versi template: ${task.templateSnapshot.version}'),
             Text('Batas waktu: ${_formatDate(task.deadline)}'),
             Text('Diaktifkan: ${_formatDate(task.activatedAt)}'),
@@ -264,39 +321,48 @@ final class _HistoryTaskCardState extends State<_HistoryTaskCard> {
               'Keselamatan: ${task.templateSnapshot.safetyInstruction}',
               style: Theme.of(context).textTheme.bodyMedium,
             ),
-            const SizedBox(height: 8),
-            OutlinedButton.icon(
-              key: Key('history-events-toggle-${task.taskId}'),
-              onPressed: _toggleEvents,
-              icon: Icon(_showEvents ? Icons.expand_less : Icons.history),
-              label: Text(
-                _showEvents
-                    ? 'Sembunyikan riwayat perubahan'
-                    : 'Lihat riwayat perubahan',
+            const SizedBox(height: 12),
+            SizedBox(
+              height: 48,
+              child: OutlinedButton.icon(
+                key: Key('history-events-toggle-${task.taskId}'),
+                onPressed: _toggleEvents,
+                icon: Icon(_showEvents ? Icons.expand_less : Icons.history),
+                label: Text(
+                  _showEvents
+                      ? 'Sembunyikan riwayat perubahan'
+                      : 'Lihat riwayat perubahan',
+                ),
               ),
             ),
             if (_showEvents) _lifecycleEvents(context),
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
             if (widget.taskResponseController case final controller?)
-              OutlinedButton.icon(
-                key: Key('history-recap-${task.taskId}'),
-                onPressed: () => Navigator.of(context).push<void>(
-                  MaterialPageRoute<void>(
-                    builder: (_) => TaskResponseRecapScreen(
-                      profile: widget.profile,
-                      taskId: task.taskId,
-                      controller: controller,
+              SizedBox(
+                height: 48,
+                child: OutlinedButton.icon(
+                  key: Key('history-recap-${task.taskId}'),
+                  onPressed: () => Navigator.of(context).push<void>(
+                    MaterialPageRoute<void>(
+                      builder: (_) => TaskResponseRecapScreen(
+                        profile: widget.profile,
+                        taskId: task.taskId,
+                        controller: controller,
+                      ),
                     ),
                   ),
+                  icon: const Icon(Icons.analytics_outlined),
+                  label: const Text('Lihat rekap tanggapan agregat'),
                 ),
-                icon: const Icon(Icons.analytics_outlined),
-                label: const Text('Lihat rekap tanggapan agregat'),
               )
             else
-              OutlinedButton.icon(
-                onPressed: null,
-                icon: Icon(Icons.analytics_outlined),
-                label: Text('Rekap tanggapan tidak tersedia'),
+              SizedBox(
+                height: 48,
+                child: OutlinedButton.icon(
+                  onPressed: null,
+                  icon: const Icon(Icons.analytics_outlined),
+                  label: const Text('Rekap tanggapan tidak tersedia'),
+                ),
               ),
           ],
         ),
@@ -321,7 +387,9 @@ final class _HistoryTaskCardState extends State<_HistoryTaskCard> {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              const SizedBox(height: 8),
               const Text('Riwayat perubahan belum dapat dimuat.'),
+              const SizedBox(height: 8),
               OutlinedButton(
                 key: Key('history-events-retry-${widget.task.taskId}'),
                 onPressed: _retryEvents,
@@ -331,22 +399,91 @@ final class _HistoryTaskCardState extends State<_HistoryTaskCard> {
           );
         }
         final events = snapshot.data!;
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Perubahan yang dicatat server:'),
-            for (final event in events)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Text(
-                  '${_eventLabel(event.eventType)}: ${_formatDate(event.occurredAt)}',
-                ),
+        return Container(
+          margin: const EdgeInsets.only(top: 12),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surfaceContainerLow,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: Theme.of(context).colorScheme.outlineVariant,
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Perubahan yang dicatat server:',
+                style: Theme.of(context).textTheme.titleSmall
+                    ?.copyWith(fontWeight: FontWeight.bold),
               ),
-          ],
+              const SizedBox(height: 12),
+              for (var i = 0; i < events.length; i++) ...[
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Column(
+                      children: [
+                        Container(
+                          width: 24,
+                          height: 24,
+                          decoration: BoxDecoration(
+                            color: _eventColor(events[i].eventType)
+                                .withValues(alpha: 0.15),
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: _eventColor(events[i].eventType),
+                              width: 1.5,
+                            ),
+                          ),
+                          child: Icon(
+                            _eventIcon(events[i].eventType),
+                            size: 12,
+                            color: _eventColor(events[i].eventType),
+                          ),
+                        ),
+                        if (i < events.length - 1)
+                          Container(
+                            width: 2,
+                            height: 24,
+                            color: Theme.of(context).colorScheme.outlineVariant,
+                          ),
+                      ],
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Text(
+                          '${_eventLabel(events[i].eventType)}: ${_formatDate(events[i].occurredAt)}',
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(fontWeight: FontWeight.w500),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ],
+          ),
         );
       },
     ),
   );
+
+  IconData _eventIcon(String eventType) => switch (eventType) {
+    'ACTIVATED' => Icons.play_arrow_rounded,
+    'CLOSED' => Icons.archive_outlined,
+    'CANCELLED' => Icons.cancel_outlined,
+    _ => Icons.circle,
+  };
+
+  Color _eventColor(String eventType) => switch (eventType) {
+    'ACTIVATED' => const Color(0xFF0369A1),
+    'CLOSED' => const Color(0xFF6B7280),
+    'CANCELLED' => const Color(0xFFB91C1C),
+    _ => const Color(0xFF0284C7),
+  };
 
   String _eventLabel(String eventType) => switch (eventType) {
     'ACTIVATED' => 'Diaktifkan',
@@ -356,11 +493,5 @@ final class _HistoryTaskCardState extends State<_HistoryTaskCard> {
   };
 }
 
-String _formatDate(DateTime value) {
-  final local = value.toLocal();
-  final day = local.day.toString().padLeft(2, '0');
-  final month = local.month.toString().padLeft(2, '0');
-  final hour = local.hour.toString().padLeft(2, '0');
-  final minute = local.minute.toString().padLeft(2, '0');
-  return '$day/$month/${local.year} $hour:$minute';
-}
+String _formatDate(DateTime value) =>
+    IndonesianDateFormatter.formatNumeric(value);

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:guyub/features/auth/application/operator_profile.dart';
 import 'package:guyub/features/tasks/application/task_campaign_boundary.dart';
+import 'package:guyub/features/tasks/application/task_campaign_copy_boundary.dart';
 import 'package:guyub/features/tasks/application/task_template.dart';
 import 'package:guyub/features/tasks/presentation/screens/task_active_campaigns_screen.dart';
 
@@ -91,6 +92,7 @@ final class _ActiveBoundary
     required DateTime deadline,
     required String? locationReference,
     required String requestId,
+    String? customInstruction,
   }) => throw UnimplementedError();
 
   @override
@@ -107,12 +109,26 @@ final _profile = OperatorProfile(
   displayName: 'Operator Demo',
 );
 
-Future<void> _mount(WidgetTester tester, _ActiveBoundary boundary) async {
+final class _FakeCopyBoundary implements TaskCampaignCopyBoundary {
+  String? copiedText;
+
+  @override
+  Future<void> copy(String text) async {
+    copiedText = text;
+  }
+}
+
+Future<void> _mount(
+  WidgetTester tester,
+  _ActiveBoundary boundary, {
+  TaskCampaignCopyBoundary? copyBoundary,
+}) async {
   await tester.pumpWidget(
     MaterialApp(
       home: TaskActiveCampaignsScreen(
         profile: _profile,
         controller: TaskCampaignController(boundary, idFactory: () => 'c' * 40),
+        copyBoundary: copyBoundary,
       ),
     ),
   );
@@ -304,4 +320,35 @@ void main() {
     );
     expect(find.text('Tidak ada tugas aktif untuk RT ini.'), findsNothing);
   });
+
+  testWidgets(
+    'active task card copies a reviewed summary for WhatsApp sharing',
+    (tester) async {
+      final boundary = _ActiveBoundary();
+      final copyBoundary = _FakeCopyBoundary();
+      await _mount(tester, boundary, copyBoundary: copyBoundary);
+
+      final copyButton = find.byKey(Key('task-copy-whatsapp-$_taskId'));
+      await tester.drag(find.byType(ListView), const Offset(0, -600));
+      await tester.pumpAndSettle();
+      expect(copyButton, findsOneWidget);
+
+      await tester.tap(copyButton);
+      await tester.pumpAndSettle();
+
+      expect(copyBoundary.copiedText, isNotNull);
+      expect(copyBoundary.copiedText, contains(_snapshot.title));
+      expect(copyBoundary.copiedText, contains(_snapshot.coreInstruction));
+      expect(copyBoundary.copiedText, contains(_snapshot.safetyInstruction));
+      expect(
+        copyBoundary.copiedText,
+        contains('Keikutsertaan bersifat sukarela'),
+      );
+      expect(copyBoundary.copiedText, contains('bukan peringatan resmi'));
+      expect(
+        find.textContaining('Teks disalin. Periksa kembali'),
+        findsOneWidget,
+      );
+    },
+  );
 }

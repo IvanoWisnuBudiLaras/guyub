@@ -389,6 +389,11 @@ final class _FakeProposalBoundary implements ResidentProposalBoundary {
       const ResidentProposalQueue(items: [], isPartial: false);
 
   @override
+  Future<List<ResidentProposalRecord>> listMyProposals({
+    required String sessionToken,
+  }) async => const [];
+
+  @override
   Future<ResidentProposalRecord> reviewResidentProposal({
     required String proposalId,
     required String decision,

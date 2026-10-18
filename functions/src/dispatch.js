@@ -53,7 +53,10 @@ module.exports = [
   { name: "unregisterPendampingPushToken", service: "taskNotifications", method: "unregisterPendampingPushToken", mode: "operator", options: "callableOptions" },
   { name: "listTaskNotificationAudit", service: "taskNotifications", method: "listAuditEvents", mode: "operator", options: "callableOptions" },
   { name: "submitResidentProposal", service: "residentProposals", method: "submitResidentProposal", mode: "resident", options: "callableOptions" },
+  { name: "listMyResidentProposals", service: "residentProposals", method: "listMyResidentProposals", mode: "resident", options: "callableOptions" },
   { name: "listResidentProposals", service: "residentProposals", method: "listResidentProposals", mode: "operator", options: "callableOptions" },
   { name: "reviewResidentProposal", service: "residentProposals", method: "reviewResidentProposal", mode: "operator", options: "callableOptions" },
   { name: "mapResidentProposalToDraft", service: "residentProposals", method: "mapResidentProposalToDraft", mode: "operator", options: "callableOptions" },
+  { name: "submitTreePoint", service: "treePoints", method: "submitTreePoint", mode: "resident", options: "callableOptions" },
+  { name: "verifyTreePoint", service: "treePoints", method: "verifyTreePoint", mode: "operator", options: "callableOptions" },
 ];

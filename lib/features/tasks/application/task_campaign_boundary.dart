@@ -12,6 +12,7 @@ abstract interface class TaskCampaignBoundary {
     required DateTime deadline,
     required String? locationReference,
     required String requestId,
+    String? customInstruction,
   });
 
   Future<TaskCampaignRecord> activateCampaign({
@@ -74,6 +75,7 @@ final class TaskCampaignRecord {
         estimatedDurationMinutes: duration == null
             ? null
             : _requiredInt(duration, 'estimatedDurationMinutes'),
+        customInstruction: snapshot['customInstruction'] as String?,
       ),
       deadline: _requiredDate(wire['deadline'], 'deadline'),
       status: status,
@@ -205,6 +207,7 @@ final class ActiveTaskCampaignRecord {
     _requireAllowedAndRequiredKeys(rawSnapshot, const {
       ...snapshotRequiredKeys,
       'estimatedDurationMinutes',
+      'customInstruction',
     }, snapshotRequiredKeys);
     final duration = rawSnapshot.containsKey('estimatedDurationMinutes')
         ? _requiredInt(
@@ -235,6 +238,7 @@ final class ActiveTaskCampaignRecord {
         'safetyInstruction',
       ),
       estimatedDurationMinutes: duration,
+      customInstruction: rawSnapshot['customInstruction'] as String?,
     );
 
     final location = wire['locationReference'];
@@ -622,6 +626,7 @@ final class TaskCampaignController {
     required TaskTemplate template,
     required DateTime deadline,
     required String? locationReference,
+    String? customInstruction,
   }) async {
     final requestId = _draftRequestId ??= _idFactory();
     final campaign = await boundary.createDraft(
@@ -629,6 +634,7 @@ final class TaskCampaignController {
       deadline: deadline,
       locationReference: locationReference,
       requestId: requestId,
+      customInstruction: customInstruction,
     );
     _draftRequestId = null;
     return campaign;
@@ -654,6 +660,7 @@ const _taskCategories = {
   'LOGISTICS',
   'ENVIRONMENTAL_CLEANUP',
   'SAFE_VISUAL_INSPECTION',
+  'GREENING',
 };
 final _commandIdPattern = RegExp(r'^[A-Za-z0-9_-]{32,128}$');
 final _taskHistoryCursorPattern = RegExp(r'^[A-Za-z0-9_-]{1,256}$');

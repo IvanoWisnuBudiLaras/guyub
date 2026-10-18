@@ -225,6 +225,19 @@ class ResidentProposalService {
     };
   }
 
+  async listMyResidentProposals(data) {
+    assertOnlyKeys(data, ['sessionToken']);
+    if (typeof data?.sessionToken !== 'string') throw permissionDenied();
+    const session = await this.residentSessionService.validateSession(data.sessionToken);
+    const result = await this.repository.listMyProposals({
+      residentId: session.residentId,
+      rtId: session.communityId,
+    });
+    return {
+      items: result.items.map((item) => publicProposal(item)),
+    };
+  }
+
   // [status-usulan:kanal-resmi]: Tandai usulan butuh tindak lanjut tanpa mengklaim laporan eksternal terkirim.
   async reviewResidentProposal(auth, data) {
     validateOperatorAuth(auth);

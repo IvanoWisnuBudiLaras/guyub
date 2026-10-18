@@ -62,6 +62,7 @@ final class TaskTemplateSnapshot {
     required this.coreInstruction,
     required this.safetyInstruction,
     this.estimatedDurationMinutes,
+    this.customInstruction,
   });
 
   final String templateId;
@@ -71,6 +72,7 @@ final class TaskTemplateSnapshot {
   final String coreInstruction;
   final String safetyInstruction;
   final int? estimatedDurationMinutes;
+  final String? customInstruction;
 }
 
 void _requireText(String value, String name) {

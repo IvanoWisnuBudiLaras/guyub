@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../core/config/app_config.dart';
+import '../core/theme/app_theme.dart';
 import '../features/auth/application/operator_auth_boundary.dart';
 import '../features/auth/application/resident_session_controller.dart';
 import '../features/tasks/application/task_campaign_boundary.dart';
@@ -13,6 +14,7 @@ import '../features/weather/application/weather_snapshot_store.dart';
 import '../features/weather/application/weather_snapshot_boundary.dart';
 import '../features/weather/application/weather_suggestion_boundary.dart';
 import '../features/notifications/application/task_push_notifications.dart';
+import '../features/trees/presentation/controllers/tree_point_controller.dart';
 import 'router.dart';
 
 /// Root widget and dependency assembly point for Guyub.id.
@@ -31,6 +33,7 @@ final class GuyubApp extends StatelessWidget {
     this.proxyResidentController,
     this.assistanceVolunteerController,
     this.taskPushNotificationsController,
+    this.treePointController,
     this.connectivityChanges,
     super.key,
   });
@@ -48,6 +51,7 @@ final class GuyubApp extends StatelessWidget {
   final ProxyResidentController? proxyResidentController;
   final AssistanceVolunteerController? assistanceVolunteerController;
   final TaskPushNotificationsController? taskPushNotificationsController;
+  final TreePointController? treePointController;
   final Stream<bool>? connectivityChanges;
 
   @override
@@ -57,11 +61,8 @@ final class GuyubApp extends StatelessWidget {
     return MaterialApp(
       title: config.appName,
       debugShowCheckedModeBanner: config.environment.isDevelopment,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF1E88E5)),
-        useMaterial3: true,
-      ),
-      initialRoute: AppRouter.initial,
+      theme: AppTheme.light,
+      initialRoute: AppRouter.splash,
       onGenerateRoute: (settings) => AppRouter.onGenerateRoute(
         settings,
         operatorAuthBoundary: operatorAuthBoundary,
@@ -77,6 +78,7 @@ final class GuyubApp extends StatelessWidget {
         proxyResidentController: proxyResidentController,
         assistanceVolunteerController: assistanceVolunteerController,
         taskPushNotificationsController: taskPushNotificationsController,
+        treePointController: treePointController,
         connectivityChanges: connectivityChanges,
       ),
     );

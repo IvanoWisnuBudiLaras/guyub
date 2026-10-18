@@ -90,16 +90,38 @@ final class FirebaseOperatorAuthBoundary implements OperatorAuthBoundary {
   }
 
   Future<OperatorProfile?> _readActiveMembership(String uid) async {
-    final document = await firestore
-        .collection('operators')
-        .doc(uid)
-        .get(const GetOptions(source: Source.server));
+    DocumentSnapshot<Map<String, dynamic>> document;
+    try {
+      document = await firestore
+          .collection('operators')
+          .doc(uid)
+          .get(const GetOptions(source: Source.server));
+    } catch (e) {
+      // ignore: avoid_print
+      print('[auth] Firestore server read gagal ($e), coba serverAndCache');
+      try {
+        document = await firestore
+            .collection('operators')
+            .doc(uid)
+            .get(const GetOptions(source: Source.serverAndCache));
+      } catch (e2) {
+        // ignore: avoid_print
+        print('[auth] Firestore serverAndCache juga gagal: $e2');
+        return null;
+      }
+    }
     final data = document.data();
+    // ignore: avoid_print
+    print('[auth] Firestore doc exists=${document.exists} data=$data');
     if (!document.exists || data == null || data['active'] != true) return null;
 
     final role = OperatorRoleLabel.fromWireValue(data['role'] as String?);
     final communityId = data['rtId'] as String?;
     final displayName = data['displayName'] as String?;
+    // ignore: avoid_print
+    print(
+      '[auth] role=$role communityId=$communityId displayName=$displayName',
+    );
     if (role == null || communityId == null || displayName == null) return null;
     try {
       return OperatorProfile(

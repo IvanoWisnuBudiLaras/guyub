@@ -157,6 +157,7 @@ final class _HistoryBoundary
     required DateTime deadline,
     required String? locationReference,
     required String requestId,
+    String? customInstruction,
   }) => throw UnimplementedError();
 
   @override

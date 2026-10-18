@@ -13,6 +13,7 @@ import '../features/tasks/presentation/screens/task_response_screens.dart';
 import '../features/proposals/application/resident_proposal_boundary.dart';
 import '../features/proposals/presentation/resident_proposal_screen.dart';
 import '../features/proposals/presentation/resident_proposal_review_screen.dart';
+import '../features/auth/presentation/screens/splash_screen.dart';
 import '../features/auth/presentation/screens/operator_home_screen.dart';
 import '../features/auth/presentation/screens/operator_login_screen.dart';
 import '../features/auth/presentation/screens/resident_entry_screen.dart';
@@ -30,9 +31,12 @@ import '../features/assistance/presentation/assistance_volunteer_screen.dart';
 import '../features/assistance/presentation/proxy_resident_screen.dart';
 import '../features/notifications/application/task_push_notifications.dart';
 import '../features/notifications/presentation/task_push_notification_listener.dart';
+import '../features/trees/presentation/controllers/tree_point_controller.dart';
+import '../features/trees/presentation/screens/community_tree_map_screen.dart';
 
 /// Role-aware routes for the Android MVP.
 final class AppRouter {
+  static const String splash = '/splash';
   static const String initial = '/';
   static const String operatorLogin = '/operator/login';
   static const String operatorHome = '/operator/home';
@@ -50,6 +54,7 @@ final class AppRouter {
   static const String operatorAssistance = '/operator/assistance';
   static const String residentAssistance = '/resident/assistance';
   static const String emergencyDirectory = '/emergency';
+  static const String communityTreeMap = '/community/trees';
 
   static Route<dynamic> onGenerateRoute(
     RouteSettings settings, {
@@ -66,12 +71,24 @@ final class AppRouter {
     ProxyResidentController? proxyResidentController,
     AssistanceVolunteerController? assistanceVolunteerController,
     TaskPushNotificationsController? taskPushNotificationsController,
+    TreePointController? treePointController,
     Stream<bool>? connectivityChanges,
   }) {
     switch (settings.name) {
+      case splash:
+        return MaterialPageRoute<void>(
+          builder: (_) => SplashScreen(
+            operatorAuthBoundary: operatorAuthBoundary,
+            residentSessionController: residentSessionController,
+          ),
+          settings: settings,
+        );
       case initial:
         return MaterialPageRoute<void>(
-          builder: (_) => const RoleSelectionScreen(),
+          builder: (_) => RoleSelectionScreen(
+            residentSessionController: residentSessionController,
+            operatorAuthBoundary: operatorAuthBoundary,
+          ),
           settings: settings,
         );
       case operatorLogin:
@@ -98,6 +115,10 @@ final class AppRouter {
               proxyResidentController: proxyResidentController,
               taskPushNotificationsController: taskPushNotificationsController,
               weatherSuggestionBoundary: weatherSuggestionBoundary,
+              weatherSnapshotStore: weatherSnapshotStore,
+              weatherSnapshotSyncController: weatherSnapshotSyncController,
+              emergencyDirectoryController: emergencyDirectoryController,
+              treePointController: treePointController,
             );
             if (taskPushNotificationsController == null ||
                 profile.role != OperatorRole.pendampingRt) {
@@ -241,10 +262,12 @@ final class AppRouter {
               controller: residentSessionController,
               taskResponseController: taskResponseController,
               residentProposalController: residentProposalController,
+              emergencyDirectoryController: emergencyDirectoryController,
               weatherSnapshotStore: weatherSnapshotStore,
               weatherSnapshotSyncController: weatherSnapshotSyncController,
               assistanceVolunteerController: assistanceVolunteerController,
               taskPushNotificationsController: taskPushNotificationsController,
+              treePointController: treePointController,
               connectivityChanges: connectivityChanges,
             );
             if (taskPushNotificationsController == null ||
@@ -282,6 +305,7 @@ final class AppRouter {
           builder: (_) => ResidentTaskListScreen(
             session: session,
             controller: taskResponseController,
+            treePointController: treePointController,
             connectivityChanges: connectivityChanges,
           ),
           settings: settings,
@@ -312,6 +336,13 @@ final class AppRouter {
             controller: directoryController,
             session: session is ResidentSession ? session : null,
           ),
+          settings: settings,
+        );
+      case communityTreeMap:
+        final controller = treePointController;
+        if (controller == null) return _roleSelection(settings);
+        return MaterialPageRoute<void>(
+          builder: (_) => CommunityTreeMapScreen(controller: controller),
           settings: settings,
         );
       default:

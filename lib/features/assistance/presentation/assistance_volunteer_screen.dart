@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../auth/application/resident_session.dart';
+import '../../../core/widgets/alert_banner.dart';
+import '../../../core/widgets/section_card.dart';
+import '../../../core/widgets/tinted_info_box.dart';
 import '../application/assistance_volunteer_boundary.dart';
 
 /// Private, voluntary resident opt-in and assignment response screen.
@@ -131,153 +134,226 @@ final class _AssistanceVolunteerScreenState
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        Text('${widget.session.rtLabel} · Warga'),
-        const SizedBox(height: 12),
-        const Card(
-          child: Padding(
-            padding: EdgeInsets.all(16),
-            child: Text(
+        Text(
+          '${widget.session.rtLabel} · Warga',
+          style: Theme.of(context).textTheme.labelLarge
+              ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+        ),
+        const SizedBox(height: 16),
+        SectionCard(
+          title: 'Partisipasi Sukarela',
+          icon: Icons.volunteer_activism_outlined,
+          children: [
+            Text(
               'Menjadi relawan sepenuhnya sukarela. Anda dapat menolak setiap '
               'permintaan atau mengundurkan diri tanpa penalti. Guyub.id tidak '
-              'menampilkan identitas rumah tangga. Koordinasikan arahan aman '
-              'dengan Pendamping RT; jangan memasuki saluran atau aliran berbahaya.',
+              'menampilkan identitas rumah tangga.',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
-          ),
+            const SizedBox(height: 12),
+            TintedInfoBox.warning(
+              text:
+                  'Koordinasikan arahan aman dengan Pendamping RT. '
+                  'Jangan memasuki saluran atau aliran berbahaya.',
+            ),
+          ],
         ),
         if (widget.session.isOfflineSnapshot) ...[
           const SizedBox(height: 12),
-          const Card(
-            child: Padding(
-              padding: EdgeInsets.all(12),
-              child: Text(
+          AlertBanner.warning(
+            title: 'Mode Offline',
+            message:
                 'Mode offline. Kesediaan dan permintaan bantuan belum '
                 'diperbarui dari server.',
-              ),
-            ),
           ),
         ],
-        const SizedBox(height: 12),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                SwitchListTile(
-                  key: const Key('helper-willingness-toggle'),
-                  contentPadding: EdgeInsets.zero,
-                  value: willing,
-                  onChanged: canEdit
-                      ? (value) => setState(() {
-                          _pendingWillingToHelp = value;
-                          _consentConfirmed = false;
-                        })
-                      : null,
-                  title: const Text('Saya bersedia membantu secara sukarela'),
-                  subtitle: const Text(
-                    'RT hanya dapat mengirim permintaan setelah Anda setuju.',
+        const SizedBox(height: 16),
+        SectionCard(
+          children: [
+            SwitchListTile(
+              key: const Key('helper-willingness-toggle'),
+              contentPadding: EdgeInsets.zero,
+              value: willing,
+              onChanged: canEdit
+                  ? (value) => setState(() {
+                      _pendingWillingToHelp = value;
+                      _consentConfirmed = false;
+                    })
+                  : null,
+              title: Text(
+                'Saya bersedia membantu secara sukarela',
+                style: Theme.of(context).textTheme.titleSmall
+                    ?.copyWith(fontWeight: FontWeight.w600),
+              ),
+              subtitle: Text(
+                'RT hanya dapat mengirim permintaan setelah Anda setuju.',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+            if (_pendingWillingToHelp != null) ...[
+              const Divider(height: 24),
+              CheckboxListTile(
+                key: const Key('helper-consent-confirm'),
+                contentPadding: EdgeInsets.zero,
+                value: _consentConfirmed,
+                onChanged: canEdit
+                    ? (value) =>
+                          setState(() => _consentConfirmed = value ?? false)
+                    : null,
+                title: Text(
+                  'Saya mengonfirmasi pilihan ini tanpa tekanan.',
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+                controlAffinity: ListTileControlAffinity.leading,
+              ),
+              const SizedBox(height: 12),
+              FilledButton.icon(
+                key: const Key('helper-consent-save'),
+                onPressed: canEdit && _consentConfirmed ? _saveConsent : null,
+                icon: Icon(
+                  _pendingWillingToHelp == true
+                      ? Icons.check_circle_outline
+                      : Icons.block_outlined,
+                ),
+                label: Text(
+                  _pendingWillingToHelp == true
+                      ? 'Simpan kesediaan'
+                      : 'Nonaktifkan kesediaan',
+                ),
+              ),
+            ],
+          ],
+        ),
+        const SizedBox(height: 24),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                'Permintaan bantuan',
+                style: Theme.of(context).textTheme.titleLarge
+                    ?.copyWith(fontWeight: FontWeight.w600),
+              ),
+            ),
+            if (data.isPartial)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  'Dibatasi 200',
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
                 ),
-                if (_pendingWillingToHelp != null) ...[
-                  CheckboxListTile(
-                    key: const Key('helper-consent-confirm'),
-                    contentPadding: EdgeInsets.zero,
-                    value: _consentConfirmed,
-                    onChanged: canEdit
-                        ? (value) =>
-                              setState(() => _consentConfirmed = value ?? false)
-                        : null,
-                    title: const Text(
-                      'Saya mengonfirmasi pilihan ini tanpa tekanan.',
-                    ),
-                    controlAffinity: ListTileControlAffinity.leading,
-                  ),
-                  FilledButton(
-                    key: const Key('helper-consent-save'),
-                    onPressed: canEdit && _consentConfirmed
-                        ? _saveConsent
-                        : null,
-                    child: Text(
-                      _pendingWillingToHelp == true
-                          ? 'Simpan kesediaan'
-                          : 'Nonaktifkan kesediaan',
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
+              ),
+          ],
         ),
-        const SizedBox(height: 16),
-        Text(
-          'Permintaan bantuan',
-          style: Theme.of(context).textTheme.titleLarge,
-        ),
-        if (data.isPartial)
-          const Padding(
-            padding: EdgeInsets.only(top: 8),
-            child: Text('Daftar dibatasi hingga 200 permintaan.'),
-          ),
+        const SizedBox(height: 12),
         if (data.assignments.isEmpty)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 20),
-            child: Text('Belum ada permintaan bantuan dari RT.'),
-          )
-        else
-          for (final assignment in data.assignments)
-            Card(
-              key: ValueKey('helper-assignment-${assignment.assignmentId}'),
-              child: Padding(
-                padding: const EdgeInsets.all(12),
+          SectionCard(
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  vertical: 24,
+                  horizontal: 16,
+                ),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    Icon(
+                      Icons.inbox_outlined,
+                      size: 40,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant
+                          .withValues(alpha: 0.5),
+                    ),
+                    const SizedBox(height: 12),
                     Text(
-                      assignment.state == 'OFFERED'
-                          ? 'Permintaan menunggu pilihan Anda'
-                          : 'Anda menerima permintaan bantuan',
-                    ),
-                    const SizedBox(height: 4),
-                    const Text(
-                      'Detail rumah tangga tidak ditampilkan. Hubungi Pendamping RT '
-                      'setelah memilih untuk koordinasi yang aman.',
-                    ),
-                    const SizedBox(height: 8),
-                    if (assignment.state == 'OFFERED')
-                      Wrap(
-                        spacing: 8,
-                        children: [
-                          OutlinedButton(
-                            key: Key(
-                              'helper-decline-${assignment.assignmentId}',
-                            ),
-                            onPressed: canEdit
-                                ? () => _respond(assignment, 'DECLINED')
-                                : null,
-                            child: const Text('Tolak'),
-                          ),
-                          FilledButton(
-                            key: Key(
-                              'helper-accept-${assignment.assignmentId}',
-                            ),
-                            onPressed: canEdit
-                                ? () => _respond(assignment, 'ACCEPTED')
-                                : null,
-                            child: const Text('Terima'),
-                          ),
-                        ],
-                      )
-                    else
-                      OutlinedButton(
-                        key: Key('helper-withdraw-${assignment.assignmentId}'),
-                        onPressed: canEdit
-                            ? () => _respond(assignment, 'WITHDRAWN')
-                            : null,
-                        child: const Text('Mengundurkan diri'),
+                      'Belum ada permintaan bantuan',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'RT akan mengirim permintaan bantuan jika Anda sudah menyatakan kesediaan.',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
                   ],
                 ),
               ),
+            ],
+          )
+        else
+          for (final assignment in data.assignments)
+            SectionCard(
+              key: ValueKey('helper-assignment-${assignment.assignmentId}'),
+              title: assignment.state == 'OFFERED'
+                  ? 'Permintaan Bantuan'
+                  : 'Bantuan Diterima',
+              icon: assignment.state == 'OFFERED'
+                  ? Icons.help_outline
+                  : Icons.handshake_outlined,
+              children: [
+                Text(
+                  assignment.state == 'OFFERED'
+                      ? 'Permintaan menunggu pilihan Anda'
+                      : 'Anda menerima permintaan bantuan',
+                  style: Theme.of(context).textTheme.titleSmall
+                      ?.copyWith(fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Detail rumah tangga tidak ditampilkan. Hubungi Pendamping RT '
+                  'setelah memilih untuk koordinasi yang aman.',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                if (assignment.state == 'OFFERED')
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          key: Key('helper-decline-${assignment.assignmentId}'),
+                          onPressed: canEdit
+                              ? () => _respond(assignment, 'DECLINED')
+                              : null,
+                          icon: const Icon(Icons.close),
+                          label: const Text('Tolak'),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: FilledButton.icon(
+                          key: Key('helper-accept-${assignment.assignmentId}'),
+                          onPressed: canEdit
+                              ? () => _respond(assignment, 'ACCEPTED')
+                              : null,
+                          icon: const Icon(Icons.check),
+                          label: const Text('Terima'),
+                        ),
+                      ),
+                    ],
+                  )
+                else
+                  OutlinedButton.icon(
+                    key: Key('helper-withdraw-${assignment.assignmentId}'),
+                    onPressed: canEdit
+                        ? () => _respond(assignment, 'WITHDRAWN')
+                        : null,
+                    icon: const Icon(Icons.exit_to_app),
+                    label: const Text('Mengundurkan diri'),
+                  ),
+              ],
             ),
       ],
     );

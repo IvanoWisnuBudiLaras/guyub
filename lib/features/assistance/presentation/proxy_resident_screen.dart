@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/widgets/inline_action_button.dart';
+import '../../../core/widgets/tinted_info_box.dart';
 import '../../auth/application/operator_profile.dart';
 import '../../tasks/application/task_campaign_boundary.dart';
 import '../application/assistance_volunteer_boundary.dart';
@@ -315,6 +317,7 @@ final class _ProxyResidentScreenState extends State<ProxyResidentScreen> {
               DropdownButtonFormField<String>(
                 key: const Key('proxy-helper-picker'),
                 initialValue: selected?.residentId,
+                isExpanded: true,
                 decoration: const InputDecoration(labelText: 'Relawan'),
                 items: [
                   for (final helper in helpers.items)
@@ -322,6 +325,7 @@ final class _ProxyResidentScreenState extends State<ProxyResidentScreen> {
                       value: helper.residentId,
                       child: Text(
                         '${helper.nickname} · ${helper.residentId.substring(36)}',
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                 ],
@@ -424,17 +428,25 @@ final class _ProxyResidentScreenState extends State<ProxyResidentScreen> {
         }
         if (snapshot.hasError || snapshot.data == null) {
           return Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text('Data warga belum dapat dimuat untuk RT ini.'),
-                const SizedBox(height: 12),
-                OutlinedButton(
-                  key: const Key('proxy-resident-retry'),
-                  onPressed: _reload,
-                  child: const Text('Coba lagi'),
-                ),
-              ],
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    'Data warga belum dapat dimuat untuk RT ini.',
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 12),
+                  InlineActionButton(
+                    key: const Key('proxy-resident-retry'),
+                    variant: InlineActionButtonVariant.outlined,
+                    icon: Icons.refresh,
+                    label: 'Coba lagi',
+                    onPressed: _reload,
+                  ),
+                ],
+              ),
             ),
           );
         }
@@ -450,51 +462,41 @@ final class _ProxyResidentScreenState extends State<ProxyResidentScreen> {
                 style: Theme.of(context).textTheme.labelLarge,
               ),
               const SizedBox(height: 8),
-              const Card(
-                child: Padding(
-                  padding: EdgeInsets.all(16),
-                  child: Text(
+              TintedInfoBox.info(
+                text:
                     'Daftar ini hanya untuk operator RT yang berwenang. '
                     'Gunakan nama panggilan dan nomor rumah opsional. Jangan '
                     'catat diagnosis, alamat lengkap, atau koordinat. Status '
                     'Ikut/Tidak Ikut harus dikonfirmasi kepada warga dan tetap '
                     'sukarela.',
-                  ),
-                ),
               ),
               if (data.helperLoadFailed) ...[
                 const SizedBox(height: 12),
-                const Card(
-                  child: Padding(
-                    padding: EdgeInsets.all(16),
-                    child: Text(
+                TintedInfoBox.warning(
+                  text:
                       'Daftar relawan belum dapat dimuat. Status warga tetap '
                       'tersedia; coba muat ulang sebelum memasangkan relawan.',
-                    ),
-                  ),
                 ),
               ],
               if (data.isPartial) ...[
                 const SizedBox(height: 12),
-                const Card(
-                  key: Key('proxy-resident-partial-warning'),
-                  color: Color(0xFFFFF1D6),
-                  child: Padding(
-                    padding: EdgeInsets.all(16),
-                    child: Text(
+                TintedInfoBox.warning(
+                  key: const Key('proxy-resident-partial-warning'),
+                  text:
                       'Menampilkan 200 warga pertama. Daftar belum lengkap; '
                       'warga lain mungkin tidak terlihat atau dapat dipilih. '
                       'Jangan anggap ini daftar penuh.',
-                    ),
-                  ),
                 ),
               ],
-              const SizedBox(height: 12),
-              FilledButton.icon(
-                key: const Key('proxy-resident-create'),
-                onPressed: _createProxyResident,
-                icon: const Icon(Icons.person_add_alt_1_outlined),
-                label: const Text('Catat warga tanpa aplikasi'),
+              const SizedBox(height: 14),
+              SizedBox(
+                height: 48,
+                child: FilledButton.icon(
+                  key: const Key('proxy-resident-create'),
+                  onPressed: _createProxyResident,
+                  icon: const Icon(Icons.person_add_alt_1_outlined),
+                  label: const Text('Catat warga tanpa aplikasi'),
+                ),
               ),
               const SizedBox(height: 16),
               if (data.residents.isEmpty)
@@ -892,6 +894,7 @@ final class _ProxyResidentCardState extends State<_ProxyResidentCard> {
         DropdownButtonFormField<String>(
           key: const Key('proxy-participation-picker'),
           initialValue: participation,
+          isExpanded: true,
           decoration: const InputDecoration(
             labelText: 'Pilihan warga',
             hintText: 'Pilih Ikut atau Tidak Ikut',
@@ -985,6 +988,12 @@ final class _ProxyResidentCardState extends State<_ProxyResidentCard> {
     final theme = Theme.of(context);
     final selectedTask = _selectedTask;
     return Card(
+      elevation: 0,
+      margin: const EdgeInsets.only(bottom: 12),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: theme.colorScheme.outlineVariant),
+      ),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -996,15 +1005,30 @@ final class _ProxyResidentCardState extends State<_ProxyResidentCard> {
                   child: Text(
                     widget.resident.nickname,
                     key: const Key('proxy-resident-nickname'),
-                    style: theme.textTheme.titleLarge,
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
                 if (!widget.resident.deletionPending &&
                     widget.resident.needsAssistance)
-                  const Chip(
-                    key: Key('proxy-assistance-marker'),
-                    label: Text('Perlu dukungan'),
-                    avatar: Icon(Icons.support_outlined),
+                  Chip(
+                    key: const Key('proxy-assistance-marker'),
+                    label: const Text(
+                      'Perlu dukungan',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFFB45309),
+                      ),
+                    ),
+                    backgroundColor: const Color(0xFFFEF3C7),
+                    side: const BorderSide(color: Color(0xFFFDE68A)),
+                    avatar: const Icon(
+                      Icons.support_outlined,
+                      size: 16,
+                      color: Color(0xFFB45309),
+                    ),
                   ),
               ],
             ),
@@ -1017,43 +1041,58 @@ final class _ProxyResidentCardState extends State<_ProxyResidentCard> {
                 ),
               ),
             if (!widget.resident.deletionPending &&
-                widget.resident.houseNumber != null)
+                widget.resident.houseNumber != null) ...[
+              const SizedBox(height: 4),
               Text('Nomor rumah ${widget.resident.houseNumber}'),
-            TextButton.icon(
-              key: const Key('proxy-assistance-toggle'),
-              onPressed: widget.resident.deletionPending
-                  ? null
-                  : widget.onUpdateAssistance,
-              icon: const Icon(Icons.edit_outlined),
-              label: Text(
-                widget.resident.needsAssistance
-                    ? 'Perbarui penanda dukungan'
-                    : 'Catat kebutuhan dukungan',
+            ],
+            const SizedBox(height: 8),
+            SizedBox(
+              height: 48,
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  key: const Key('proxy-assistance-toggle'),
+                  onPressed: widget.resident.deletionPending
+                      ? null
+                      : widget.onUpdateAssistance,
+                  icon: const Icon(Icons.edit_outlined, size: 18),
+                  label: Text(
+                    widget.resident.needsAssistance
+                        ? 'Perbarui penanda dukungan'
+                        : 'Catat kebutuhan dukungan',
+                  ),
+                ),
               ),
             ),
             if (!widget.resident.deletionPending &&
                 widget.resident.needsAssistance)
-              Align(
-                alignment: Alignment.centerLeft,
-                child: TextButton.icon(
-                  key: const Key('proxy-helper-assign'),
-                  onPressed: widget.helpers.items.isEmpty
-                      ? null
-                      : widget.onAssignHelper,
-                  icon: const Icon(Icons.handshake_outlined),
-                  label: const Text('Tawarkan bantuan relawan'),
+              SizedBox(
+                height: 48,
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton.icon(
+                    key: const Key('proxy-helper-assign'),
+                    onPressed: widget.helpers.items.isEmpty
+                        ? null
+                        : widget.onAssignHelper,
+                    icon: const Icon(Icons.handshake_outlined, size: 18),
+                    label: const Text('Tawarkan bantuan relawan'),
+                  ),
                 ),
               ),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: TextButton.icon(
-                key: const Key('proxy-resident-delete'),
-                onPressed: widget.onDelete,
-                icon: const Icon(Icons.delete_outline),
-                label: Text(
-                  widget.resident.deletionPending
-                      ? 'Lanjutkan penghapusan'
-                      : 'Hapus data warga',
+            SizedBox(
+              height: 48,
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  key: const Key('proxy-resident-delete'),
+                  onPressed: widget.onDelete,
+                  icon: const Icon(Icons.delete_outline, size: 18),
+                  label: Text(
+                    widget.resident.deletionPending
+                        ? 'Lanjutkan penghapusan'
+                        : 'Hapus data warga',
+                  ),
                 ),
               ),
             ),
@@ -1078,6 +1117,7 @@ final class _ProxyResidentCardState extends State<_ProxyResidentCard> {
                             DropdownButtonFormField<String>(
                               key: const Key('proxy-task-picker'),
                               initialValue: _taskId,
+                              isExpanded: true,
                               decoration: const InputDecoration(
                                 labelText: 'Tugas aktif',
                               ),
@@ -1085,7 +1125,10 @@ final class _ProxyResidentCardState extends State<_ProxyResidentCard> {
                                 for (final task in widget.tasks)
                                   DropdownMenuItem(
                                     value: task.taskId,
-                                    child: Text(task.templateSnapshot.title),
+                                    child: Text(
+                                      task.templateSnapshot.title,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
                                   ),
                               ],
                               onChanged: _selectTask,

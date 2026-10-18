@@ -19,17 +19,30 @@ import 'package:guyub/features/weather/application/weather_snapshot_store.dart';
 import 'package:guyub/features/auth/presentation/screens/resident_session_home_screen.dart';
 
 void main() {
-  setUp(() => AppConfig.resetForTesting());
+  setUp(() {
+    AppConfig.resetForTesting();
+  });
+
+  /// Helper untuk set viewport realistis pada test
+  void setRealisticViewport(WidgetTester tester) {
+    tester.view.physicalSize = const Size(720, 1280); // 360x640 dp @ 2x
+    tester.view.devicePixelRatio = 2.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+  }
 
   testWidgets(
     'resident can enter a scoped session from the resident role path',
     (tester) async {
+      setRealisticViewport(tester);
+
       final controller = ResidentSessionController(
         boundary: FakeResidentBoundary(),
         vault: MemoryResidentSessionVault(),
       );
       AppConfig.initialize(AppConfig.test());
       await tester.pumpWidget(GuyubApp(residentSessionController: controller));
+      await tester.pumpAndSettle(const Duration(seconds: 2));
 
       await tester.tap(find.text('Saya Warga'));
       await tester.pumpAndSettle();
@@ -57,6 +70,8 @@ void main() {
   testWidgets('restores an existing session instead of creating a duplicate', (
     tester,
   ) async {
+    setRealisticViewport(tester);
+
     final vault = MemoryResidentSessionVault()..token = 'saved-opaque-token';
     final controller = ResidentSessionController(
       boundary: FakeResidentBoundary(),
@@ -64,8 +79,7 @@ void main() {
     );
     AppConfig.initialize(AppConfig.test());
     await tester.pumpWidget(GuyubApp(residentSessionController: controller));
-    await tester.tap(find.text('Saya Warga'));
-    await tester.pumpAndSettle();
+    await tester.pumpAndSettle(const Duration(seconds: 2));
 
     expect(find.text('Warga • RT 01'), findsOneWidget);
     expect(find.byKey(const Key('resident-join-submit')), findsNothing);
@@ -81,6 +95,7 @@ void main() {
       );
       AppConfig.initialize(AppConfig.test());
       await tester.pumpWidget(GuyubApp(residentSessionController: controller));
+      await tester.pumpAndSettle(const Duration(seconds: 2));
       await tester.tap(find.text('Saya Warga'));
       await tester.pumpAndSettle();
 
@@ -272,12 +287,15 @@ void main() {
   testWidgets('invalid join code shows generic message and no RT identity', (
     tester,
   ) async {
+    setRealisticViewport(tester);
+
     final controller = ResidentSessionController(
       boundary: FakeResidentBoundary()..failCreate = true,
       vault: MemoryResidentSessionVault(),
     );
     AppConfig.initialize(AppConfig.test());
     await tester.pumpWidget(GuyubApp(residentSessionController: controller));
+    await tester.pumpAndSettle(const Duration(seconds: 2));
     await tester.tap(find.text('Saya Warga'));
     await tester.pumpAndSettle();
 

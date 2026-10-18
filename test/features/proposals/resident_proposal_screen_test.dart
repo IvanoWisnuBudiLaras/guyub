@@ -334,6 +334,11 @@ final class _FakeProposalBoundary implements ResidentProposalBoundary {
       );
 
   @override
+  Future<List<ResidentProposalRecord>> listMyProposals({
+    required String sessionToken,
+  }) async => withQueueItem ? [_record()] : const [];
+
+  @override
   Future<ResidentProposalRecord> reviewResidentProposal({
     required String proposalId,
     required String decision,
@@ -414,6 +419,7 @@ final class _FakeTaskCampaignBoundary implements TaskCampaignBoundary {
     required DateTime deadline,
     required String? locationReference,
     required String requestId,
+    String? customInstruction,
   }) async => _record(status: 'DRAFT');
 
   @override

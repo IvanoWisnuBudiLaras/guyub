@@ -1,5 +1,5 @@
 import { test } from '@e2e-dev/mobile';
-import { expect } from 'e2e';
+import { expect, type App, type Screen } from 'e2e';
 
 // The resident proposal path through the real app: a resident proposes a
 // preparation idea, and an operator reviews it.
@@ -27,25 +27,13 @@ const PROPOSAL_TITLE = 'Periksa saluran air bersama';
 const PROPOSAL_DESCRIPTION =
   'Sebaiknya kita memeriksa saluran air di sekitar gang sebelum musim hujan.';
 
-type Screen = {
-  getByText: (text: string | RegExp) => {
-    tap: () => Promise<void>;
-    isVisible: () => Promise<boolean>;
-    first: () => { tap: () => Promise<void> };
-  };
-  getByPlaceholder: (text: string) => {
-    fill: (value: string) => Promise<void>;
-    isVisible: () => Promise<boolean>;
-  };
-};
-
 // Both entry screens restore a stored session asynchronously when they open, so
 // they briefly show their form and then navigate on. Let that settle before
 // deciding which screen is actually there.
 const RESTORE_SETTLE_MS = 5_000;
 
 async function enterAsResident(
-  app: { open: () => Promise<void>; restart: () => Promise<void> },
+  app: App,
   screen: Screen,
   nickname: string,
 ) {
@@ -73,7 +61,7 @@ async function enterAsResident(
 }
 
 async function enterAsOperator(
-  app: { open: () => Promise<void> },
+  app: App,
   screen: Screen,
 ) {
   await app.open();

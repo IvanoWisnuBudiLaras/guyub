@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../auth/application/operator_profile.dart';
+import '../../../core/utils/indonesian_date_formatter.dart';
+import '../../../core/widgets/tinted_info_box.dart';
 import '../../tasks/application/task_campaign_boundary.dart';
 import '../../tasks/application/task_template.dart';
 import '../../tasks/presentation/screens/task_catalog_screen.dart';
@@ -212,19 +214,16 @@ final class _WeatherSuggestionReviewScreenState
                 ),
                 const SizedBox(height: 12),
               ],
-              const Card(
-                child: Padding(
-                  padding: EdgeInsets.all(16),
-                  child: Text(
+              TintedInfoBox.info(
+                key: const Key('weather-suggestion-safety-copy'),
+                title: 'Konteks Tinjauan Cuaca',
+                text:
                     'Saran cuaca hanya konteks untuk ditinjau. Saran tidak '
                     'membuat tugas aktif atau mengirim peringatan resmi. '
                     'Gunakan katalog tugas aman; distribusi tetap memerlukan '
                     'konfirmasi operator.',
-                    key: Key('weather-suggestion-safety-copy'),
-                  ),
-                ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
               if (data.suggestions.isEmpty)
                 const _ReviewMessage(
                   key: Key('weather-suggestions-empty'),
@@ -297,6 +296,11 @@ final class _SuggestionCard extends StatelessWidget {
     final canReview = !suggestion.isStale && versions.isNotEmpty;
     return Card(
       key: Key('weather-suggestion-${suggestion.id}'),
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
+      ),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -304,7 +308,8 @@ final class _SuggestionCard extends StatelessWidget {
           children: [
             Text(
               'Saran BMKG · Menunggu tinjauan',
-              style: Theme.of(context).textTheme.titleMedium,
+              style: Theme.of(context).textTheme.titleMedium
+                  ?.copyWith(fontWeight: FontWeight.w600),
             ),
             if (suggestion.rainfallMm != null) ...[
               const SizedBox(height: 8),
@@ -323,22 +328,41 @@ final class _SuggestionCard extends StatelessWidget {
             Text(suggestion.explanation),
             const SizedBox(height: 8),
             if (suggestion.isStale)
-              const Text(
-                'Saran ini memakai data yang sudah lama. Jangan gunakan untuk menyiapkan tugas.',
-                key: Key('weather-suggestion-stale'),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: TintedInfoBox.warning(
+                  key: const Key('weather-suggestion-stale'),
+                  title: 'Data Kedaluwarsa',
+                  text: 'Saran ini memakai data yang sudah lama. Jangan gunakan untuk menyiapkan tugas.',
+                ),
               )
             else if (recommended.isEmpty)
               const Text(
                 'Template aman yang disarankan tidak tersedia. Hubungi pengelola RT.',
               )
             else ...[
-              const Text('Template aman yang disarankan:'),
+              const Text(
+                'Template aman yang disarankan:',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 4),
               for (final template in recommended)
-                Text('• ${template.title} · versi ${template.version}'),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 2),
+                  child: Text(
+                    '• ${template.title} · versi ${template.version}',
+                  ),
+                ),
             ],
             const SizedBox(height: 12),
             OutlinedButton.icon(
               key: Key('weather-suggestion-review-${suggestion.id}'),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size.fromHeight(48),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
               onPressed: canReview && !isCheckingFreshness
                   ? () => onOpenCatalog(versions)
                   : null,
@@ -354,21 +378,37 @@ final class _SuggestionCard extends StatelessWidget {
                     : 'Tinjau template aman',
               ),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 8),
             Wrap(
               alignment: WrapAlignment.center,
               spacing: 8,
+              runSpacing: 4,
               children: [
                 TextButton.icon(
                   key: Key('weather-suggestion-postpone-${suggestion.id}'),
+                  style: TextButton.styleFrom(
+                    minimumSize: const Size(0, 48),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                  ),
                   onPressed: isCheckingFreshness ? null : onPostpone,
-                  icon: const Icon(Icons.schedule_outlined),
+                  icon: const Icon(Icons.schedule_outlined, size: 18),
                   label: const Text('Tinjau nanti'),
                 ),
                 TextButton.icon(
                   key: Key('weather-suggestion-ignore-${suggestion.id}'),
+                  style: TextButton.styleFrom(
+                    minimumSize: const Size(0, 48),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                    foregroundColor: Theme.of(context).colorScheme.error,
+                  ),
                   onPressed: isCheckingFreshness ? null : onIgnore,
-                  icon: const Icon(Icons.visibility_off_outlined),
+                  icon: const Icon(Icons.visibility_off_outlined, size: 18),
                   label: const Text('Abaikan saran'),
                 ),
               ],
@@ -399,10 +439,31 @@ final class _ReviewMessage extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(message, textAlign: TextAlign.center),
+          Icon(
+            Icons.wb_sunny_outlined,
+            size: 48,
+            color: Theme.of(context).colorScheme.outline,
+          ),
+          const SizedBox(height: 12),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
           if (actionLabel != null && onAction != null) ...[
-            const SizedBox(height: 12),
-            OutlinedButton(onPressed: onAction, child: Text(actionLabel!)),
+            const SizedBox(height: 16),
+            OutlinedButton(
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(120, 48),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              onPressed: onAction,
+              child: Text(actionLabel!),
+            ),
           ],
         ],
       ),
@@ -410,12 +471,8 @@ final class _ReviewMessage extends StatelessWidget {
   );
 }
 
-String _formatDate(DateTime value) {
-  final local = value.toLocal();
-  String two(int part) => part.toString().padLeft(2, '0');
-  return '${two(local.day)}/${two(local.month)}/${local.year} '
-      '${two(local.hour)}:${two(local.minute)}';
-}
+String _formatDate(DateTime value) =>
+    IndonesianDateFormatter.formatNumeric(value);
 
 TaskTemplate? _findTemplate(
   List<TaskTemplate> templates,

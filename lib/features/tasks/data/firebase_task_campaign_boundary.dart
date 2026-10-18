@@ -72,14 +72,19 @@ final class FirebaseTaskCampaignBoundary
     required DateTime deadline,
     required String? locationReference,
     required String requestId,
+    String? customInstruction,
   }) async {
-    final result = await _call('createTaskDraft', {
+    final payload = <String, Object?>{
       'templateId': template.id,
       'version': template.version,
       'deadline': deadline.toUtc().toIso8601String(),
       'locationReference': locationReference,
       'requestId': requestId,
-    });
+    };
+    if (customInstruction != null && customInstruction.trim().isNotEmpty) {
+      payload['customInstruction'] = customInstruction.trim();
+    }
+    final result = await _call('createTaskDraft', payload);
     return TaskCampaignRecord.fromWire(_asMap(result));
   }
 

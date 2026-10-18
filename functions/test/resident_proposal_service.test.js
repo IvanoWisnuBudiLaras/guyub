@@ -87,6 +87,14 @@ class FakeRepository {
     };
   }
 
+  async listMyProposals({ residentId, rtId }) {
+    return {
+      items: [...this.proposals.values()]
+        .filter((item) => item.rtId === rtId && item.residentId === residentId)
+        .map((item) => structuredClone(item)),
+    };
+  }
+
   async reviewProposal(input) {
     const record = this.proposals.get(input.proposalId);
     if (!record || record.rtId !== this.operatorRtIds.get(input.operatorUid)) {
@@ -426,3 +434,28 @@ test('review allows only DISMISSED or NEEDS_OFFICIAL_REPORT and is idempotent fo
     commandId: REQUEST_ID,
   }), officialReview);
 });
+
+test('resident can list own submitted proposals and observe RT decisions', async () => {
+  const { service } = setup();
+  const submitted1 = await service.submitResidentProposal(payload({ title: 'Usulan 1', requestId: 'request-own-proposal-0001-32chars' }));
+  const submitted2 = await service.submitResidentProposal(payload({ title: 'Usulan 2', requestId: 'request-own-proposal-0002-32chars' }));
+
+  // Operator reviews proposal 1 with NEEDS_OFFICIAL_REPORT
+  await service.reviewResidentProposal(AUTH, {
+    proposalId: submitted1.proposalId,
+    decision: 'NEEDS_OFFICIAL_REPORT',
+    commandId: REQUEST_ID,
+  });
+
+  const ownProposals = await service.listMyResidentProposals({ sessionToken: SESSION_TOKEN });
+  assert.equal(ownProposals.items.length, 2);
+  const reviewed = ownProposals.items.find((p) => p.proposalId === submitted1.proposalId);
+  const pending = ownProposals.items.find((p) => p.proposalId === submitted2.proposalId);
+  assert.equal(reviewed.state, 'NEEDS_OFFICIAL_REPORT');
+  assert.equal(pending.state, 'SUBMITTED');
+
+  // Rejects invalid token or unknown fields
+  await assert.rejects(service.listMyResidentProposals({ sessionToken: 'invalid' }), { code: 'permission-denied' });
+  await assert.rejects(service.listMyResidentProposals({ sessionToken: SESSION_TOKEN, unknownField: true }), { code: 'invalid-argument' });
+});
+

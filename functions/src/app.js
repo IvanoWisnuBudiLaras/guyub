@@ -34,6 +34,8 @@ const { WeatherSuggestionService, WeatherPipelineError } = require('./weather_su
 const { ProxyResidentService, ProxyResidentError } = require('./proxy_resident_service');
 const { ResidentDataDeletionService } = require('./resident_data_deletion_service');
 const { AssistanceAssignmentService } = require('./assistance_assignment_service');
+const { FirestoreTreePointRepository } = require('./firestore_tree_point_repository');
+const { TreePointService, TreePointError } = require('./tree_point_service');
 const dispatch = require('./dispatch');
 const { appCheckRequired } = require('./runtime_env');
 
@@ -105,6 +107,10 @@ const taskNotifications = new TaskNotificationService(
   new FirebaseMessagingDeliveryAdapter(getMessaging()),
   sessions,
 );
+const treePoints = new TreePointService(
+  new FirestoreTreePointRepository(firestore),
+  sessions,
+);
 
 const services = {
   sessions,
@@ -118,6 +124,7 @@ const services = {
   assistanceAssignments,
   weatherSuggestions,
   taskNotifications,
+  treePoints,
 };
 
 function evidenceBucket() {
@@ -147,7 +154,7 @@ function operatorAuth(ctx) {
 const SERVICE_ERRORS = [
   SessionServiceError, TaskCampaignError, TaskNotificationError,
   ResidentProposalError, EmergencyDirectoryError, WeatherPipelineError,
-  ProxyResidentError,
+  ProxyResidentError, TreePointError,
 ];
 
 // Domain error -> { code, message }. Never leaks Firestore paths or internals.
@@ -200,6 +207,18 @@ const customCallables = {
     }
     const session = await sessions.validateSession(data.sessionToken);
     return weatherSuggestions.getLastValidWeatherSnapshotForRt(session.communityId);
+  },
+  async listCommunityTreeMap(ctx) {
+    if (ctx.auth?.uid) {
+      return treePoints.listCommunityTreeMap(operatorAuth(ctx), ctx.data);
+    }
+    return treePoints.listCommunityTreeMap(null, ctx.data);
+  },
+  async deleteTreePoint(ctx) {
+    if (ctx.auth?.uid) {
+      return treePoints.deleteTreePoint(operatorAuth(ctx), ctx.data);
+    }
+    return treePoints.deleteTreePoint(null, ctx.data);
   },
 };
 
@@ -306,6 +325,7 @@ module.exports = {
   invoke,
   toWire,
   callableNames,
+  customCallableNames: Object.freeze(Object.keys(customCallables)),
   scheduledTasks,
   scheduledTaskNames,
   services,
