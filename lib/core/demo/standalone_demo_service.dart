@@ -41,6 +41,7 @@ final class StandaloneDemoEngine {
   ResidentSession? activeResident;
 
   final List<TaskCampaignRecord> _campaigns = [];
+  final List<RtTaskHistoryRecord> _taskHistory = [];
   final List<ResidentTaskRecord> _residentTasks = [];
   final List<ResidentProposalRecord> _proposals = [];
   final List<CommunityTreeItem> _trees = [];
@@ -81,7 +82,17 @@ final class StandaloneDemoEngine {
       estimatedDurationMinutes: 60,
     );
 
-    // 2. Kampanye Tugas Aktif RT
+    final templateTitikKumpul = TaskTemplateSnapshot(
+      templateId: 'periksa_titik_kumpul_evakuasi',
+      version: 1,
+      title: 'Pemeriksaan Jalur & Titik Kumpul Darurat',
+      category: 'SAFE_VISUAL_INSPECTION',
+      coreInstruction: 'Pastikan akses jalan menuju Balai RW 02 bebas dari hambatan material atau pohon tumbang.',
+      safetyInstruction: 'DILARANG mendekati kabel putus atau tiang listrik yang miring. Segera laporkan ke pihak PLN.',
+      estimatedDurationMinutes: 30,
+    );
+
+    // 2. Kampanye Tugas Aktif RT (Operator & Warga)
     final campaign1 = TaskCampaignRecord(
       campaignId: 'camp-demo-01',
       rtId: 'rt-01-demo',
@@ -100,6 +111,7 @@ final class StandaloneDemoEngine {
       status: 'ACTIVE',
       createdAt: now.subtract(const Duration(hours: 2)),
       activatedAt: now.subtract(const Duration(hours: 1)),
+      locationReference: 'SALURAN_SEKUNDER',
     );
 
     final campaign3 = TaskCampaignRecord(
@@ -110,11 +122,67 @@ final class StandaloneDemoEngine {
       status: 'ACTIVE',
       createdAt: now.subtract(const Duration(hours: 4)),
       activatedAt: now.subtract(const Duration(hours: 3)),
+      locationReference: 'AREA_RESAPAN',
     );
 
-    _campaigns.addAll([campaign1, campaign2, campaign3]);
+    final campaign4 = TaskCampaignRecord(
+      campaignId: 'camp-demo-04',
+      rtId: 'rt-01-demo',
+      templateSnapshot: templateTitikKumpul,
+      deadline: now.add(const Duration(hours: 36)),
+      status: 'ACTIVE',
+      createdAt: now.subtract(const Duration(hours: 5)),
+      activatedAt: now.subtract(const Duration(hours: 4)),
+      locationReference: 'BALAI_WARGA',
+    );
 
-    // 3. Tugas Aktif untuk Warga
+    _campaigns.addAll([campaign1, campaign2, campaign3, campaign4]);
+
+    // 3. Riwayat Tugas Selesai RT (Task History)
+    _taskHistory.addAll([
+      RtTaskHistoryRecord(
+        taskId: 'a1a2a3a4b1b2b3b4c1c2c3c4d1d2d3d4e1e2e301',
+        templateSnapshot: templateSaluran,
+        deadline: now.subtract(const Duration(days: 8)).toUtc(),
+        status: 'CLOSED',
+        activatedAt: now.subtract(const Duration(days: 10)).toUtc(),
+        cancelledAt: null,
+        closedAt: now.subtract(const Duration(days: 7)).toUtc(),
+        locationReference: 'SALURAN_SEKUNDER',
+      ),
+      RtTaskHistoryRecord(
+        taskId: 'a1a2a3a4b1b2b3b4c1c2c3c4d1d2d3d4e1e2e302',
+        templateSnapshot: templateTasSiaga,
+        deadline: now.subtract(const Duration(days: 18)).toUtc(),
+        status: 'CLOSED',
+        activatedAt: now.subtract(const Duration(days: 20)).toUtc(),
+        cancelledAt: null,
+        closedAt: now.subtract(const Duration(days: 17)).toUtc(),
+        locationReference: null,
+      ),
+      RtTaskHistoryRecord(
+        taskId: 'a1a2a3a4b1b2b3b4c1c2c3c4d1d2d3d4e1e2e303',
+        templateSnapshot: templateTanam,
+        deadline: now.subtract(const Duration(days: 28)).toUtc(),
+        status: 'CLOSED',
+        activatedAt: now.subtract(const Duration(days: 30)).toUtc(),
+        cancelledAt: null,
+        closedAt: now.subtract(const Duration(days: 27)).toUtc(),
+        locationReference: 'AREA_RESAPAN',
+      ),
+      RtTaskHistoryRecord(
+        taskId: 'a1a2a3a4b1b2b3b4c1c2c3c4d1d2d3d4e1e2e304',
+        templateSnapshot: templateTitikKumpul,
+        deadline: now.subtract(const Duration(days: 42)).toUtc(),
+        status: 'CLOSED',
+        activatedAt: now.subtract(const Duration(days: 45)).toUtc(),
+        cancelledAt: null,
+        closedAt: now.subtract(const Duration(days: 41)).toUtc(),
+        locationReference: 'BALAI_WARGA',
+      ),
+    ]);
+
+    // 4. Tugas Aktif untuk Warga (Berbagai Status)
     _residentTasks.add(
       ResidentTaskRecord(
         taskId: campaign1.campaignId,
@@ -152,7 +220,20 @@ final class StandaloneDemoEngine {
       ),
     );
 
-    // 4. Antrean Verifikasi untuk Operator RT
+    _residentTasks.add(
+      ResidentTaskRecord(
+        taskId: campaign4.campaignId,
+        rtId: 'rt-01-demo',
+        templateSnapshot: templateTitikKumpul,
+        deadline: campaign4.deadline,
+        status: 'ACTIVE',
+        participation: ParticipationState.joined,
+        completion: CompletionState.verifiedComplete,
+        completionNote: 'Akses jalan menuju Balai RW bersih dan penerangan jalan menyala baik.',
+      ),
+    );
+
+    // 5. Antrean Verifikasi untuk Operator RT
     _pendingVerifications.add(
       TaskVerificationRecord(
         responseId: 'resp-budi-01',
@@ -165,7 +246,40 @@ final class StandaloneDemoEngine {
       ),
     );
 
-    // 5. Usulan Warga Pre-seeded
+    _pendingVerifications.add(
+      TaskVerificationRecord(
+        responseId: 'resp-siti-02',
+        taskId: campaign2.campaignId,
+        taskTitle: templateSaluran.title,
+        nickname: 'Ibu Siti Aminah (No. 14)',
+        submittedAt: now.subtract(const Duration(hours: 1, minutes: 10)),
+        completionNote: 'Saluran air depan rumah sudah dibersihkan dari daun kering dan sampah plastik.',
+      ),
+    );
+
+    _pendingVerifications.add(
+      TaskVerificationRecord(
+        responseId: 'resp-bambang-03',
+        taskId: campaign3.campaignId,
+        taskTitle: templateTanam.title,
+        nickname: 'Pak Bambang (No. 03)',
+        submittedAt: now.subtract(const Duration(hours: 2, minutes: 40)),
+        completionNote: 'Telah menanam 2 bibit Tabebuya di pekarangan barat.',
+      ),
+    );
+
+    _pendingVerifications.add(
+      TaskVerificationRecord(
+        responseId: 'resp-dewi-04',
+        taskId: campaign4.campaignId,
+        taskTitle: templateTitikKumpul.title,
+        nickname: 'Mbak Dewi (No. 21)',
+        submittedAt: now.subtract(const Duration(hours: 4)),
+        completionNote: 'Jalur evakuasi gang 3 menuju balai RW bersih dan lampu penerangan normal.',
+      ),
+    );
+
+    // 6. Usulan Warga Pre-seeded (4 Status Lengkap)
     _proposals.add(
       ResidentProposalRecord(
         proposalId: 'a1b2c3d4e5f60718293a4b5c6d7e8f901a2b3c4d',
@@ -180,18 +294,54 @@ final class StandaloneDemoEngine {
 
     _proposals.add(
       ResidentProposalRecord(
-        proposalId: 'b2c3d4e5f60718293a4b5c6d7e8f901a2b3c4d5e',
-        title: 'Sampah Menumpuk di Jembatan Utama',
-        description: 'Tumpukan batang kayu besar tersangkut di tiang jembatan.',
+        proposalId: 'b1b2c3d4e5f60718293a4b5c6d7e8f901a2b3c4e',
+        title: 'Pengadaan Karung Pasir Mandiri di Pos Ronda',
+        description: 'Perlu cadangan karung pasir untuk antisipasi rembesan air ke rumah warga lansia.',
         category: ResidentProposalCategory.safeVisualInspection,
-        state: 'NEEDS_OFFICIAL_REPORT',
-        submittedAt: now.subtract(const Duration(days: 1)),
-        reviewedAt: now.subtract(const Duration(hours: 12)),
+        state: 'SUBMITTED',
+        submittedAt: now.subtract(const Duration(hours: 8)),
       ),
     );
 
-    // 6. Titik Pohon Komunitas RT (Geohash 7 sekitar Tulungagung / Jawa Timur)
-    _trees.add(
+    _proposals.add(
+      ResidentProposalRecord(
+        proposalId: 'c1b2c3d4e5f60718293a4b5c6d7e8f901a2b3c4f',
+        title: 'Kerja Bakti Rutin Bersihkan Saluran Induk',
+        description: 'Pembersihan berkala sedimen lumpur saluran induk bersama warga RT tetangga.',
+        category: ResidentProposalCategory.environmentalCleanup,
+        state: 'APPROVED',
+        submittedAt: now.subtract(const Duration(days: 2)),
+        reviewedAt: now.subtract(const Duration(days: 1)),
+      ),
+    );
+
+    _proposals.add(
+      ResidentProposalRecord(
+        proposalId: 'b2c3d4e5f60718293a4b5c6d7e8f901a2b3c4d5e',
+        title: 'Sampah Menumpuk di Tiang Jembatan Utama',
+        description: 'Tumpukan batang kayu besar tersangkut di tiang jembatan, butuh alat berat dinas.',
+        category: ResidentProposalCategory.safeVisualInspection,
+        state: 'NEEDS_OFFICIAL_REPORT',
+        submittedAt: now.subtract(const Duration(days: 3)),
+        reviewedAt: now.subtract(const Duration(days: 2)),
+      ),
+    );
+
+    _proposals.add(
+      ResidentProposalRecord(
+        proposalId: 'd1b2c3d4e5f60718293a4b5c6d7e8f901a2b3c40',
+        title: 'Pemasangan Speedbump Tambahan di Gang Belakang',
+        description:
+            'Permintaan penambahan polisi tidur agar kendaraan tidak mengebut.',
+        category: ResidentProposalCategory.safeVisualInspection,
+        state: 'DISMISSED',
+        submittedAt: now.subtract(const Duration(days: 5)),
+        reviewedAt: now.subtract(const Duration(days: 4)),
+      ),
+    );
+
+    // 7. Titik Pohon Komunitas RT (Geohash 7 sekitar Tulungagung / Jawa Timur)
+    _trees.addAll([
       CommunityTreeItem(
         treePointId: 'tree-01',
         speciesHint: 'Pohon Trembesi (Peneduh)',
@@ -205,9 +355,6 @@ final class StandaloneDemoEngine {
         plantedAt: now.subtract(const Duration(days: 12)),
         hasEvidencePhoto: true,
       ),
-    );
-
-    _trees.add(
       CommunityTreeItem(
         treePointId: 'tree-02',
         speciesHint: 'Pohon Ketapang Kencana',
@@ -221,9 +368,6 @@ final class StandaloneDemoEngine {
         plantedAt: now.subtract(const Duration(days: 8)),
         hasEvidencePhoto: false,
       ),
-    );
-
-    _trees.add(
       CommunityTreeItem(
         treePointId: 'tree-03',
         speciesHint: 'Pohon Pucuk Merah Resapan',
@@ -237,28 +381,131 @@ final class StandaloneDemoEngine {
         plantedAt: now.subtract(const Duration(days: 3)),
         hasEvidencePhoto: true,
       ),
-    );
+      CommunityTreeItem(
+        treePointId: 'tree-04',
+        speciesHint: 'Pohon Tabebuya Kuning',
+        submitterNickname: 'Mas Hendra',
+        isAnonymous: false,
+        coarseLocation: const CoarseLocation(
+          cellId: 'qqwvt7x',
+          approximateLat: -8.0635,
+          approximateLng: 111.8995,
+        ),
+        plantedAt: now.subtract(const Duration(days: 5)),
+        hasEvidencePhoto: true,
+      ),
+      CommunityTreeItem(
+        treePointId: 'tree-05',
+        speciesHint: 'Bibit Beringin Putih (Resapan)',
+        submitterNickname: 'Mbah Supardi',
+        isAnonymous: false,
+        coarseLocation: const CoarseLocation(
+          cellId: 'qqwvt7y',
+          approximateLat: -8.0672,
+          approximateLng: 111.9020,
+        ),
+        plantedAt: now.subtract(const Duration(days: 15)),
+        hasEvidencePhoto: false,
+      ),
+      CommunityTreeItem(
+        treePointId: 'tree-06',
+        speciesHint: 'Pohon Mahoni',
+        submitterNickname: 'Pak Bambang',
+        isAnonymous: false,
+        coarseLocation: const CoarseLocation(
+          cellId: 'qqwvt7z',
+          approximateLat: -8.0618,
+          approximateLng: 111.9045,
+        ),
+        plantedAt: now.subtract(const Duration(days: 20)),
+        hasEvidencePhoto: true,
+      ),
+      CommunityTreeItem(
+        treePointId: 'tree-07',
+        speciesHint: 'Bibit Bambu Kuning (Penahan Erosi)',
+        submitterNickname: 'Warga RT 01',
+        isAnonymous: true,
+        coarseLocation: const CoarseLocation(
+          cellId: 'qqwvt7r',
+          approximateLat: -8.0655,
+          approximateLng: 111.8988,
+        ),
+        plantedAt: now.subtract(const Duration(days: 25)),
+        hasEvidencePhoto: true,
+      ),
+      CommunityTreeItem(
+        treePointId: 'tree-08',
+        speciesHint: 'Pohon Tanjung (Peneduh Jalan)',
+        submitterNickname: 'Bu Siti Aminah',
+        isAnonymous: false,
+        coarseLocation: const CoarseLocation(
+          cellId: 'qqwvt7s',
+          approximateLat: -8.0640,
+          approximateLng: 111.9050,
+        ),
+        plantedAt: now.subtract(const Duration(days: 30)),
+        hasEvidencePhoto: false,
+      ),
+      CommunityTreeItem(
+        treePointId: 'tree-09',
+        speciesHint: 'Pohon Mangga Golek (Pekarangan)',
+        submitterNickname: 'Mas Dimas',
+        isAnonymous: false,
+        coarseLocation: const CoarseLocation(
+          cellId: 'qqwvt7t',
+          approximateLat: -8.0668,
+          approximateLng: 111.9038,
+        ),
+        plantedAt: now.subtract(const Duration(days: 35)),
+        hasEvidencePhoto: true,
+      ),
+    ]);
 
-    // 7. Proxy Residents (Warga Rentan)
-    _proxyResidents.add(
+    // 8. Proxy Residents (Warga Rentan & Mandiri)
+    _proxyResidents.addAll([
       ProxyResidentRecord(
         residentId: '550e8400-e29b-41d4-a716-446655440001',
         nickname: 'Mbah Supardi (Lansia)',
         houseNumber: '12',
         needsAssistance: true,
-        createdAt: now.subtract(const Duration(days: 20)),
+        createdAt: now.subtract(const Duration(days: 20)).toUtc(),
       ),
-    );
-
-    _proxyResidents.add(
       ProxyResidentRecord(
         residentId: '550e8400-e29b-41d4-a716-446655440002',
         nickname: 'Ibu Aminah (Disabilitas Fisik)',
         houseNumber: '05A',
         needsAssistance: true,
-        createdAt: now.subtract(const Duration(days: 15)),
+        createdAt: now.subtract(const Duration(days: 15)).toUtc(),
       ),
-    );
+      ProxyResidentRecord(
+        residentId: '550e8400-e29b-41d4-a716-446655440003',
+        nickname: 'Pak Sukirno (Lansia Mandiri)',
+        houseNumber: '18',
+        needsAssistance: true,
+        createdAt: now.subtract(const Duration(days: 10)).toUtc(),
+      ),
+      ProxyResidentRecord(
+        residentId: '550e8400-e29b-41d4-a716-446655440004',
+        nickname: 'Ibu Endang (Ibu Hamil & Balita)',
+        houseNumber: '09',
+        needsAssistance: true,
+        createdAt: now.subtract(const Duration(days: 8)).toUtc(),
+      ),
+      ProxyResidentRecord(
+        residentId: '550e8400-e29b-41d4-a716-446655440005',
+        nickname: 'Keluarga Pak Joko',
+        houseNumber: '02',
+        needsAssistance: false,
+        createdAt: now.subtract(const Duration(days: 25)).toUtc(),
+      ),
+      ProxyResidentRecord(
+        residentId: '550e8400-e29b-41d4-a716-446655440006',
+        nickname: 'Keluarga Pak Hendra',
+        houseNumber: '07',
+        needsAssistance: false,
+        createdAt: now.subtract(const Duration(days: 18)).toUtc(),
+      ),
+    ]);
   }
 
   late final _weather = _DemoWeatherBoundary();
@@ -400,7 +647,12 @@ final class _DemoResidentSessionBoundary implements ResidentSessionBoundary {
   }
 }
 
-final class _DemoTaskCampaignBoundary implements TaskCampaignBoundary {
+final class _DemoTaskCampaignBoundary
+    implements
+        TaskCampaignBoundary,
+        TaskCampaignManagementBoundary,
+        TaskCampaignHistoryBoundary,
+        TaskCampaignLifecycleBoundary {
   _DemoTaskCampaignBoundary(this.engine);
   final StandaloneDemoEngine engine;
 
@@ -435,6 +687,16 @@ final class _DemoTaskCampaignBoundary implements TaskCampaignBoundary {
       safetyInstruction: 'Pastikan tidak menggali dekat instalasi pipa air atau kabel listrik tanah.',
       enabled: true,
       estimatedDurationMinutes: 60,
+    ),
+    TaskTemplate(
+      id: 'periksa_titik_kumpul_evakuasi',
+      version: 1,
+      title: 'Pemeriksaan Jalur & Titik Kumpul Darurat',
+      category: 'SAFE_VISUAL_INSPECTION',
+      coreInstruction: 'Pastikan akses jalan menuju Balai RW 02 bebas dari hambatan material atau pohon tumbang.',
+      safetyInstruction: 'DILARANG mendekati kabel putus atau tiang listrik yang miring. Segera laporkan ke pihak PLN.',
+      enabled: true,
+      estimatedDurationMinutes: 30,
     ),
   ];
 
@@ -492,6 +754,93 @@ final class _DemoTaskCampaignBoundary implements TaskCampaignBoundary {
       return updated;
     }
     throw StateError('Campaign not found');
+  }
+
+  // --- TaskCampaignManagementBoundary ---
+  @override
+  Future<List<ActiveTaskCampaignRecord>> listActiveTaskCampaigns() async {
+    return engine._campaigns
+        .where((c) => c.status == 'ACTIVE')
+        .map(
+          (c) => ActiveTaskCampaignRecord(
+            taskId: c.campaignId,
+            templateSnapshot: c.templateSnapshot,
+            deadline: c.deadline,
+            locationReference: c.locationReference,
+          ),
+        )
+        .toList();
+  }
+
+  @override
+  Future<TaskCampaignCancellationRecord> cancelTaskCampaign({
+    required String taskId,
+    required String commandId,
+  }) async {
+    final index = engine._campaigns.indexWhere((c) => c.campaignId == taskId);
+    if (index != -1) {
+      final old = engine._campaigns[index];
+      engine._campaigns[index] = TaskCampaignRecord(
+        campaignId: old.campaignId,
+        rtId: old.rtId,
+        templateSnapshot: old.templateSnapshot,
+        deadline: old.deadline,
+        status: 'CANCELLED',
+        createdAt: old.createdAt,
+        locationReference: old.locationReference,
+        activatedAt: old.activatedAt,
+      );
+    }
+    return TaskCampaignCancellationRecord(taskId: taskId, status: 'CANCELLED');
+  }
+
+  // --- TaskCampaignHistoryBoundary ---
+  @override
+  Future<RtTaskHistoryPage> listRtTaskHistory({
+    int pageSize = 25,
+    String? cursor,
+  }) async {
+    return RtTaskHistoryPage(tasks: engine._taskHistory, nextCursor: null);
+  }
+
+  // --- TaskCampaignLifecycleBoundary ---
+  @override
+  Future<TaskCampaignClosureRecord> closeTaskCampaign({
+    required String taskId,
+    required String commandId,
+  }) async {
+    final index = engine._campaigns.indexWhere((c) => c.campaignId == taskId);
+    if (index != -1) {
+      final old = engine._campaigns[index];
+      engine._campaigns[index] = TaskCampaignRecord(
+        campaignId: old.campaignId,
+        rtId: old.rtId,
+        templateSnapshot: old.templateSnapshot,
+        deadline: old.deadline,
+        status: 'CLOSED',
+        createdAt: old.createdAt,
+        locationReference: old.locationReference,
+        activatedAt: old.activatedAt,
+      );
+    }
+    return TaskCampaignClosureRecord(taskId: taskId, status: 'CLOSED');
+  }
+
+  @override
+  Future<List<RtTaskLifecycleEvent>> listTaskLifecycleEvents({
+    required String taskId,
+  }) async {
+    final now = DateTime.now().toUtc();
+    return [
+      RtTaskLifecycleEvent(
+        eventType: 'ACTIVATED',
+        occurredAt: now.subtract(const Duration(days: 3)),
+      ),
+      RtTaskLifecycleEvent(
+        eventType: 'CLOSED',
+        occurredAt: now.subtract(const Duration(hours: 1)),
+      ),
+    ];
   }
 }
 
@@ -868,15 +1217,29 @@ final class _DemoProxyResidentBoundary implements ProxyResidentBoundary {
 
   @override
   Future<VolunteerHelperList> listVolunteerHelpers() async =>
-      VolunteerHelperList(items: const [], isPartial: false);
+      VolunteerHelperList(
+        items: const [
+          VolunteerHelperRecord(
+            residentId: 'a1b2c3d4e5f60718293a4b5c6d7e8f901a2b3c4e',
+            nickname: 'Mas Dimas (Relawan Muda)',
+          ),
+          VolunteerHelperRecord(
+            residentId: 'b2c3d4e5f60718293a4b5c6d7e8f901a2b3c4f',
+            nickname: 'Mbak Rini (Kader Posyandu)',
+          ),
+        ],
+        isPartial: false,
+      );
 
   @override
   Future<HelperAssignmentResult> createHelperAssignment({
     required String residentId,
     required String helperResidentId,
     required String commandId,
-  }) async =>
-      const HelperAssignmentResult(assignmentId: 'a-1', state: 'OFFERED');
+  }) async => const HelperAssignmentResult(
+    assignmentId: 'a1b2c3d4e5f60718293a4b5c6d7e8f901a2b3c41',
+    state: 'OFFERED',
+  );
 
   @override
   Future<ProxyTaskStatusRecord> getProxyTaskStatus({
@@ -946,7 +1309,13 @@ final class _DemoAssistanceVolunteerBoundary
     required String sessionToken,
   }) async => ResidentVolunteerData(
     willingToHelp: true,
-    assignments: const [],
+    assignments: [
+      HelperAssignmentRecord(
+        assignmentId: 'a1b2c3d4e5f60718293a4b5c6d7e8f901a2b3c41',
+        state: 'ACCEPTED',
+        createdAt: DateTime.now().subtract(const Duration(days: 2)).toUtc(),
+      ),
+    ],
     isPartial: false,
   );
 
